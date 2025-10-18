@@ -6,6 +6,7 @@
 #include "Core/VulkanRenderPass.h"
 #include "Core/VulkanFrameBuffer.h"
 #include "Core/VulkanCommandManager.h"
+#include "Core/VulkanPipeline.h"
 
 class Application
 {
@@ -28,4 +29,6 @@ private:
 	VulkanFrameBuffer* vulkanFrameBuffer;
 
 	VulkanCommandManager* vulkanCommandManager;
+
+	VulkanPipeline* vulkanPipeline;
 };
