@@ -17,10 +17,17 @@ Application::Application()
 	vulkanFrameBuffer = new VulkanFrameBuffer(vulkanContext->getVulkanHandles(), vulkanSwapchain->getHandles(), vulkanRenderPass->getHandles(), MSAA_SAMPLES);
 
 	vulkanCommandManager = new VulkanCommandManager(vulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
+
+	vulkanPipeline = new VulkanPipeline(
+		vulkanContext->getVulkanHandles(), 
+		vulkanRenderPass->getHandles(), 
+		vulkanSwapchain->getHandles(),
+		MSAA_SAMPLES);
 }
 
 Application::~Application()
 {
+	delete(vulkanPipeline);
 	delete(vulkanCommandManager);
 
 	delete(vulkanFrameBuffer);
