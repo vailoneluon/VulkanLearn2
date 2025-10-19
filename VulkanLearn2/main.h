@@ -8,6 +8,7 @@
 #include "Core/VulkanCommandManager.h"
 #include "Core/VulkanPipeline.h"
 #include "Core/VulkanSyncManager.h"
+#include "Core/VulkanBuffer.h"
 
 class Application
 {
@@ -22,7 +23,7 @@ private:
 
 	const VkClearColorValue backgroundColor = { 0.1f, 0.1f, 0.2f, 1.0f };
 
-	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_2_BIT;
+	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_4_BIT;
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 
 	int currentFrame = 0;
@@ -44,8 +45,10 @@ private:
 	CommandManagerHandles commandManagerHandles;
 	PipelineHandles pipelineHandles;
 
-	void CreateCacheHandles();
+	uint32_t bufferData[3] = { 1231024, 140101412, 1312312 };
+	VulkanBuffer* testBuffer;
 
+	void CreateCacheHandles();
 
 	void RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex);
 	void DrawFrame();

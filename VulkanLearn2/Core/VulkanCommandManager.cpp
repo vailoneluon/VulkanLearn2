@@ -30,12 +30,49 @@ void VulkanCommandManager::CreateCommandBuffer(int MAX_FRAMES_IN_FLIGHT)
 
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandPool = handles.commandPool;
 	allocInfo.commandBufferCount = MAX_FRAMES_IN_FLIGHT;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
 	if (vkAllocateCommandBuffers(vk.device, &allocInfo, handles.commandBuffers.data()) != VK_SUCCESS)
 	{
 		throw runtime_error("FAILED TO ALLOC COMMAND BUFFER");
 	}
+}
+
+VkCommandBuffer& VulkanCommandManager::BeginSingleTimeCmdBuffer()
+{
+	VkCommandBuffer cmdBuffer;
+	VkCommandBufferAllocateInfo allocInfo{};
+
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.commandPool = handles.commandPool;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandBufferCount = 1;
+
+	VK_CHECK(vkAllocateCommandBuffers(vk.device, &allocInfo, &cmdBuffer), "FAILED TO ALLOCATE SINGLE TIME COMMAND BUFFER");
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	beginInfo.pInheritanceInfo = VK_NULL_HANDLE;
+
+	vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+
+	return cmdBuffer;
+}
+
+void VulkanCommandManager::EndSingleTimeCmdBuffer(VkCommandBuffer cmdBuffer)
+{
+	vkEndCommandBuffer(cmdBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmdBuffer;
+
+	vkQueueSubmit(vk.graphicQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkDeviceWaitIdle(vk.device);
+
+	vkFreeCommandBuffers(vk.device, handles.commandPool, 1, &cmdBuffer);
 }

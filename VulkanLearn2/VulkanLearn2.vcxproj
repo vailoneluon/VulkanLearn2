@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Core\VulkanBuffer.cpp" />
     <ClCompile Include="Core\VulkanCommandManager.cpp" />
     <ClCompile Include="Core\VulkanContext.cpp" />
     <ClCompile Include="Core\VulkanFrameBuffer.cpp" />
@@ -31,6 +32,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Core\VulkanBuffer.h" />
     <ClInclude Include="Core\VulkanCommandManager.h" />
     <ClInclude Include="Core\VulkanContext.h" />
     <ClInclude Include="Core\VulkanFrameBuffer.h" />

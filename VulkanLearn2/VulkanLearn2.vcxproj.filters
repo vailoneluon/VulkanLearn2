@@ -57,6 +57,9 @@
     <ClCompile Include="Core\VulkanSyncManager.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="Core\VulkanBuffer.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Window.h">
@@ -90,6 +93,9 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="Core\VulkanSyncManager.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\VulkanBuffer.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
   </ItemGroup>

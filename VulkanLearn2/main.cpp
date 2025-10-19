@@ -29,6 +29,20 @@ Application::Application()
 	vulkanSyncManager = new VulkanSyncManager(vulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT, vulkanSwapchain->getHandles().swapchainImageCount);
 
 	CreateCacheHandles();
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.queueFamilyIndexCount = 1;
+	bufferInfo.pQueueFamilyIndices = &vulkanHandles.queueFamilyIndices.GraphicQueueIndex;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.size = sizeof(bufferData);
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	
+	testBuffer = new VulkanBuffer(vulkanHandles, vulkanCommandManager, bufferInfo, false);
+	testBuffer->UploadData(bufferData, sizeof(bufferData), 0);
+
 }
 
 
@@ -45,6 +59,8 @@ void Application::CreateCacheHandles()
 Application::~Application()
 {
 	vkDeviceWaitIdle(vulkanHandles.device);
+
+	delete(testBuffer);
 
 	delete(vulkanSyncManager);
 	delete(vulkanPipeline);
@@ -128,7 +144,6 @@ void Application::DrawFrame()
 
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
-
 
 void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex)
 {
