@@ -7,6 +7,7 @@
 #include "Core/VulkanFrameBuffer.h"
 #include "Core/VulkanCommandManager.h"
 #include "Core/VulkanPipeline.h"
+#include "Core/VulkanSyncManager.h"
 
 class Application
 {
@@ -31,4 +32,6 @@ private:
 	VulkanCommandManager* vulkanCommandManager;
 
 	VulkanPipeline* vulkanPipeline;
+
+	VulkanSyncManager* vulkanSyncManager;
 };

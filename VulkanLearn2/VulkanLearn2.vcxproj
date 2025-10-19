@@ -26,6 +26,7 @@
     <ClCompile Include="Core\VulkanPipeline.cpp" />
     <ClCompile Include="Core\VulkanRenderPass.cpp" />
     <ClCompile Include="Core\VulkanSwapchain.cpp" />
+    <ClCompile Include="Core\VulkanSyncManager.cpp" />
     <ClCompile Include="Core\Window.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
@@ -37,6 +38,7 @@
     <ClInclude Include="Core\VulkanPipeline.h" />
     <ClInclude Include="Core\VulkanRenderPass.h" />
     <ClInclude Include="Core\VulkanSwapchain.h" />
+    <ClInclude Include="Core\VulkanSyncManager.h" />
     <ClInclude Include="Core\Window.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="Utils\ErrorHelper.h" />

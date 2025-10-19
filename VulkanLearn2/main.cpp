@@ -23,11 +23,17 @@ Application::Application()
 		vulkanRenderPass->getHandles(), 
 		vulkanSwapchain->getHandles(),
 		MSAA_SAMPLES);
+
+	vulkanSyncManager = new VulkanSyncManager(vulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT, vulkanSwapchain->getHandles().swapchainImageCount);
 }
 
 Application::~Application()
 {
+
+	delete(vulkanSyncManager);
+
 	delete(vulkanPipeline);
+	
 	delete(vulkanCommandManager);
 
 	delete(vulkanFrameBuffer);
