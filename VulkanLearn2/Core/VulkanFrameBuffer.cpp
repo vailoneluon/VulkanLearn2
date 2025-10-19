@@ -78,6 +78,5 @@ void VulkanFrameBuffer::CreateFrameBuffers()
 		frameBufferInfo.layers = 1;
 
 		VK_CHECK(vkCreateFramebuffer(vk.device, &frameBufferInfo, nullptr, &handles.frameBuffers[i]), "FAILED TO CREATE FRAME BUFFER");
-
 	}
 }

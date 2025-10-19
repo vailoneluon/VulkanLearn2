@@ -25,6 +25,21 @@ VulkanSyncManager::~VulkanSyncManager()
 	}
 }
 
+const VkFence& VulkanSyncManager::getCurrentFence(int currentFrame) const 
+{
+	return handles.inFlightFences[currentFrame];
+}
+
+const VkSemaphore& VulkanSyncManager::getCurrentImageAvailableSemaphore(int currentFrame) const 
+{
+	return handles.imageAvailableSemaphores[currentFrame];
+}
+
+const VkSemaphore& VulkanSyncManager::getCurrentRenderFinishedSemaphore(int imageIndex) const
+{
+	return handles.renderFinishedSemaphores[imageIndex];
+}
+
 void VulkanSyncManager::CreateSyncObject(int MAX_FRAMES_IN_FLIGHT, int swapchainImageCount)
 {
 	handles.inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
