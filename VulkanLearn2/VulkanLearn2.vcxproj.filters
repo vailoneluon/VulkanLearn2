@@ -98,6 +98,9 @@
     <ClInclude Include="Core\VulkanBuffer.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="Core\VulkanTypes.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\shader.frag">

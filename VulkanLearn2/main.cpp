@@ -32,19 +32,9 @@ Application::Application()
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-	VkBufferCreateInfo bufferInfo{};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.queueFamilyIndexCount = 1;
-	bufferInfo.pQueueFamilyIndices = &vulkanHandles.queueFamilyIndices.GraphicQueueIndex;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	bufferInfo.size = sizeof(bufferData);
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	
-	testBuffer = new VulkanBuffer(vulkanHandles, vulkanCommandManager, bufferInfo, false);
-	testBuffer->UploadData(bufferData, sizeof(bufferData), 0);
-
+	CreateVertexBuffer();
+	CreateIndexBuffer();
 }
-
 
 void Application::CreateCacheHandles()
 {
@@ -56,11 +46,48 @@ void Application::CreateCacheHandles()
 	pipelineHandles = vulkanPipeline->getHandles();
 }
 
+void Application::CreateVertexBuffer()
+{
+	uint32_t bufferSize = vertices.size() * sizeof(vertices[0]);
+
+	VkBufferCreateInfo bufferInfo{};
+
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.queueFamilyIndexCount = 1;
+	bufferInfo.pQueueFamilyIndices = &vulkanHandles.queueFamilyIndices.GraphicQueueIndex;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.size = bufferSize;
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+	vertexBuffer = new VulkanBuffer(vulkanHandles, vulkanCommandManager, bufferInfo, true);
+
+	vertexBuffer->UploadData(vertices.data(), bufferSize, 0);
+}
+
+void Application::CreateIndexBuffer()
+{
+	uint32_t bufferSize = indices.size() * sizeof(indices[0]);
+
+	VkBufferCreateInfo bufferInfo{};
+
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.queueFamilyIndexCount = 1;
+	bufferInfo.pQueueFamilyIndices = &vulkanHandles.queueFamilyIndices.GraphicQueueIndex;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.size = bufferSize;
+	bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+	indexBuffer = new VulkanBuffer(vulkanHandles, vulkanCommandManager, bufferInfo, true);
+
+	indexBuffer->UploadData(indices.data(), bufferSize, 0);
+}
+
 Application::~Application()
 {
 	vkDeviceWaitIdle(vulkanHandles.device);
 
-	delete(testBuffer);
+	delete(vertexBuffer);
+	delete(indexBuffer);
 
 	delete(vulkanSyncManager);
 	delete(vulkanPipeline);
@@ -171,7 +198,12 @@ void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageI
 
 	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineHandles.graphicsPipeline);
 
-	vkCmdDraw(cmdBuffer, 3, 1, 0, 0);
+	// Bind VertexBuffer and IndexBuffer
+	VkDeviceSize offset = 0;
+	vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vertexBuffer->getHandles().buffer, &offset);
+	vkCmdBindIndexBuffer(cmdBuffer, indexBuffer->getHandles().buffer, 0, VK_INDEX_TYPE_UINT16);
+
+	vkCmdDrawIndexed(cmdBuffer, indices.size(), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(cmdBuffer);
 

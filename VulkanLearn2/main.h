@@ -9,6 +9,7 @@
 #include "Core/VulkanPipeline.h"
 #include "Core/VulkanSyncManager.h"
 #include "Core/VulkanBuffer.h"
+#include "Core/VulkanTypes.h"
 
 class Application
 {
@@ -18,6 +19,16 @@ public:
 
 	void Loop();
 private:
+	const vector<Vertex> vertices = {
+		{{0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.5f, 0.0f}},
+		{{0.5f, 0.5f, 0.0f},  {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+		{{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}}
+	};
+
+	const vector<uint16_t> indices = { 0, 1, 2 };
+
+	//////////////////////////////////////////////////////////////////////////////////////////////
+
 	const uint32_t WINDOW_WIDTH = 800;
 	const uint32_t WINDOW_HEIGHT = 600;
 
@@ -45,10 +56,13 @@ private:
 	CommandManagerHandles commandManagerHandles;
 	PipelineHandles pipelineHandles;
 
-	uint32_t bufferData[3] = { 1231024, 140101412, 1312312 };
-	VulkanBuffer* testBuffer;
+	VulkanBuffer* vertexBuffer;
+	VulkanBuffer* indexBuffer;
 
 	void CreateCacheHandles();
+
+	void CreateVertexBuffer();
+	void CreateIndexBuffer();
 
 	void RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex);
 	void DrawFrame();

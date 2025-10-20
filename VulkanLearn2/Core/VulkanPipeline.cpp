@@ -2,6 +2,7 @@
 #include "../Utils/ErrorHelper.h"
 #include <fstream>
 #include <iostream>
+#include "VulkanTypes.h"
 
 VulkanPipeline::VulkanPipeline(
 	const VulkanHandles& vulkanHandles,
@@ -109,13 +110,16 @@ void VulkanPipeline::createGraphicsPipeline(
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-	// 2. Vertex Input (Rỗng, vì bạn chưa cần)
+	// Vertex Pipeline
+	auto vertexBindingDescs = Vertex::GetBindingDesc();
+	auto vertexAttributeDescs = Vertex::GetAttributeDesc();
+
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.pVertexBindingDescriptions = nullptr;
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+	vertexInputInfo.vertexBindingDescriptionCount = 1;
+	vertexInputInfo.pVertexBindingDescriptions = &vertexBindingDescs;
+	vertexInputInfo.vertexAttributeDescriptionCount = vertexAttributeDescs.size();
+	vertexInputInfo.pVertexAttributeDescriptions = vertexAttributeDescs.data();
 
 	// 3. Input Assembly (Vẽ tam giác)
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};

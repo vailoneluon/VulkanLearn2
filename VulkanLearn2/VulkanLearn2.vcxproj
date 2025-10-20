@@ -41,6 +41,7 @@
     <ClInclude Include="Core\VulkanRenderPass.h" />
     <ClInclude Include="Core\VulkanSwapchain.h" />
     <ClInclude Include="Core\VulkanSyncManager.h" />
+    <ClInclude Include="Core\VulkanTypes.h" />
     <ClInclude Include="Core\Window.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="Utils\ErrorHelper.h" />
