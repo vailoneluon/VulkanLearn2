@@ -1,6 +1,7 @@
 ﻿#include "main.h"
 #include "Utils/ErrorHelper.h" 
 #include <stdexcept>          
+#include <chrono>
 
 int main()
 {
@@ -20,20 +21,25 @@ Application::Application()
 
 	vulkanCommandManager = new VulkanCommandManager(vulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 
+	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), vulkanCommandManager, MAX_FRAMES_IN_FLIGHT);
+
+	vector<VkDescriptorSetLayout> descSetLayouts{ vulkanDescriptorManager->getHandles().descriptorSetLayout };
 	vulkanPipeline = new VulkanPipeline(
 		vulkanContext->getVulkanHandles(),
 		vulkanRenderPass->getHandles(),
 		vulkanSwapchain->getHandles(),
-		MSAA_SAMPLES);
+		MSAA_SAMPLES,
+		descSetLayouts);
+
 
 	vulkanSyncManager = new VulkanSyncManager(vulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT, vulkanSwapchain->getHandles().swapchainImageCount);
 
 	CreateCacheHandles();
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 	CreateVertexBuffer();
 	CreateIndexBuffer();
+
 }
 
 void Application::CreateCacheHandles()
@@ -43,6 +49,7 @@ void Application::CreateCacheHandles()
 	renderPassHandles = vulkanRenderPass->getHandles();
 	frameBufferHandles = vulkanFrameBuffer->getHandles();
 	commandManagerHandles = vulkanCommandManager->getHandles();
+	descriptorManagerHandles = vulkanDescriptorManager->getHandles();
 	pipelineHandles = vulkanPipeline->getHandles();
 }
 
@@ -82,6 +89,22 @@ void Application::CreateIndexBuffer()
 	indexBuffer->UploadData(indices.data(), bufferSize, 0);
 }
 
+void Application::UpdateUniforms()
+{
+	static auto startTime = chrono::high_resolution_clock::now();
+
+	auto currentTime = chrono::high_resolution_clock::now();
+	float time = chrono::duration<float, chrono::seconds::period>(currentTime - startTime).count();
+
+	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	ubo.view = glm::lookAt(glm::vec3(0.0f, 2.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	ubo.proj = glm::perspective(glm::radians(45.0f), swapchainHandles.swapChainExtent.width / (float)swapchainHandles.swapChainExtent.height, 0.1f, 10.0f);
+
+	ubo.proj[1][1] *= -1;
+
+	vulkanDescriptorManager->UpdateUniformBuffer(ubo, currentFrame);
+}
+
 Application::~Application()
 {
 	vkDeviceWaitIdle(vulkanHandles.device);
@@ -90,6 +113,7 @@ Application::~Application()
 	delete(indexBuffer);
 
 	delete(vulkanSyncManager);
+	delete(vulkanDescriptorManager);
 	delete(vulkanPipeline);
 	delete(vulkanCommandManager);
 	delete(vulkanFrameBuffer);
@@ -129,6 +153,9 @@ void Application::DrawFrame()
 	}
 
 	vkResetFences(vulkanHandles.device, 1, &vulkanSyncManager->getCurrentFence(currentFrame));
+
+	// Update Data For Frame
+	UpdateUniforms();
 
 	vkResetCommandBuffer(commandManagerHandles.commandBuffers[currentFrame], 0);
 	RecordCommandBuffer(commandManagerHandles.commandBuffers[currentFrame], imageIndex);
@@ -202,6 +229,13 @@ void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageI
 	VkDeviceSize offset = 0;
 	vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vertexBuffer->getHandles().buffer, &offset);
 	vkCmdBindIndexBuffer(cmdBuffer, indexBuffer->getHandles().buffer, 0, VK_INDEX_TYPE_UINT16);
+
+	// Bind Descriptor Set
+	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+		pipelineHandles.pipelineLayout, 
+		0, 1, 
+		&descriptorManagerHandles.descriptorSets[currentFrame], 
+		0, nullptr);
 
 	vkCmdDrawIndexed(cmdBuffer, indices.size(), 1, 0, 0, 0);
 

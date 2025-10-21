@@ -21,7 +21,8 @@ public:
 		const VulkanHandles& vulkanHandles,
 		const RenderPassHandles& renderPassHandles,
 		const SwapchainHandles& swapchainHandles,
-		VkSampleCountFlagBits msaaSamples
+		VkSampleCountFlagBits msaaSamples,
+		vector<VkDescriptorSetLayout>& descSetLayouts
 	);
 	~VulkanPipeline();
 
@@ -38,7 +39,7 @@ private:
 	VkShaderModule createShaderModule(const vector<char>& code);
 
 	// Hàm tạo Pipeline Layout rỗng (như bạn yêu cầu)
-	void createPipelineLayout();
+	void createPipelineLayout(vector<VkDescriptorSetLayout>& descSetLayouts);
 
 	// Hàm tạo Pipeline chính
 	void createGraphicsPipeline(

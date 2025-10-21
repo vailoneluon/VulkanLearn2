@@ -8,7 +8,8 @@ VulkanPipeline::VulkanPipeline(
 	const VulkanHandles& vulkanHandles,
 	const RenderPassHandles& renderPassHandles,
 	const SwapchainHandles& swapchainHandles,
-	VkSampleCountFlagBits msaaSamples)
+	VkSampleCountFlagBits msaaSamples,
+	vector<VkDescriptorSetLayout>& descSetLayouts)
 	: vk(vulkanHandles)
 {
 	auto vertShaderCode = readShaderFile("Shaders/vert.spv");
@@ -17,8 +18,8 @@ VulkanPipeline::VulkanPipeline(
 	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
-	// Tạo Pipeline Layout (rỗng, không có uniform/texture)
-	createPipelineLayout();
+	// Tạo Pipeline Layout 
+	createPipelineLayout(descSetLayouts);
 
 	// Tạo Graphics Pipeline
 	createGraphicsPipeline(
@@ -74,13 +75,13 @@ VkShaderModule VulkanPipeline::createShaderModule(const vector<char>& code)
 	return shaderModule;
 }
 
-// Tạo một Pipeline Layout rỗng
-void VulkanPipeline::createPipelineLayout()
+// Tạo một Pipeline Layout 
+void VulkanPipeline::createPipelineLayout(vector<VkDescriptorSetLayout>& descSetLayouts)
 {
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 0; // Không có descriptor set
-	pipelineLayoutInfo.pSetLayouts = nullptr;
+	pipelineLayoutInfo.setLayoutCount = descSetLayouts.size(); 
+	pipelineLayoutInfo.pSetLayouts = descSetLayouts.data();
 	pipelineLayoutInfo.pushConstantRangeCount = 0; // Không có push constant
 	pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
@@ -152,9 +153,10 @@ void VulkanPipeline::createGraphicsPipeline(
 	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizer.depthClampEnable = VK_FALSE;
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
-	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterizer.polygonMode = VK_POLYGON_MODE_LINE;
 	rasterizer.lineWidth = 1.0f;
-	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+	//rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizer.cullMode = VK_CULL_MODE_NONE;
 	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 
@@ -199,7 +201,7 @@ void VulkanPipeline::createGraphicsPipeline(
 	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = nullptr; // Không có state động
-	pipelineInfo.layout = handles.pipelineLayout; // Layout rỗng
+	pipelineInfo.layout = handles.pipelineLayout;
 	pipelineInfo.renderPass = renderPassHandles.renderPass; // Render pass
 	pipelineInfo.subpass = 0; // Subpass đầu tiên
 

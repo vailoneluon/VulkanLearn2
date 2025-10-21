@@ -60,6 +60,9 @@
     <ClCompile Include="Core\VulkanBuffer.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="Core\VulkanDescriptorManager.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Window.h">
@@ -99,6 +102,9 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="Core\VulkanTypes.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\VulkanDescriptorManager.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,6 +1,9 @@
 #pragma once
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <vulkan/vulkan.h>
 #include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
 #include <array>
 
 using namespace std;
@@ -42,4 +45,11 @@ struct Vertex
 
 		return attributeDescs;
 	}
+};
+
+struct UniformBufferObject
+{
+	alignas(16) glm::mat4 model;
+	alignas(16) glm::mat4 view;
+	alignas(16) glm::mat4 proj;
 };

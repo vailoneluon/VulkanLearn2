@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Core/Window.h"
 #include "Core/VulkanContext.h"
 #include "Core/VulkanSwapchain.h"
@@ -10,6 +10,7 @@
 #include "Core/VulkanSyncManager.h"
 #include "Core/VulkanBuffer.h"
 #include "Core/VulkanTypes.h"
+#include "Core/VulkanDescriptorManager.h"
 
 class Application
 {
@@ -19,13 +20,59 @@ public:
 
 	void Loop();
 private:
+
 	const vector<Vertex> vertices = {
-		{{0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.5f, 0.0f}},
-		{{0.5f, 0.5f, 0.0f},  {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
-		{{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}}
+		// Mặt trước (Z = +0.5)
+		{{-0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}}, // bottom-left
+		{{ 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f, 1.0f}, {1.0f, 0.0f}}, // bottom-right
+		{{ 0.5f,  0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}, // top-right
+		{{-0.5f,  0.5f,  0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f}}, // top-left
+
+		// Mặt sau (Z = -0.5)
+		{{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}}, // bottom-right
+		{{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}}, // top-right
+		{{ 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}}, // top-left
+		{{ 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}}, // bottom-left
+
+		// Mặt trái (X = -0.5)
+		{{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+		{{-0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+		{{-0.5f,  0.5f,  0.5f}, {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+		{{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
+
+		// Mặt phải (X = +0.5)
+		{{ 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+		{{ 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+		{{ 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+		{{ 0.5f,  0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+
+		// Mặt trên (Y = +0.5)
+		{{-0.5f,  0.5f,  0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+		{{ 0.5f,  0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+		{{ 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+		{{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
+
+		// Mặt dưới (Y = -0.5)
+		{{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+		{{ 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+		{{ 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+		{{-0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
 	};
 
-	const vector<uint16_t> indices = { 0, 1, 2 };
+	const std::vector<uint16_t> indices = {
+		// Mặt trước
+		0, 1, 2, 2, 3, 0,
+		// Mặt sau
+		4, 5, 6, 6, 7, 4,
+		// Mặt trái
+		8, 9, 10, 10, 11, 8,
+		// Mặt phải
+		12, 13, 14, 14, 15, 12,
+		// Mặt trên
+		16, 17, 18, 18, 19, 16,
+		// Mặt dưới
+		20, 21, 22, 22, 23, 20
+	};
 
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -46,6 +93,7 @@ private:
 	VulkanFrameBuffer* vulkanFrameBuffer;
 
 	VulkanCommandManager* vulkanCommandManager;
+	VulkanDescriptorManager* vulkanDescriptorManager;
 	VulkanPipeline* vulkanPipeline;
 	VulkanSyncManager* vulkanSyncManager;
 
@@ -54,16 +102,23 @@ private:
 	RenderPassHandles renderPassHandles;
 	FrameBufferHandles frameBufferHandles;
 	CommandManagerHandles commandManagerHandles;
+	DescriptorManagerHandles descriptorManagerHandles;
 	PipelineHandles pipelineHandles;
+
 
 	VulkanBuffer* vertexBuffer;
 	VulkanBuffer* indexBuffer;
+
+	UniformBufferObject ubo{};
 
 	void CreateCacheHandles();
 
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();
 
+	void UpdateUniforms();
+
 	void RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex);
 	void DrawFrame();
+
 };
