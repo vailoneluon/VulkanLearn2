@@ -111,11 +111,13 @@ private:
 
 	UniformBufferObject ubo{};
 
+	VulkanImage* textureImage;
+
 	void CreateCacheHandles();
 
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();
-
+	void CreateTextureImage();
 	void UpdateUniforms();
 
 	void RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex);

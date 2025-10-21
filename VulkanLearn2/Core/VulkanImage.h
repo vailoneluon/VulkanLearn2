@@ -1,6 +1,8 @@
 #pragma once
 #include <vulkan/vulkan.h>
 #include "VulkanContext.h"
+#include "stb_image.h"
+#include "VulkanCommandManager.h"
 
 struct ImageHandles
 {
@@ -20,6 +22,14 @@ struct VulkanImageCreateInfo
 	VkMemoryPropertyFlags memoryFlags = 0;
 };
 
+struct TextureImageInfo 
+{
+	int texWidth, texHeight, texChanels;
+	uint32_t textureImageMipLevels;
+	VkDeviceSize imageSize;
+	stbi_uc* pixels;
+};
+
 struct VulkanImageViewCreateInfo
 {
 	VkFormat format = VK_FORMAT_UNDEFINED;
@@ -31,6 +41,7 @@ class VulkanImage
 {
 public:
 	VulkanImage(const VulkanHandles& vulkanHandles, const VulkanImageCreateInfo& imageCreateInfo, const VulkanImageViewCreateInfo& imageViewCreateInfo);
+	VulkanImage(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager,const char* filePath, bool isCreateMipmap = false);
 	~VulkanImage();
 
 	const ImageHandles& getHandles() const{ return handles; }
@@ -41,5 +52,20 @@ private:
 	void CreateImage(const VulkanImageCreateInfo& vulkanImageInfo);
 	void CreateImageView(const VulkanImageViewCreateInfo& vulkanImageViewInfo);
 
+
+	// Create Texture Image
+	TextureImageInfo loadImageFromFile(const char* filePath);
+	void CreateVulkanTextureImage(TextureImageInfo textureImageInfo);
+	void UploadDataToImage(VulkanCommandManager* cmd, TextureImageInfo& const textureImageInfo);
+
+	// Helper Function
 	uint32_t findMemoryTypeIndex(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties);
+	
+	void TransitionImageLayout(VkCommandBuffer& cmdBuffer, VkImage& image, uint32_t mipLevels,
+		VkImageLayout oldLayout, VkImageLayout newLayout,
+		VkPipelineStageFlags srcStageFlag, VkPipelineStageFlags dstStageFlag,
+		uint32_t baseMipLevel = -1, uint32_t levelCount = -1,
+		VkAccessFlags srcAccessMask = 0, VkAccessFlags dstAccessMask = 0);
+
+	void GenerateMipMaps(VulkanCommandManager* cmd, VkImage image, uint32_t width, uint32_t height, uint32_t mipLevels);
 };

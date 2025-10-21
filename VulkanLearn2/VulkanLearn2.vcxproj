@@ -31,6 +31,7 @@
     <ClCompile Include="Core\VulkanSyncManager.cpp" />
     <ClCompile Include="Core\Window.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Utils\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\VulkanBuffer.h" />
@@ -52,6 +53,9 @@
     <None Include="Shaders\compile.bat" />
     <None Include="Shaders\shader.frag" />
     <None Include="Shaders\shader.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Images\image.jpg" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

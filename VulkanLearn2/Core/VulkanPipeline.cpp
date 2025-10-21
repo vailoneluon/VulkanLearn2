@@ -32,6 +32,7 @@ VulkanPipeline::VulkanPipeline(
 
 	// Hủy shader module sau khi pipeline đã được tạo
 	// Con cac
+	// Dau buoi
 	vkDestroyShaderModule(vk.device, fragShaderModule, nullptr);
 	vkDestroyShaderModule(vk.device, vertShaderModule, nullptr);
 }

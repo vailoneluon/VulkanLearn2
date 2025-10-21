@@ -40,6 +40,8 @@ Application::Application()
 	CreateVertexBuffer();
 	CreateIndexBuffer();
 
+	CreateTextureImage();
+
 }
 
 void Application::CreateCacheHandles()
@@ -89,6 +91,11 @@ void Application::CreateIndexBuffer()
 	indexBuffer->UploadData(indices.data(), bufferSize, 0);
 }
 
+void Application::CreateTextureImage()
+{
+	textureImage = new VulkanImage(vulkanHandles, vulkanCommandManager, "Images/image.jpg", true);
+}
+
 void Application::UpdateUniforms()
 {
 	static auto startTime = chrono::high_resolution_clock::now();
@@ -111,6 +118,7 @@ Application::~Application()
 
 	delete(vertexBuffer);
 	delete(indexBuffer);
+	delete(textureImage);
 
 	delete(vulkanSyncManager);
 	delete(vulkanDescriptorManager);
