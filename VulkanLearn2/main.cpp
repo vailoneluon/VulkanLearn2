@@ -21,9 +21,15 @@ Application::Application()
 
 	vulkanCommandManager = new VulkanCommandManager(vulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 
-	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), vulkanCommandManager, MAX_FRAMES_IN_FLIGHT);
+	CreateTextureImage();
+	vulkanSampler = new VulkanSampler(vulkanContext->getVulkanHandles());
 
-	vector<VkDescriptorSetLayout> descSetLayouts{ vulkanDescriptorManager->getHandles().descriptorSetLayout };
+	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), vulkanCommandManager, 
+		textureImage->getHandles().imageView, vulkanSampler->getSampler(), 
+		MAX_FRAMES_IN_FLIGHT);
+
+	vector<VkDescriptorSetLayout> descSetLayouts{ vulkanDescriptorManager->getHandles().perFrameDescriptorSetLayout,
+		vulkanDescriptorManager->getHandles().oneTimeDescriptorSetLayout};
 	vulkanPipeline = new VulkanPipeline(
 		vulkanContext->getVulkanHandles(),
 		vulkanRenderPass->getHandles(),
@@ -39,8 +45,6 @@ Application::Application()
 
 	CreateVertexBuffer();
 	CreateIndexBuffer();
-
-	CreateTextureImage();
 
 }
 
@@ -93,7 +97,7 @@ void Application::CreateIndexBuffer()
 
 void Application::CreateTextureImage()
 {
-	textureImage = new VulkanImage(vulkanHandles, vulkanCommandManager, "Images/image.jpg", true);
+	textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, "Images/image.jpg", true);
 }
 
 void Application::UpdateUniforms()
@@ -118,6 +122,7 @@ Application::~Application()
 
 	delete(vertexBuffer);
 	delete(indexBuffer);
+	delete(vulkanSampler);
 	delete(textureImage);
 
 	delete(vulkanSyncManager);
@@ -242,7 +247,13 @@ void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageI
 	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
 		pipelineHandles.pipelineLayout, 
 		0, 1, 
-		&descriptorManagerHandles.descriptorSets[currentFrame], 
+		&descriptorManagerHandles.perFrameDescriptorSets[currentFrame], 
+		0, nullptr);
+
+	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		pipelineHandles.pipelineLayout,
+		1, 1,
+		&descriptorManagerHandles.oneTimeDescriptorSet,
 		0, nullptr);
 
 	vkCmdDrawIndexed(cmdBuffer, indices.size(), 1, 0, 0, 0);

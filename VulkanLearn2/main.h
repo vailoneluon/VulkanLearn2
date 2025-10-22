@@ -11,6 +11,7 @@
 #include "Core/VulkanBuffer.h"
 #include "Core/VulkanTypes.h"
 #include "Core/VulkanDescriptorManager.h"
+#include "Core/VulkanSampler.h"
 
 class Application
 {
@@ -21,6 +22,8 @@ public:
 	void Loop();
 private:
 
+	// Hộp
+	/*
 	const vector<Vertex> vertices = {
 		// Mặt trước (Z = +0.5)
 		{{-0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}}, // bottom-left
@@ -73,6 +76,46 @@ private:
 		// Mặt dưới
 		20, 21, 22, 22, 23, 20
 	};
+	*/
+	
+	// Kim tự tháp
+	const std::vector<Vertex> vertices = {
+		// 0: top (chóp)
+		{{ 0.0f,  0.5f,  0.0f}, {1.0f, 1.0f, 1.0f}, {0.5f, 1.0f}}, // top
+
+		// Front face (base vertices for front)
+		{{-0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}, // 1: front-left  (uv 0,0)
+		{{ 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}}, // 2: front-right (uv 1,0)
+
+		// Right face (duplicate front-right as left uv, and back-right as right uv)
+		{{ 0.5f, -0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}}, // 3: front-right (dup) (uv 0,0)
+		{{ 0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}}, // 4: back-right  (uv 1,0)
+
+		// Back face (duplicate back-right as left uv, and back-left as right uv)
+		{{ 0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}}, // 5: back-right (dup) (uv 0,0)
+		{{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {1.0f, 0.0f}}, // 6: back-left  (uv 1,0)
+
+		// Left face (duplicate back-left as left uv, and front-left as right uv)
+		{{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {0.0f, 0.0f}}, // 7: back-left (dup) (uv 0,0)
+		{{-0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}}, // 8: front-left (dup) (uv 1,0)
+
+		// Bottom face (square) - give proper square UVs
+		{{-0.5f, -0.5f,  0.5f}, {0.6f, 0.6f, 0.6f}, {0.0f, 0.0f}}, // 9: bottom front-left
+		{{ 0.5f, -0.5f,  0.5f}, {0.6f, 0.6f, 0.6f}, {1.0f, 0.0f}}, // 10: bottom front-right
+		{{ 0.5f, -0.5f, -0.5f}, {0.6f, 0.6f, 0.6f}, {1.0f, 1.0f}}, // 11: bottom back-right
+		{{-0.5f, -0.5f, -0.5f}, {0.6f, 0.6f, 0.6f}, {0.0f, 1.0f}}, // 12: bottom back-left
+	};
+	const std::vector<uint16_t> indices = {
+		// 4 side faces (each a triangle) - using top (0) + appropriate base verts
+		0, 1, 2,   // front
+		0, 3, 4,   // right
+		0, 5, 6,   // back
+		0, 7, 8,   // left
+
+		// bottom (square) - two triangles
+		9, 12, 11,
+		11, 10, 9
+	};
 
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -93,6 +136,7 @@ private:
 	VulkanFrameBuffer* vulkanFrameBuffer;
 
 	VulkanCommandManager* vulkanCommandManager;
+	VulkanSampler* vulkanSampler;
 	VulkanDescriptorManager* vulkanDescriptorManager;
 	VulkanPipeline* vulkanPipeline;
 	VulkanSyncManager* vulkanSyncManager;

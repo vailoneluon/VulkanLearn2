@@ -11,14 +11,16 @@ using namespace std;
 struct DescriptorManagerHandles
 {
 	VkDescriptorPool descriptorPool;
-	VkDescriptorSetLayout descriptorSetLayout;
-	vector<VkDescriptorSet> descriptorSets;
+	VkDescriptorSetLayout perFrameDescriptorSetLayout;
+	VkDescriptorSetLayout oneTimeDescriptorSetLayout;
+	vector<VkDescriptorSet> perFrameDescriptorSets;
+	VkDescriptorSet oneTimeDescriptorSet;
 };
 
 class VulkanDescriptorManager
 {
 public:
-	VulkanDescriptorManager(const VulkanHandles& vulkanHandles, VulkanCommandManager* const cmd, int MAX_FRAMES_IN_FLIGHT);
+	VulkanDescriptorManager(const VulkanHandles& vulkanHandles, VulkanCommandManager* const cmd, const VkImageView& imageView, const VkSampler& sampler, int MAX_FRAMES_IN_FLIGHT);
 	~VulkanDescriptorManager();
 
 	const DescriptorManagerHandles& getHandles() const { return handles; }
@@ -38,5 +40,5 @@ private:
 
 	void CreateDescriptorSetLayout();
 	void CreateDescriptorPool();
-	void CreateDescriptorSets();
+	void CreateDescriptorSets(const VkImageView& imageView, const VkSampler& sampler);
 };
