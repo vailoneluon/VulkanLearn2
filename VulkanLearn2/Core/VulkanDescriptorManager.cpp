@@ -89,35 +89,13 @@ void VulkanDescriptorManager::CreateDescriptorSetLayout()
 
 void VulkanDescriptorManager::CreateDescriptorPool()
 {
-	/*array<VkDescriptorPoolSize, 2> descPoolSizes{};
+	array<VkDescriptorPoolSize, 2> descPoolSizes{};
 
 	descPoolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	descPoolSizes[0].descriptorCount = MAX_FRAMES_IN_FLIGHT;
 
 	descPoolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	descPoolSizes[1].descriptorCount = 1;
-
-	VkDescriptorPoolCreateInfo descPoolInfo{};
-	descPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	descPoolInfo.maxSets = MAX_FRAMES_IN_FLIGHT + 1;
-	descPoolInfo.poolSizeCount = descPoolSizes.size();
-	descPoolInfo.pPoolSizes = descPoolSizes.data();
-	
-	VK_CHECK(vkCreateDescriptorPool(vk.device, &descPoolInfo, nullptr, &handles.descriptorPool), "FAILED TO CREATE DESCRIPTOR POOL");*/
-
-
-	auto descriptorTypeCount = countDescriptorByType(handles.descriptorSetLayouts);
-	vector<VkDescriptorPoolSize> descPoolSizes;
-	descPoolSizes.resize(descriptorTypeCount.size());
-
-	int  i = 0;
-	for (const auto&[descType, count] : descriptorTypeCount)
-	{
-		descPoolSizes[i].type = descType;
-		descPoolSizes[i].descriptorCount = count;
-		
-		i = i + 1;
-	}
 
 	VkDescriptorPoolCreateInfo descPoolInfo{};
 	descPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;

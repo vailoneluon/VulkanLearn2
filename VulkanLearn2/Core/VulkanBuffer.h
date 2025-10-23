@@ -10,6 +10,8 @@ struct BufferHandles
 {
 	VkBuffer buffer;
 	VkDeviceMemory bufferMemory;
+	
+	VkDeviceSize bufferSize;
 };
 
 class VulkanBuffer
@@ -28,7 +30,6 @@ private:
 	BufferHandles handles;
 
 	bool isUseStagingBuffer;
-	VkDeviceSize bufferSize;
 
 	void CreateBuffer(VkBufferCreateInfo bufferInfo, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& memory);
 

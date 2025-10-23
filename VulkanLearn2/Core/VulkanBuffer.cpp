@@ -2,8 +2,10 @@
 #include "../Utils/ErrorHelper.h"
 
 VulkanBuffer::VulkanBuffer(const VulkanHandles& vulkanHandles, VulkanCommandManager* const vulkanCommandManager, VkBufferCreateInfo& bufferInfo, bool isUseStagingBuffer):
-	vk(vulkanHandles), cmd(vulkanCommandManager), isUseStagingBuffer(isUseStagingBuffer), bufferSize(bufferInfo.size)
+	vk(vulkanHandles), cmd(vulkanCommandManager), isUseStagingBuffer(isUseStagingBuffer)
 {
+	handles.bufferSize = bufferInfo.size;
+
 	VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
 	if (isUseStagingBuffer)
@@ -16,7 +18,6 @@ VulkanBuffer::VulkanBuffer(const VulkanHandles& vulkanHandles, VulkanCommandMana
 	}
 	
 	CreateBuffer(bufferInfo, properties, handles.buffer, handles.bufferMemory);
-
 }
 
 VulkanBuffer::~VulkanBuffer()
@@ -58,7 +59,7 @@ void VulkanBuffer::UploadData(const void* pSrcData, VkDeviceSize updateDataSize,
 void VulkanBuffer::UploadDataViaDirect(const void* pSrcData, VkDeviceMemory& bufferMemory, VkDeviceSize updateDataSize, VkDeviceSize offset)
 {
 	void* p;
-	VK_CHECK(vkMapMemory(vk.device, bufferMemory, 0, bufferSize, 0, &p), "FAILED TO MAP MEMORY");
+	VK_CHECK(vkMapMemory(vk.device, bufferMemory, 0, handles.bufferSize, 0, &p), "FAILED TO MAP MEMORY");
 	memcpy(reinterpret_cast<char*>(p) + offset, pSrcData, updateDataSize);
 	vkUnmapMemory(vk.device, bufferMemory);
 }
@@ -74,7 +75,7 @@ void VulkanBuffer::UploadDataViaStagingBuffer(const void* pSrcData, VkDeviceSize
 	bufferInfo.queueFamilyIndexCount = 1;
 	bufferInfo.pQueueFamilyIndices = &vk.queueFamilyIndices.GraphicQueueIndex;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	bufferInfo.size = bufferSize;
+	bufferInfo.size = handles.bufferSize;
 	bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
 	CreateBuffer(bufferInfo, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);

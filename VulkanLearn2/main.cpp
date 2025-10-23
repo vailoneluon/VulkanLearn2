@@ -21,8 +21,9 @@ Application::Application()
 
 	vulkanCommandManager = new VulkanCommandManager(vulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 
-	CreateTextureImage(vulkanContext->getVulkanHandles());
 	vulkanSampler = new VulkanSampler(vulkanContext->getVulkanHandles());
+	CreateUniformBuffer();
+	CreateTextureImage(vulkanContext->getVulkanHandles());
 
 	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), vulkanCommandManager, 
 		textureImage->getHandles().imageView, vulkanSampler->getSampler(), 
@@ -129,6 +130,64 @@ void Application::CreateTextureImage(const VulkanHandles& vk)
 		descSetLayouts.push_back(uniformSetLayout);
 	}
 
+	///////////////////////////////////////
+	BindingElementInfo textureImageElementInfo;
+	textureImageElementInfo.binding = 0;
+	textureImageElementInfo.pImmutableSamplers = nullptr;
+	textureImageElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	textureImageElementInfo.descriptorCount = 1;
+	textureImageElementInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	VkDescriptorImageInfo textureDescImageInfo{};
+	textureDescImageInfo.sampler = vulkanSampler->getSampler();
+	textureDescImageInfo.imageView = textureImage->getHandles().imageView;
+	textureDescImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	textureImageElementInfo.imageDataInfo = &textureDescImageInfo;
+	vector<BindingElementInfo> textureBindings{textureImageElementInfo};
+
+	textureImageDescriptor = new VulkanDescriptor(vk, textureBindings);
+	
+	//
+	uniformDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		BindingElementInfo uniformElementInfo;
+		uniformElementInfo.binding = 0;
+		uniformElementInfo.pImmutableSamplers = nullptr;
+		uniformElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uniformElementInfo.descriptorCount = 1;
+		uniformElementInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		VkDescriptorBufferInfo uniformBufferInfo{};
+		uniformBufferInfo.buffer = uniformBuffers[i]->getHandles().buffer;
+		uniformBufferInfo.offset = 0;
+		uniformBufferInfo.range = uniformBuffers[i]->getHandles().bufferSize;
+
+		uniformElementInfo.bufferDataInfo = &uniformBufferInfo;
+
+		vector<BindingElementInfo> uniformBindings{ uniformElementInfo };
+
+		uniformDescriptors[i] = new VulkanDescriptor(vk, uniformBindings);
+	}
+}
+
+void Application::CreateUniformBuffer()
+{
+	uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.queueFamilyIndexCount = 1;
+	bufferInfo.pQueueFamilyIndices = &vulkanHandles.queueFamilyIndices.GraphicQueueIndex;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.size = sizeof(UniformBufferObject);
+	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		uniformBuffers[i] = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, false);
+	}
 }
 
 void Application::UpdateUniforms()
@@ -155,9 +214,20 @@ Application::~Application()
 	delete(vertexBuffer);
 	delete(indexBuffer);
 	delete(vulkanSampler);
-	delete(textureImage);
 
-	delete(vulkanSyncManager);
+
+	delete(textureImage);
+	delete(textureImageDescriptor);
+
+	for (auto uniformBuffer : uniformBuffers)
+	{
+		delete(uniformBuffer);
+	}
+	for (auto uniformDescriptor : uniformDescriptors)
+	{
+		delete(uniformDescriptor);
+	}
+
 
 	delete(vulkanDescriptorManager);
 	for (auto setLayout : descSetLayouts)
@@ -165,6 +235,7 @@ Application::~Application()
 		delete(setLayout);
 	}
 
+	delete(vulkanSyncManager);
 	delete(vulkanPipeline);
 	delete(vulkanCommandManager);
 	delete(vulkanFrameBuffer);

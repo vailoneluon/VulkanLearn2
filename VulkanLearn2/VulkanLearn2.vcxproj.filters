@@ -72,7 +72,7 @@
     <ClCompile Include="Core\VulkanDescriptorSetLayout.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="Core\VulkanDescriptorInfo.cpp">
+    <ClCompile Include="Core\VulkanDescriptor.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
   </ItemGroup>
@@ -125,7 +125,7 @@
     <ClInclude Include="Core\VulkanDescriptorSetLayout.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="Core\VulkanDescriptorInfo.h">
+    <ClInclude Include="Core\VulkanDescriptor.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
   </ItemGroup>
