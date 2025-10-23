@@ -12,6 +12,7 @@
 #include "Core/VulkanTypes.h"
 #include "Core/VulkanDescriptorManager.h"
 #include "Core/VulkanSampler.h"
+#include "Core/VulkanDescriptorSetLayout.h"
 
 class Application
 {
@@ -149,6 +150,7 @@ private:
 	DescriptorManagerHandles descriptorManagerHandles;
 	PipelineHandles pipelineHandles;
 
+	vector<VulkanDescriptorSetLayout*> descSetLayouts;
 
 	VulkanBuffer* vertexBuffer;
 	VulkanBuffer* indexBuffer;
@@ -161,7 +163,7 @@ private:
 
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();
-	void CreateTextureImage();
+	void CreateTextureImage(const VulkanHandles& vk);
 	void UpdateUniforms();
 
 	void RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex);

@@ -21,7 +21,7 @@ Application::Application()
 
 	vulkanCommandManager = new VulkanCommandManager(vulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 
-	CreateTextureImage();
+	CreateTextureImage(vulkanContext->getVulkanHandles());
 	vulkanSampler = new VulkanSampler(vulkanContext->getVulkanHandles());
 
 	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), vulkanCommandManager, 
@@ -95,9 +95,37 @@ void Application::CreateIndexBuffer()
 	indexBuffer->UploadData(indices.data(), bufferSize, 0);
 }
 
-void Application::CreateTextureImage()
+void Application::CreateTextureImage(const VulkanHandles& vk)
 {
 	textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, "Images/image.jpg", true);
+
+	VkDescriptorSetLayoutBinding bindingInfo{};
+	bindingInfo.binding = 0;
+	bindingInfo.pImmutableSamplers = nullptr;
+	bindingInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindingInfo.descriptorCount = 1;
+	bindingInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	vector<VkDescriptorSetLayoutBinding> bindings = {bindingInfo};
+
+	VulkanDescriptorSetLayout* textureImageSetLayout = new VulkanDescriptorSetLayout(vk, bindings);
+
+	descSetLayouts.push_back(textureImageSetLayout);
+
+
+	// Dùng tạm để tạo cho uniform buffer.
+	VkDescriptorSetLayoutBinding uniformBindingInfo{};
+	uniformBindingInfo.binding = 0;
+	uniformBindingInfo.pImmutableSamplers = nullptr;
+	uniformBindingInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	uniformBindingInfo.descriptorCount = 1;
+	uniformBindingInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	vector<VkDescriptorSetLayoutBinding> uniformBindings = {uniformBindingInfo};
+
+	VulkanDescriptorSetLayout* uniformSetLayout = new VulkanDescriptorSetLayout(vk, uniformBindings);
+
+	descSetLayouts.push_back(uniformSetLayout);
 }
 
 void Application::UpdateUniforms()
@@ -119,6 +147,11 @@ void Application::UpdateUniforms()
 Application::~Application()
 {
 	vkDeviceWaitIdle(vulkanHandles.device);
+
+	for (auto setLayout : descSetLayouts)
+	{
+		delete(setLayout);
+	}
 
 	delete(vertexBuffer);
 	delete(indexBuffer);

@@ -45,7 +45,6 @@ void VulkanDescriptorManager::CreateUniformBuffer()
 	{
 		uboBuffers[i] = new VulkanBuffer(vk, cmd, bufferInfo, false);
 	}
-
 }
 
 void VulkanDescriptorManager::CreateDescriptorSetLayout()
@@ -85,7 +84,6 @@ void VulkanDescriptorManager::CreateDescriptorSetLayout()
 	oneTimeDescSetLayoutInfo.pBindings = oneTimeLayoutBindings.data();
 
 	VK_CHECK(vkCreateDescriptorSetLayout(vk.device, &oneTimeDescSetLayoutInfo, nullptr, &handles.oneTimeDescriptorSetLayout), "FAILED TO CREATE DESCRIPTOR SET LAYOUT");
-
 }
 
 void VulkanDescriptorManager::CreateDescriptorPool()
