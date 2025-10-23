@@ -26,7 +26,8 @@ Application::Application()
 
 	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), vulkanCommandManager, 
 		textureImage->getHandles().imageView, vulkanSampler->getSampler(), 
-		MAX_FRAMES_IN_FLIGHT);
+		MAX_FRAMES_IN_FLIGHT, 
+		descSetLayouts);
 
 	vector<VkDescriptorSetLayout> descSetLayouts{ vulkanDescriptorManager->getHandles().perFrameDescriptorSetLayout,
 		vulkanDescriptorManager->getHandles().oneTimeDescriptorSetLayout};
@@ -112,7 +113,6 @@ void Application::CreateTextureImage(const VulkanHandles& vk)
 
 	descSetLayouts.push_back(textureImageSetLayout);
 
-
 	// Dùng tạm để tạo cho uniform buffer.
 	VkDescriptorSetLayoutBinding uniformBindingInfo{};
 	uniformBindingInfo.binding = 0;
@@ -122,10 +122,13 @@ void Application::CreateTextureImage(const VulkanHandles& vk)
 	uniformBindingInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
 	vector<VkDescriptorSetLayoutBinding> uniformBindings = {uniformBindingInfo};
+	
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		VulkanDescriptorSetLayout* uniformSetLayout = new VulkanDescriptorSetLayout(vk, uniformBindings);
+		descSetLayouts.push_back(uniformSetLayout);
+	}
 
-	VulkanDescriptorSetLayout* uniformSetLayout = new VulkanDescriptorSetLayout(vk, uniformBindings);
-
-	descSetLayouts.push_back(uniformSetLayout);
 }
 
 void Application::UpdateUniforms()
@@ -148,18 +151,20 @@ Application::~Application()
 {
 	vkDeviceWaitIdle(vulkanHandles.device);
 
-	for (auto setLayout : descSetLayouts)
-	{
-		delete(setLayout);
-	}
-
+	
 	delete(vertexBuffer);
 	delete(indexBuffer);
 	delete(vulkanSampler);
 	delete(textureImage);
 
 	delete(vulkanSyncManager);
+
 	delete(vulkanDescriptorManager);
+	for (auto setLayout : descSetLayouts)
+	{
+		delete(setLayout);
+	}
+
 	delete(vulkanPipeline);
 	delete(vulkanCommandManager);
 	delete(vulkanFrameBuffer);

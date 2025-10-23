@@ -22,6 +22,7 @@
     <ClCompile Include="Core\VulkanBuffer.cpp" />
     <ClCompile Include="Core\VulkanCommandManager.cpp" />
     <ClCompile Include="Core\VulkanContext.cpp" />
+    <ClCompile Include="Core\VulkanDescriptorInfo.cpp" />
     <ClCompile Include="Core\VulkanDescriptorManager.cpp" />
     <ClCompile Include="Core\VulkanDescriptorSetLayout.cpp" />
     <ClCompile Include="Core\VulkanFrameBuffer.cpp" />
@@ -39,6 +40,7 @@
     <ClInclude Include="Core\VulkanBuffer.h" />
     <ClInclude Include="Core\VulkanCommandManager.h" />
     <ClInclude Include="Core\VulkanContext.h" />
+    <ClInclude Include="Core\VulkanDescriptorInfo.h" />
     <ClInclude Include="Core\VulkanDescriptorManager.h" />
     <ClInclude Include="Core\VulkanDescriptorSetLayout.h" />
     <ClInclude Include="Core\VulkanFrameBuffer.h" />
