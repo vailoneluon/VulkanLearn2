@@ -108,7 +108,7 @@ void Application::CreateTextureImage(const VulkanHandles& vk)
 	textureImageElementInfo.pImmutableSamplers = nullptr;
 	textureImageElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	textureImageElementInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	textureImageElementInfo.imageDataInfo = &textureDescImageInfo;
+	textureImageElementInfo.imageDataInfo = textureDescImageInfo;
 
 	vector<BindingElementInfo> textureBindings{textureImageElementInfo};
 	textureImageDescriptor = new VulkanDescriptor(vk, textureBindings);
@@ -128,7 +128,7 @@ void Application::CreateTextureImage(const VulkanHandles& vk)
 		uniformElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uniformElementInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		uniformElementInfo.descriptorCount = 1;
-		uniformElementInfo.bufferDataInfo = &uniformBufferInfo;
+		uniformElementInfo.bufferDataInfo = uniformBufferInfo;
 
 		vector<BindingElementInfo> uniformBindings{ uniformElementInfo };
 
@@ -182,16 +182,11 @@ Application::~Application()
 
 
 	delete(textureImage);
-	delete(textureImageDescriptor);
 
-	//for (auto uniformBuffer : uniformBuffers)
-	//{
-	//	delete(uniformBuffer);
-	//}
-	//for (auto uniformDescriptor : uniformDescriptors)
-	//{
-	//	delete(uniformDescriptor);
-	//}
+	for (auto uniformBuffer : uniformBuffers)
+	{
+		delete(uniformBuffer);
+	}
 
 	delete(vulkanDescriptorManager);	
 

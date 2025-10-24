@@ -9,6 +9,7 @@ VulkanDescriptorManager::VulkanDescriptorManager(const VulkanHandles& vulkanHand
 
 	CreateDescriptorPool();
 	AllocateDescriptorSet();
+	WriteDescriptorSet();
 }
 
 VulkanDescriptorManager::~VulkanDescriptorManager()
@@ -42,7 +43,7 @@ void VulkanDescriptorManager::CreateDescriptorPool()
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = poolSizes.size();
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = poolSizes.size();
+	poolInfo.maxSets = handles.descriptors.size();
 
 	VK_CHECK(vkCreateDescriptorPool(vk.device, &poolInfo, nullptr, &handles.descriptorPool), "FAILED TO CREATE DESCRIPTOR POOL");
 }

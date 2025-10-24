@@ -1,4 +1,4 @@
-#include "VulkanDescriptor.h"
+﻿#include "VulkanDescriptor.h"
 #include "../Utils/ErrorHelper.h"
 
 VulkanDescriptor::VulkanDescriptor(const VulkanHandles& vulkanHandles, const vector<BindingElementInfo>& vulkanBindingInfos):
@@ -11,6 +11,8 @@ VulkanDescriptor::VulkanDescriptor(const VulkanHandles& vulkanHandles, const vec
 
 VulkanDescriptor::~VulkanDescriptor()
 {
+	// Chỉ thực hiện Delete ở trong VulkanDescriptorManager
+	// Không thực hiện delete trong Main.
 	vkDestroyDescriptorSetLayout(vk.device, handles.descriptorSetLayout, nullptr);
 }
 
@@ -58,8 +60,8 @@ void VulkanDescriptor::WriteDescriptorSet()
 		descriptorSetWrite.descriptorCount = bindingInfo.descriptorCount;
 		descriptorSetWrite.dstArrayElement = 0;
 
-		descriptorSetWrite.pBufferInfo = bindingInfo.bufferDataInfo;
-		descriptorSetWrite.pImageInfo = bindingInfo.imageDataInfo;
+		descriptorSetWrite.pBufferInfo = &bindingInfo.bufferDataInfo;
+		descriptorSetWrite.pImageInfo = &bindingInfo.imageDataInfo;
 
 		descriptorSetWrite.dstSet = handles.descriptorSet;
 

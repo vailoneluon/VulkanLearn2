@@ -24,8 +24,8 @@ struct BindingElementInfo
 	VkShaderStageFlags    stageFlags;
 	const VkSampler*      pImmutableSamplers = nullptr;
 	
-	const VkDescriptorBufferInfo* bufferDataInfo = nullptr;
-	const VkDescriptorImageInfo*  imageDataInfo = nullptr;
+	VkDescriptorBufferInfo bufferDataInfo;
+	VkDescriptorImageInfo  imageDataInfo;
 };
 
 
@@ -44,7 +44,7 @@ private:
 	const VulkanHandles& vk;
 	DescriptorHandles handles;
 
-	const vector<BindingElementInfo>& bindingInfos;
+	const vector<BindingElementInfo> bindingInfos;
 
 	void CreateSetLayout(const vector<BindingElementInfo>& bindingInfos);
 
