@@ -12,7 +12,6 @@
 #include "Core/VulkanTypes.h"
 #include "Core/VulkanDescriptorManager.h"
 #include "Core/VulkanSampler.h"
-#include "Core/VulkanDescriptorSetLayout.h"
 #include "Core/VulkanDescriptor.h"
 
 class Application
@@ -151,20 +150,16 @@ private:
 	DescriptorManagerHandles descriptorManagerHandles;
 	PipelineHandles pipelineHandles;
 
-	vector<VulkanDescriptorSetLayout*> descSetLayouts;
-
-
 	VulkanBuffer* vertexBuffer;
 	VulkanBuffer* indexBuffer;
 
-
+	vector<VulkanDescriptor*> descriptors;
 	VulkanImage* textureImage;
 	VulkanDescriptor* textureImageDescriptor;
 
 	UniformBufferObject ubo{};
 	vector<VulkanBuffer*> uniformBuffers;
 	vector<VulkanDescriptor*> uniformDescriptors;
-
 
 	void CreateCacheHandles();
 

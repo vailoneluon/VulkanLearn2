@@ -9,7 +9,7 @@ VulkanPipeline::VulkanPipeline(
 	const RenderPassHandles& renderPassHandles,
 	const SwapchainHandles& swapchainHandles,
 	VkSampleCountFlagBits msaaSamples,
-	vector<VkDescriptorSetLayout>& descSetLayouts)
+	vector<VulkanDescriptor*>& descriptors)
 	: vk(vulkanHandles)
 {
 	auto vertShaderCode = readShaderFile("Shaders/vert.spv");
@@ -19,6 +19,13 @@ VulkanPipeline::VulkanPipeline(
 	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
 	// Tạo Pipeline Layout 
+	vector<VkDescriptorSetLayout> descSetLayouts;
+	
+	for (auto* descriptor : descriptors)
+	{
+		descSetLayouts.push_back(descriptor->getHandles().descriptorSetLayout);
+	}
+
 	createPipelineLayout(descSetLayouts);
 
 	// Tạo Graphics Pipeline

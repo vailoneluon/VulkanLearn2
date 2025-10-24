@@ -1,12 +1,12 @@
 #include "VulkanDescriptor.h"
 #include "../Utils/ErrorHelper.h"
 
-VulkanDescriptor::VulkanDescriptor(const VulkanHandles& vulkanHandles, const vector<BindingElementInfo>& bindingInfos):
-	vk(vulkanHandles)
+VulkanDescriptor::VulkanDescriptor(const VulkanHandles& vulkanHandles, const vector<BindingElementInfo>& vulkanBindingInfos):
+	vk(vulkanHandles), bindingInfos(vulkanBindingInfos)
 {
-	CreateSetLayout(bindingInfos);
-	CreateWriteDescriptorSet(bindingInfos);
-	CountDescriptorByType(bindingInfos);
+	CreateSetLayout(vulkanBindingInfos);
+	
+	CountDescriptorByType(vulkanBindingInfos);
 }
 
 VulkanDescriptor::~VulkanDescriptor()
@@ -14,10 +14,10 @@ VulkanDescriptor::~VulkanDescriptor()
 	vkDestroyDescriptorSetLayout(vk.device, handles.descriptorSetLayout, nullptr);
 }
 
-void VulkanDescriptor::CreateSetLayout(const vector<BindingElementInfo>& bindingInfos)
+void VulkanDescriptor::CreateSetLayout(const vector<BindingElementInfo>& vulkanBindingInfos)
 {
 	vector<VkDescriptorSetLayoutBinding> layoutBindings;
-	for (const auto& bindingInfo : bindingInfos)
+	for (const auto& bindingInfo : vulkanBindingInfos)
 	{
 		VkDescriptorSetLayoutBinding layoutBinding{};
 		layoutBinding.binding = bindingInfo.binding;
@@ -36,7 +36,18 @@ void VulkanDescriptor::CreateSetLayout(const vector<BindingElementInfo>& binding
 		VK_CHECK(vkCreateDescriptorSetLayout(vk.device, &layoutInfo, nullptr, &handles.descriptorSetLayout), "FAILED TO CREATE DESCRIPTOR SET LAYOUT");
 }
 
-void VulkanDescriptor::CreateWriteDescriptorSet(const vector<BindingElementInfo>& bindingInfos)
+void VulkanDescriptor::AllocateDescriptorSet(const VkDescriptorPool& descriptorPool)
+{
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = &handles.descriptorSetLayout;
+
+	VK_CHECK(vkAllocateDescriptorSets(vk.device, &allocInfo, &handles.descriptorSet), "FAILED TO ALLOCATE DESCRIPTOR SET");
+}
+
+void VulkanDescriptor::WriteDescriptorSet()
 {
 	for (const auto& bindingInfo : bindingInfos)
 	{
@@ -50,9 +61,9 @@ void VulkanDescriptor::CreateWriteDescriptorSet(const vector<BindingElementInfo>
 		descriptorSetWrite.pBufferInfo = bindingInfo.bufferDataInfo;
 		descriptorSetWrite.pImageInfo = bindingInfo.imageDataInfo;
 
-		descriptorSetWrite.dstSet = VK_NULL_HANDLE;
+		descriptorSetWrite.dstSet = handles.descriptorSet;
 
-		handles.writeDescriptorSetList.push_back(descriptorSetWrite);
+		vkUpdateDescriptorSets(vk.device, 1, &descriptorSetWrite, 0, nullptr);
 	}
 }
 

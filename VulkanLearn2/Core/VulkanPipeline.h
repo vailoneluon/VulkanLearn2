@@ -5,6 +5,7 @@
 #include "VulkanContext.h"
 #include "VulkanRenderPass.h"
 #include "VulkanSwapchain.h"
+#include "VulkanDescriptor.h"
 
 using namespace std;
 
@@ -22,7 +23,7 @@ public:
 		const RenderPassHandles& renderPassHandles,
 		const SwapchainHandles& swapchainHandles,
 		VkSampleCountFlagBits msaaSamples,
-		vector<VkDescriptorSetLayout>& descSetLayouts
+		vector<VulkanDescriptor*>& descriptors
 	);
 	~VulkanPipeline();
 
@@ -38,7 +39,6 @@ private:
 	// Hàm helper tạo VkShaderModule
 	VkShaderModule createShaderModule(const vector<char>& code);
 
-	// Hàm tạo Pipeline Layout rỗng (như bạn yêu cầu)
 	void createPipelineLayout(vector<VkDescriptorSetLayout>& descSetLayouts);
 
 	// Hàm tạo Pipeline chính

@@ -9,8 +9,7 @@ using namespace std;
 struct DescriptorHandles
 {
 	VkDescriptorSetLayout descriptorSetLayout;
-
-	vector<VkWriteDescriptorSet> writeDescriptorSetList;
+	VkDescriptorSet descriptorSet;
 
 	unordered_map<VkDescriptorType, uint32_t> descriptorCountByType;
 };
@@ -30,21 +29,24 @@ struct BindingElementInfo
 };
 
 
-
 class VulkanDescriptor
 {
 public:
-	VulkanDescriptor(const VulkanHandles& vulkanHandles, const vector<BindingElementInfo>& bindingInfos);
+	VulkanDescriptor(const VulkanHandles& vulkanHandles, const vector<BindingElementInfo>& vulkanBindingInfos);
 	~VulkanDescriptor();
 
+	const DescriptorHandles& getHandles() const { return handles; }
+
+	void AllocateDescriptorSet(const VkDescriptorPool& descriptorPool);
+	void WriteDescriptorSet();
 
 private:
 	const VulkanHandles& vk;
 	DescriptorHandles handles;
 
-	const DescriptorHandles& getHandles() const { return handles; }
+	const vector<BindingElementInfo>& bindingInfos;
 
 	void CreateSetLayout(const vector<BindingElementInfo>& bindingInfos);
-	void CreateWriteDescriptorSet(const vector<BindingElementInfo>& bindingInfos);
+
 	void CountDescriptorByType(const vector<BindingElementInfo>& bindingInfos);
 };
