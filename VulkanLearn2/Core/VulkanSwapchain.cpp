@@ -1,6 +1,5 @@
+#include "pch.h"
 #include "VulkanSwapchain.h"
-#include "../Utils/ErrorHelper.h"
-#include <algorithm>
 
 
 VulkanSwapchain::VulkanSwapchain(const VulkanHandles& vulkanHandles, GLFWwindow* window):

@@ -1,5 +1,5 @@
+#include "pch.h"
 #include "VulkanSyncManager.h"
-#include "../Utils/ErrorHelper.h"
 
 VulkanSyncManager::VulkanSyncManager(const VulkanHandles& vulkanHandles, int MAX_FRAMES_IN_FLIGHT, int swapchainImageCount):
 	vk(vulkanHandles)

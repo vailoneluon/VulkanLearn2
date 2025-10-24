@@ -1,10 +1,5 @@
 ﻿#pragma once
-#include <vulkan/vulkan.h>
 #include "VulkanContext.h"
-#include <vector>
-#include <unordered_map>
-
-using namespace std;
 
 struct DescriptorHandles
 {

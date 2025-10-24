@@ -1,10 +1,6 @@
 #pragma once
-#include <vulkan/vulkan.h>
-#include <vector>
 #include "VulkanContext.h"
 #include "VulkanCommandManager.h"
-
-using namespace std;
 
 struct BufferHandles
 {

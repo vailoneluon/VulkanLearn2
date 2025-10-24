@@ -1,14 +1,7 @@
 #pragma once
-#include <vulkan/vulkan.h>
-#include <vector>
 #include "VulkanContext.h"
-#include "VulkanCommandManager.h"
-#include "VulkanBuffer.h"
-#include "VulkanTypes.h"
-#include <unordered_map>
 #include "VulkanDescriptor.h"
 
-using namespace std;
 
 struct DescriptorManagerHandles
 {

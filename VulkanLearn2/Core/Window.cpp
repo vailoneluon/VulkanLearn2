@@ -1,6 +1,6 @@
-#include "../Utils/ErrorHelper.h"
+#include "pch.h"
 #include "Window.h"
-#include <iostream>
+
 
 Window::Window(int w, int h, const string& t):
 	width(w), height(h), title(t)

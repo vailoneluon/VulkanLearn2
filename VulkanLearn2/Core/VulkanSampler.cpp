@@ -1,5 +1,5 @@
+#include "pch.h"
 #include "VulkanSampler.h"
-#include "../Utils/ErrorHelper.h"
 
 VulkanSampler::VulkanSampler(const VulkanHandles& vulkanHandles):
 	vk(vulkanHandles)

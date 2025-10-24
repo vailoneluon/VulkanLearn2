@@ -1,6 +1,6 @@
+#include "pch.h"
 #include "VulkanDescriptorManager.h"
-#include "../Utils/ErrorHelper.h"
-#include <array>
+
 
 VulkanDescriptorManager::VulkanDescriptorManager(const VulkanHandles& vulkanHandles, vector<VulkanDescriptor*>& vulkanDescriptors) :
 	vk(vulkanHandles)

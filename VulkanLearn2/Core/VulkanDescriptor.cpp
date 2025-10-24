@@ -1,5 +1,6 @@
-﻿#include "VulkanDescriptor.h"
-#include "../Utils/ErrorHelper.h"
+﻿#include "pch.h"
+#include "VulkanDescriptor.h"
+
 
 VulkanDescriptor::VulkanDescriptor(const VulkanHandles& vulkanHandles, const vector<BindingElementInfo>& vulkanBindingInfos):
 	vk(vulkanHandles), bindingInfos(vulkanBindingInfos)

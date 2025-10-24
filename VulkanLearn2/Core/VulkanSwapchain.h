@@ -1,8 +1,5 @@
 #pragma once
-#include <vulkan/vulkan.h>
-#include <vector>
 #include "VulkanContext.h"
-using namespace std;
 
 struct SwapchainSupportDetails
 {

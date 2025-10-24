@@ -1,18 +1,21 @@
 ﻿#pragma once
-#include "Core/Window.h"
+
 #include "Core/VulkanContext.h"
-#include "Core/VulkanSwapchain.h"
-#include "Core/VulkanImage.h"
-#include "Core/VulkanRenderPass.h"
-#include "Core/VulkanFrameBuffer.h"
-#include "Core/VulkanCommandManager.h"
-#include "Core/VulkanPipeline.h"
-#include "Core/VulkanSyncManager.h"
-#include "Core/VulkanBuffer.h"
 #include "Core/VulkanTypes.h"
-#include "Core/VulkanDescriptorManager.h"
-#include "Core/VulkanSampler.h"
-#include "Core/VulkanDescriptor.h"
+
+// Forward declare
+class Window;
+class VulkanSwapchain;
+class VulkanRenderPass;
+class VulkanFrameBuffer;
+class VulkanCommandManager;
+class VulkanSampler;
+class VulkanDescriptorManager;
+class VulkanPipeline;
+class VulkanSyncManager;
+class VulkanBuffer;
+class VulkanImage;
+class VulkanDescriptor;
 
 class Application
 {
@@ -78,7 +81,7 @@ private:
 		20, 21, 22, 22, 23, 20
 	};
 	*/
-	
+
 	// Kim tự tháp
 	const std::vector<Vertex> vertices = {
 		// 0: top (chóp)
@@ -142,14 +145,6 @@ private:
 	VulkanPipeline* vulkanPipeline;
 	VulkanSyncManager* vulkanSyncManager;
 
-	VulkanHandles vulkanHandles;
-	SwapchainHandles swapchainHandles;
-	RenderPassHandles renderPassHandles;
-	FrameBufferHandles frameBufferHandles;
-	CommandManagerHandles commandManagerHandles;
-	DescriptorManagerHandles descriptorManagerHandles;
-	PipelineHandles pipelineHandles;
-
 	VulkanBuffer* vertexBuffer;
 	VulkanBuffer* indexBuffer;
 
@@ -160,8 +155,6 @@ private:
 	UniformBufferObject ubo{};
 	vector<VulkanBuffer*> uniformBuffers;
 	vector<VulkanDescriptor*> uniformDescriptors;
-
-	void CreateCacheHandles();
 
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();

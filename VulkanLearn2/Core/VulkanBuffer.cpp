@@ -1,5 +1,6 @@
-﻿#include "VulkanBuffer.h"
-#include "../Utils/ErrorHelper.h"
+﻿#include "pch.h"
+#include "VulkanBuffer.h"
+
 
 VulkanBuffer::VulkanBuffer(const VulkanHandles& vulkanHandles, VulkanCommandManager* const vulkanCommandManager, VkBufferCreateInfo& bufferInfo, bool isUseStagingBuffer):
 	vk(vulkanHandles), cmd(vulkanCommandManager), isUseStagingBuffer(isUseStagingBuffer)

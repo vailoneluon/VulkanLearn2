@@ -1,10 +1,7 @@
 #pragma once
-#include <vulkan/vulkan.h>
-#include <vector>
-#include "VulkanSwapchain.h"
 #include "VulkanContext.h"
 
-using namespace std;
+struct SwapchainHandles;
 
 struct RenderPassHandles
 {
@@ -22,5 +19,4 @@ public:
 private:
 	RenderPassHandles handles;
 	const VulkanHandles& vk;
-	const SwapchainHandles& sc;
 };

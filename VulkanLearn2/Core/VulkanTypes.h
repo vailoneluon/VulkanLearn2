@@ -1,12 +1,5 @@
 #pragma once
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <vulkan/vulkan.h>
-#include "glm/glm.hpp"
-#include "glm/gtc/matrix_transform.hpp"
-#include <array>
 
-using namespace std;
 
 struct Vertex
 {
@@ -24,9 +17,9 @@ struct Vertex
 		return bindingDesc;
 	}
 
-	static array<VkVertexInputAttributeDescription, 3> GetAttributeDesc()
+	static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDesc()
 	{
-		array<VkVertexInputAttributeDescription, 3> attributeDescs{};
+		std::array<VkVertexInputAttributeDescription, 3> attributeDescs{};
 
 		attributeDescs[0].binding = 0;
 		attributeDescs[0].format = VK_FORMAT_R32G32B32_SFLOAT;

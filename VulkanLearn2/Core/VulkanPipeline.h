@@ -1,13 +1,13 @@
 ﻿#pragma once
-#include <vulkan/vulkan.h>
-#include <string>
-#include <vector>
 #include "VulkanContext.h"
-#include "VulkanRenderPass.h"
-#include "VulkanSwapchain.h"
-#include "VulkanDescriptor.h"
 
-using namespace std;
+struct RenderPassHandles;
+struct SwapchainHandles;
+class VulkanDescriptor;
+//#include "VulkanRenderPass.h"
+//#include "VulkanSwapchain.h"
+//#include "VulkanDescriptor.h"
+
 
 struct PipelineHandles
 {
