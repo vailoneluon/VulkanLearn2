@@ -18,6 +18,19 @@ VulkanDescriptor::~VulkanDescriptor()
 	vkDestroyDescriptorSetLayout(vk.device, handles.descriptorSetLayout, nullptr);
 }
 
+BindingElementInfo VulkanDescriptor::getBindingElementInfo(uint32_t binding)
+{
+	for (const auto& bindingInfo : bindingInfos)
+	{
+		if (bindingInfo.binding == binding)
+		{
+			return bindingInfo;
+		}
+	}
+
+	showError("FAILED TO FIND BINDING ELEMENT INFO BY BINDING INDEX");
+}
+
 void VulkanDescriptor::CreateSetLayout(const vector<BindingElementInfo>& vulkanBindingInfos)
 {
 	vector<VkDescriptorSetLayoutBinding> layoutBindings;
@@ -51,24 +64,52 @@ void VulkanDescriptor::AllocateDescriptorSet(const VkDescriptorPool& descriptorP
 	VK_CHECK(vkAllocateDescriptorSets(vk.device, &allocInfo, &handles.descriptorSet), "FAILED TO ALLOCATE DESCRIPTOR SET");
 }
 
-void VulkanDescriptor::WriteDescriptorSet()
+void VulkanDescriptor::UpdateImageBinding(int updateCount, const ImageBindingUpdateInfo* pImageBindingInfo)
 {
-	for (const auto& bindingInfo : bindingInfos)
+	vector<VkWriteDescriptorSet> descriptorSetWrites;
+	for (int i = 0; i < updateCount; i++)
 	{
 		VkWriteDescriptorSet descriptorSetWrite{};
+
+		BindingElementInfo bindingInfo = getBindingElementInfo(pImageBindingInfo[i].binding);
+
 		descriptorSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorSetWrite.dstBinding = bindingInfo.binding;
 		descriptorSetWrite.descriptorType = bindingInfo.descriptorType;
 		descriptorSetWrite.descriptorCount = bindingInfo.descriptorCount;
 		descriptorSetWrite.dstArrayElement = 0;
 
-		descriptorSetWrite.pBufferInfo = &bindingInfo.bufferDataInfo;
-		descriptorSetWrite.pImageInfo = &bindingInfo.imageDataInfo;
-
+		descriptorSetWrite.pImageInfo = &pImageBindingInfo[i].imageInfo;
 		descriptorSetWrite.dstSet = handles.descriptorSet;
 
-		vkUpdateDescriptorSets(vk.device, 1, &descriptorSetWrite, 0, nullptr);
+		descriptorSetWrites.push_back(descriptorSetWrite);
 	}
+
+	vkUpdateDescriptorSets(vk.device, descriptorSetWrites.size(), descriptorSetWrites.data(), 0, nullptr);
+}
+
+void VulkanDescriptor::UpdateBufferBinding(int updateCount, const BufferBindingUpdateInfo* pBufferBindingInfo)
+{
+	vector<VkWriteDescriptorSet> descriptorSetWrites;
+	for (int i = 0; i < updateCount; i++)
+	{
+		VkWriteDescriptorSet descriptorSetWrite{};
+
+		BindingElementInfo bindingInfo = getBindingElementInfo(pBufferBindingInfo[i].binding);
+
+		descriptorSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorSetWrite.dstBinding = bindingInfo.binding;
+		descriptorSetWrite.descriptorType = bindingInfo.descriptorType;
+		descriptorSetWrite.descriptorCount = bindingInfo.descriptorCount;
+		descriptorSetWrite.dstArrayElement = 0;
+
+		descriptorSetWrite.pBufferInfo = &pBufferBindingInfo[i].bufferInfo;
+		descriptorSetWrite.dstSet = handles.descriptorSet;
+
+		descriptorSetWrites.push_back(descriptorSetWrite);
+	}
+
+	vkUpdateDescriptorSets(vk.device, descriptorSetWrites.size(), descriptorSetWrites.data(), 0, nullptr);
 }
 
 void VulkanDescriptor::CountDescriptorByType(const vector<BindingElementInfo>& bindingInfos)

@@ -19,9 +19,19 @@ struct BindingElementInfo
 	uint32_t              descriptorCount;
 	VkShaderStageFlags    stageFlags;
 	const VkSampler*      pImmutableSamplers = nullptr;
-	
-	VkDescriptorBufferInfo bufferDataInfo;
-	VkDescriptorImageInfo  imageDataInfo;
+
+};
+
+struct ImageBindingUpdateInfo
+{
+	uint32_t binding;
+	VkDescriptorImageInfo imageInfo;
+};
+
+struct BufferBindingUpdateInfo
+{
+	uint32_t binding;
+	VkDescriptorBufferInfo bufferInfo;
 };
 
 
@@ -35,13 +45,16 @@ public:
 	uint32_t getSetIndex() const { return handles.setIndex; }
 
 	void AllocateDescriptorSet(const VkDescriptorPool& descriptorPool);
-	void WriteDescriptorSet();
+
+	void UpdateImageBinding(int updateCount, const ImageBindingUpdateInfo* pImageBindingInfo);
+	void UpdateBufferBinding(int updateCount, const BufferBindingUpdateInfo* pBufferBindingInfo);
 
 private:
 	const VulkanHandles& vk;
 	DescriptorHandles handles;
 
 	const vector<BindingElementInfo> bindingInfos;
+	BindingElementInfo getBindingElementInfo(uint32_t binding);
 
 	void CreateSetLayout(const vector<BindingElementInfo>& bindingInfos);
 

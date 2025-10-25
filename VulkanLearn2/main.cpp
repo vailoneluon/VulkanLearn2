@@ -37,6 +37,8 @@ Application::Application()
 	CreateTextureImage(vulkanContext->getVulkanHandles());
 
 	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), descriptors);
+	UpdateDescriptorBinding();
+
 
 	vulkanPipeline = new VulkanPipeline(
 		vulkanContext->getVulkanHandles(),
@@ -95,24 +97,16 @@ void Application::CreateTextureImage(const VulkanHandles& vk)
 {
 	textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, "Images/image.jpg", true);
 
-	///////////////////////////////////////
-	VkDescriptorImageInfo textureDescImageInfo{};
-	textureDescImageInfo.sampler = vulkanSampler->getSampler();
-	textureDescImageInfo.imageView = textureImage->getHandles().imageView;
-	textureDescImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
 	BindingElementInfo textureImageElementInfo;
 	textureImageElementInfo.binding = 0;
 	textureImageElementInfo.descriptorCount = 1;
 	textureImageElementInfo.pImmutableSamplers = nullptr;
 	textureImageElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	textureImageElementInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	textureImageElementInfo.imageDataInfo = textureDescImageInfo;
 
 	vector<BindingElementInfo> textureBindings{ textureImageElementInfo };
 	textureImageDescriptor = new VulkanDescriptor(vk, textureBindings, 0);
 	descriptors.push_back(textureImageDescriptor);
-	
 }
 
 void Application::CreateUniformBuffer()
@@ -132,23 +126,47 @@ void Application::CreateUniformBuffer()
 	{
 		uniformBuffers[i] = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, false);
 
-		VkDescriptorBufferInfo uniformBufferInfo{};
-		uniformBufferInfo.buffer = uniformBuffers[i]->getHandles().buffer;
-		uniformBufferInfo.offset = 0;
-		uniformBufferInfo.range = uniformBuffers[i]->getHandles().bufferSize;
-
 		BindingElementInfo uniformElementInfo;
 		uniformElementInfo.binding = 0;
 		uniformElementInfo.pImmutableSamplers = nullptr;
 		uniformElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uniformElementInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		uniformElementInfo.descriptorCount = 1;
-		uniformElementInfo.bufferDataInfo = uniformBufferInfo;
 
 		vector<BindingElementInfo> uniformBindings{ uniformElementInfo };
 
 		uniformDescriptors[i] = new VulkanDescriptor(vulkanContext->getVulkanHandles(), uniformBindings, 1);
 		descriptors.push_back(uniformDescriptors[i]);
+	}
+}
+
+void Application::UpdateDescriptorBinding()
+{
+	// Image Binding
+	VkDescriptorImageInfo textureDescImageInfo{};
+	textureDescImageInfo.sampler = vulkanSampler->getSampler();
+	textureDescImageInfo.imageView = textureImage->getHandles().imageView;
+	textureDescImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	ImageBindingUpdateInfo imageBindingInfo{};
+	imageBindingInfo.binding = 0;
+	imageBindingInfo.imageInfo = textureDescImageInfo;
+
+	textureImageDescriptor->UpdateImageBinding(1, &imageBindingInfo);
+
+	// UBO Binding
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		VkDescriptorBufferInfo uniformBufferInfo{};
+		uniformBufferInfo.buffer = uniformBuffers[i]->getHandles().buffer;
+		uniformBufferInfo.offset = 0;
+		uniformBufferInfo.range = uniformBuffers[i]->getHandles().bufferSize;
+
+		BufferBindingUpdateInfo bufferBindingInfo{};
+		bufferBindingInfo.binding = 0;
+		bufferBindingInfo.bufferInfo = uniformBufferInfo;
+
+		uniformDescriptors[i]->UpdateBufferBinding(1, &bufferBindingInfo);
 	}
 }
 
@@ -160,7 +178,7 @@ void Application::UpdateUniforms()
 	float time = chrono::duration<float, chrono::seconds::period>(currentTime - startTime).count();
 
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	ubo.view = glm::lookAt(glm::vec3(0.0f, 2.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	ubo.view = glm::lookAt(glm::vec3(0.0f, 1.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), vulkanSwapchain->getHandles().swapChainExtent.width / (float)vulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
 
 	ubo.proj[1][1] *= -1;

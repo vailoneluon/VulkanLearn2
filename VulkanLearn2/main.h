@@ -160,6 +160,8 @@ private:
 	void CreateIndexBuffer();
 	void CreateTextureImage(const VulkanHandles& vk);
 	void CreateUniformBuffer();
+	void UpdateDescriptorBinding();
+
 	void UpdateUniforms();
 
 	void RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex);

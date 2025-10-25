@@ -9,7 +9,6 @@ VulkanDescriptorManager::VulkanDescriptorManager(const VulkanHandles& vulkanHand
 
 	CreateDescriptorPool();
 	AllocateDescriptorSet();
-	WriteDescriptorSet();
 }
 
 VulkanDescriptorManager::~VulkanDescriptorManager()
@@ -20,7 +19,6 @@ VulkanDescriptorManager::~VulkanDescriptorManager()
 	{
 		delete(descriptor);
 	}
-
 	
 }
 
@@ -56,15 +54,7 @@ void VulkanDescriptorManager::AllocateDescriptorSet()
 	}
 }
 
-void VulkanDescriptorManager::WriteDescriptorSet()
-{
-	for (const auto& descriptor : handles.descriptors)
-	{
-		descriptor->WriteDescriptorSet();
-	}
-}
-
-std::unordered_map<VkDescriptorType, glm::uint32_t> VulkanDescriptorManager::countDescriptorByType()
+unordered_map<VkDescriptorType, glm::uint32_t> VulkanDescriptorManager::countDescriptorByType()
 {
 	unordered_map<VkDescriptorType, uint32_t> countAns;
 

@@ -27,7 +27,6 @@ private:
 
 	void CreateDescriptorPool();
 	void AllocateDescriptorSet();
-	void WriteDescriptorSet();
 
 	unordered_map<VkDescriptorType, uint32_t> countDescriptorByType();
 };
