@@ -2,11 +2,12 @@
 #include "VulkanDescriptor.h"
 
 
-VulkanDescriptor::VulkanDescriptor(const VulkanHandles& vulkanHandles, const vector<BindingElementInfo>& vulkanBindingInfos):
+VulkanDescriptor::VulkanDescriptor(const VulkanHandles& vulkanHandles, const vector<BindingElementInfo>& vulkanBindingInfos, uint32_t setIndex):
 	vk(vulkanHandles), bindingInfos(vulkanBindingInfos)
 {
+	handles.setIndex = setIndex;
+
 	CreateSetLayout(vulkanBindingInfos);
-	
 	CountDescriptorByType(vulkanBindingInfos);
 }
 

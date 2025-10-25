@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <map>
 #include <array>
 #include <unordered_map>
 #include <stdexcept>

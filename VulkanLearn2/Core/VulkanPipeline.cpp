@@ -12,21 +12,11 @@ VulkanPipeline::VulkanPipeline(
 	vector<VulkanDescriptor*>& descriptors)
 	: vk(vulkanHandles)
 {
-	auto vertShaderCode = readShaderFile("Shaders/vert.spv");
-	auto fragShaderCode = readShaderFile("Shaders/frag.spv");
-
-	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+	VkShaderModule vertShaderModule = createShaderModule("Shaders/vert.spv");
+	VkShaderModule fragShaderModule = createShaderModule("Shaders/frag.spv");
 
 	// Tạo Pipeline Layout 
-	vector<VkDescriptorSetLayout> descSetLayouts;
-	
-	for (auto* descriptor : descriptors)
-	{
-		descSetLayouts.push_back(descriptor->getHandles().descriptorSetLayout);
-	}
-
-	createPipelineLayout(descSetLayouts);
+	createPipelineLayout(descriptors);
 
 	// Tạo Graphics Pipeline
 	createGraphicsPipeline(
@@ -38,8 +28,6 @@ VulkanPipeline::VulkanPipeline(
 	);
 
 	// Hủy shader module sau khi pipeline đã được tạo
-	// Con cac
-	// Dau buoi
 	vkDestroyShaderModule(vk.device, fragShaderModule, nullptr);
 	vkDestroyShaderModule(vk.device, vertShaderModule, nullptr);
 }
@@ -71,8 +59,10 @@ vector<char> VulkanPipeline::readShaderFile(const string& filename)
 }
 
 // Hàm tạo Shader Module từ mã SPIR-V
-VkShaderModule VulkanPipeline::createShaderModule(const vector<char>& code)
+VkShaderModule VulkanPipeline::createShaderModule(const string& shaderFilePath)
 {
+	vector<char> code = readShaderFile(shaderFilePath);
+
 	VkShaderModuleCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	createInfo.codeSize = code.size();
@@ -84,8 +74,21 @@ VkShaderModule VulkanPipeline::createShaderModule(const vector<char>& code)
 }
 
 // Tạo một Pipeline Layout 
-void VulkanPipeline::createPipelineLayout(vector<VkDescriptorSetLayout>& descSetLayouts)
+void VulkanPipeline::createPipelineLayout(const vector<VulkanDescriptor*>& descriptors)
 {
+	// Sắp xếp layout theo thứ tự SetIndex.
+	vector<VkDescriptorSetLayout> descSetLayouts;
+	map<uint32_t, VkDescriptorSetLayout> descSetLayoutMaps;
+	for (const auto* descriptor : descriptors)
+	{
+		descSetLayoutMaps[descriptor->getSetIndex()] = descriptor->getHandles().descriptorSetLayout;
+	}
+	for (const auto&[setIndex, descriptorSetLayout] : descSetLayoutMaps)
+	{
+		descSetLayouts.push_back(descriptorSetLayout);
+	}
+
+	// Tạo Pipeline Layout 
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = descSetLayouts.size(); 

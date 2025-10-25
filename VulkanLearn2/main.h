@@ -163,6 +163,7 @@ private:
 	void UpdateUniforms();
 
 	void RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex);
+	void BindDescriptorSet(const VkCommandBuffer& cmdBuffer);
 	void DrawFrame();
 
 };

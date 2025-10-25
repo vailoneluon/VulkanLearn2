@@ -110,12 +110,28 @@ void Application::CreateTextureImage(const VulkanHandles& vk)
 	textureImageElementInfo.imageDataInfo = textureDescImageInfo;
 
 	vector<BindingElementInfo> textureBindings{ textureImageElementInfo };
-	textureImageDescriptor = new VulkanDescriptor(vk, textureBindings);
+	textureImageDescriptor = new VulkanDescriptor(vk, textureBindings, 0);
 	descriptors.push_back(textureImageDescriptor);
-	//
+	
+}
+
+void Application::CreateUniformBuffer()
+{
+	uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.queueFamilyIndexCount = 1;
+	bufferInfo.pQueueFamilyIndices = &vulkanContext->getVulkanHandles().queueFamilyIndices.GraphicQueueIndex;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.size = sizeof(UniformBufferObject);
+	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+
 	uniformDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
+		uniformBuffers[i] = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, false);
+
 		VkDescriptorBufferInfo uniformBufferInfo{};
 		uniformBufferInfo.buffer = uniformBuffers[i]->getHandles().buffer;
 		uniformBufferInfo.offset = 0;
@@ -131,26 +147,8 @@ void Application::CreateTextureImage(const VulkanHandles& vk)
 
 		vector<BindingElementInfo> uniformBindings{ uniformElementInfo };
 
-		uniformDescriptors[i] = new VulkanDescriptor(vk, uniformBindings);
+		uniformDescriptors[i] = new VulkanDescriptor(vulkanContext->getVulkanHandles(), uniformBindings, 1);
 		descriptors.push_back(uniformDescriptors[i]);
-	}
-}
-
-void Application::CreateUniformBuffer()
-{
-	uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-
-	VkBufferCreateInfo bufferInfo{};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.queueFamilyIndexCount = 1;
-	bufferInfo.pQueueFamilyIndices = &vulkanContext->getVulkanHandles().queueFamilyIndices.GraphicQueueIndex;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	bufferInfo.size = sizeof(UniformBufferObject);
-	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		uniformBuffers[i] = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, false);
 	}
 }
 
@@ -307,21 +305,28 @@ void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageI
 	vkCmdBindIndexBuffer(cmdBuffer, indexBuffer->getHandles().buffer, 0, VK_INDEX_TYPE_UINT16);
 
 	// Bind Descriptor Set
-	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		vulkanPipeline->getHandles().pipelineLayout,
-		0, 1,
-		&textureImageDescriptor->getHandles().descriptorSet,
-		0, nullptr);
-
-	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		vulkanPipeline->getHandles().pipelineLayout,
-		1, 1,
-		&uniformDescriptors[currentFrame]->getHandles().descriptorSet,
-		0, nullptr);
+	BindDescriptorSet(cmdBuffer);
 
 	vkCmdDrawIndexed(cmdBuffer, indices.size(), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(cmdBuffer);
 
 	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "FAILED TO END COMMAND BUFFER");
+}
+
+void Application::BindDescriptorSet(const VkCommandBuffer& cmdBuffer)
+{
+	// Binding Texture Image Descriptor Set
+	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		vulkanPipeline->getHandles().pipelineLayout,
+		textureImageDescriptor->getHandles().setIndex, 1,
+		&textureImageDescriptor->getHandles().descriptorSet,
+		0, nullptr);
+	
+	// Binding UBO Descriptor Set
+	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		vulkanPipeline->getHandles().pipelineLayout,
+		uniformDescriptors[currentFrame]->getSetIndex() , 1,
+		&uniformDescriptors[currentFrame]->getHandles().descriptorSet,
+		0, nullptr);
 }

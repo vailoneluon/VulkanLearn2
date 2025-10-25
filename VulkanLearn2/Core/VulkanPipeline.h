@@ -4,9 +4,6 @@
 struct RenderPassHandles;
 struct SwapchainHandles;
 class VulkanDescriptor;
-//#include "VulkanRenderPass.h"
-//#include "VulkanSwapchain.h"
-//#include "VulkanDescriptor.h"
 
 
 struct PipelineHandles
@@ -37,9 +34,9 @@ private:
 	static vector<char> readShaderFile(const string& filename);
 
 	// Hàm helper tạo VkShaderModule
-	VkShaderModule createShaderModule(const vector<char>& code);
+	VkShaderModule createShaderModule(const string& shaderFilePath);
 
-	void createPipelineLayout(vector<VkDescriptorSetLayout>& descSetLayouts);
+	void createPipelineLayout(const vector<VulkanDescriptor*>& descriptors);
 
 	// Hàm tạo Pipeline chính
 	void createGraphicsPipeline(
