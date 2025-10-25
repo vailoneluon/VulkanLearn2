@@ -1,5 +1,6 @@
+#include "pch.h"
 #include "VulkanCommandManager.h"
-#include "../Utils/ErrorHelper.h"
+
 
 VulkanCommandManager::VulkanCommandManager(const VulkanHandles& vulkanHandles, int MAX_FRAME_IN_FLIGHT):
 	vk(vulkanHandles)

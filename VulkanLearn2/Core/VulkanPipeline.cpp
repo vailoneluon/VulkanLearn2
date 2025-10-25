@@ -1,25 +1,22 @@
-﻿#include "VulkanPipeline.h"
-#include "../Utils/ErrorHelper.h"
-#include <fstream>
-#include <iostream>
-#include "VulkanTypes.h"
+﻿#include "pch.h"
+#include "VulkanPipeline.h"
+#include "VulkanRenderPass.h"
+#include "VulkanSwapchain.h"
+#include "VulkanDescriptor.h"
 
 VulkanPipeline::VulkanPipeline(
 	const VulkanHandles& vulkanHandles,
 	const RenderPassHandles& renderPassHandles,
 	const SwapchainHandles& swapchainHandles,
 	VkSampleCountFlagBits msaaSamples,
-	vector<VkDescriptorSetLayout>& descSetLayouts)
+	vector<VulkanDescriptor*>& descriptors)
 	: vk(vulkanHandles)
 {
-	auto vertShaderCode = readShaderFile("Shaders/vert.spv");
-	auto fragShaderCode = readShaderFile("Shaders/frag.spv");
-
-	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+	VkShaderModule vertShaderModule = createShaderModule("Shaders/vert.spv");
+	VkShaderModule fragShaderModule = createShaderModule("Shaders/frag.spv");
 
 	// Tạo Pipeline Layout 
-	createPipelineLayout(descSetLayouts);
+	createPipelineLayout(descriptors);
 
 	// Tạo Graphics Pipeline
 	createGraphicsPipeline(
@@ -31,8 +28,6 @@ VulkanPipeline::VulkanPipeline(
 	);
 
 	// Hủy shader module sau khi pipeline đã được tạo
-	// Con cac
-	// Dau buoi
 	vkDestroyShaderModule(vk.device, fragShaderModule, nullptr);
 	vkDestroyShaderModule(vk.device, vertShaderModule, nullptr);
 }
@@ -64,8 +59,10 @@ vector<char> VulkanPipeline::readShaderFile(const string& filename)
 }
 
 // Hàm tạo Shader Module từ mã SPIR-V
-VkShaderModule VulkanPipeline::createShaderModule(const vector<char>& code)
+VkShaderModule VulkanPipeline::createShaderModule(const string& shaderFilePath)
 {
+	vector<char> code = readShaderFile(shaderFilePath);
+
 	VkShaderModuleCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	createInfo.codeSize = code.size();
@@ -77,8 +74,21 @@ VkShaderModule VulkanPipeline::createShaderModule(const vector<char>& code)
 }
 
 // Tạo một Pipeline Layout 
-void VulkanPipeline::createPipelineLayout(vector<VkDescriptorSetLayout>& descSetLayouts)
+void VulkanPipeline::createPipelineLayout(const vector<VulkanDescriptor*>& descriptors)
 {
+	// Sắp xếp layout theo thứ tự SetIndex.
+	vector<VkDescriptorSetLayout> descSetLayouts;
+	map<uint32_t, VkDescriptorSetLayout> descSetLayoutMaps;
+	for (const auto* descriptor : descriptors)
+	{
+		descSetLayoutMaps[descriptor->getSetIndex()] = descriptor->getHandles().descriptorSetLayout;
+	}
+	for (const auto&[setIndex, descriptorSetLayout] : descSetLayoutMaps)
+	{
+		descSetLayouts.push_back(descriptorSetLayout);
+	}
+
+	// Tạo Pipeline Layout 
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = descSetLayouts.size(); 
@@ -154,11 +164,11 @@ void VulkanPipeline::createGraphicsPipeline(
 	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizer.depthClampEnable = VK_FALSE;
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
-	rasterizer.polygonMode = VK_POLYGON_MODE_LINE;
+	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
-	//rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.cullMode = VK_CULL_MODE_NONE;
-	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+	//rasterizer.cullMode = VK_CULL_MODE_NONE;
+	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 
 	// 6. Multisampling (Sử dụng MSAA từ class FrameBuffer)

@@ -66,6 +66,15 @@
     <ClCompile Include="Utils\stb_image.cpp">
       <Filter>Header Files\Utils</Filter>
     </ClCompile>
+    <ClCompile Include="Core\VulkanSampler.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\VulkanDescriptor.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Window.h">
@@ -109,6 +118,15 @@
     </ClInclude>
     <ClInclude Include="Core\VulkanDescriptorManager.h">
       <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\VulkanSampler.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\VulkanDescriptor.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

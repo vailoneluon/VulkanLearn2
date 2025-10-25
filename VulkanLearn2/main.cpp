@@ -1,7 +1,18 @@
-﻿#include "main.h"
-#include "Utils/ErrorHelper.h" 
-#include <stdexcept>          
-#include <chrono>
+﻿#include "pch.h"
+#include "main.h"
+
+#include "Core/Window.h"
+#include "Core/VulkanSwapchain.h"
+#include "Core/VulkanImage.h"
+#include "Core/VulkanRenderPass.h"
+#include "Core/VulkanFrameBuffer.h"
+#include "Core/VulkanCommandManager.h"
+#include "Core/VulkanPipeline.h"
+#include "Core/VulkanSyncManager.h"
+#include "Core/VulkanBuffer.h"
+#include "Core/VulkanDescriptorManager.h"
+#include "Core/VulkanSampler.h"
+#include "Core/VulkanDescriptor.h"
 
 int main()
 {
@@ -21,38 +32,29 @@ Application::Application()
 
 	vulkanCommandManager = new VulkanCommandManager(vulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 
-	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), vulkanCommandManager, MAX_FRAMES_IN_FLIGHT);
+	vulkanSampler = new VulkanSampler(vulkanContext->getVulkanHandles());
+	CreateUniformBuffer();
+	CreateTextureImage(vulkanContext->getVulkanHandles());
 
-	vector<VkDescriptorSetLayout> descSetLayouts{ vulkanDescriptorManager->getHandles().descriptorSetLayout };
+	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), descriptors);
+	UpdateDescriptorBinding();
+
+
 	vulkanPipeline = new VulkanPipeline(
 		vulkanContext->getVulkanHandles(),
 		vulkanRenderPass->getHandles(),
 		vulkanSwapchain->getHandles(),
 		MSAA_SAMPLES,
-		descSetLayouts);
+		descriptors);
 
 
 	vulkanSyncManager = new VulkanSyncManager(vulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT, vulkanSwapchain->getHandles().swapchainImageCount);
 
-	CreateCacheHandles();
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	CreateVertexBuffer();
 	CreateIndexBuffer();
 
-	CreateTextureImage();
-
-}
-
-void Application::CreateCacheHandles()
-{
-	vulkanHandles = vulkanContext->getVulkanHandles();
-	swapchainHandles = vulkanSwapchain->getHandles();
-	renderPassHandles = vulkanRenderPass->getHandles();
-	frameBufferHandles = vulkanFrameBuffer->getHandles();
-	commandManagerHandles = vulkanCommandManager->getHandles();
-	descriptorManagerHandles = vulkanDescriptorManager->getHandles();
-	pipelineHandles = vulkanPipeline->getHandles();
 }
 
 void Application::CreateVertexBuffer()
@@ -63,12 +65,12 @@ void Application::CreateVertexBuffer()
 
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.queueFamilyIndexCount = 1;
-	bufferInfo.pQueueFamilyIndices = &vulkanHandles.queueFamilyIndices.GraphicQueueIndex;
+	bufferInfo.pQueueFamilyIndices = &vulkanContext->getVulkanHandles().queueFamilyIndices.GraphicQueueIndex;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	bufferInfo.size = bufferSize;
 	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
-	vertexBuffer = new VulkanBuffer(vulkanHandles, vulkanCommandManager, bufferInfo, true);
+	vertexBuffer = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, true);
 
 	vertexBuffer->UploadData(vertices.data(), bufferSize, 0);
 }
@@ -81,19 +83,91 @@ void Application::CreateIndexBuffer()
 
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.queueFamilyIndexCount = 1;
-	bufferInfo.pQueueFamilyIndices = &vulkanHandles.queueFamilyIndices.GraphicQueueIndex;
+	bufferInfo.pQueueFamilyIndices = &vulkanContext->getVulkanHandles().queueFamilyIndices.GraphicQueueIndex;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	bufferInfo.size = bufferSize;
 	bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-	indexBuffer = new VulkanBuffer(vulkanHandles, vulkanCommandManager, bufferInfo, true);
+	indexBuffer = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, true);
 
 	indexBuffer->UploadData(indices.data(), bufferSize, 0);
 }
 
-void Application::CreateTextureImage()
+void Application::CreateTextureImage(const VulkanHandles& vk)
 {
-	textureImage = new VulkanImage(vulkanHandles, vulkanCommandManager, "Images/image.jpg", true);
+	textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, "Images/image.jpg", true);
+
+	BindingElementInfo textureImageElementInfo;
+	textureImageElementInfo.binding = 0;
+	textureImageElementInfo.descriptorCount = 1;
+	textureImageElementInfo.pImmutableSamplers = nullptr;
+	textureImageElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	textureImageElementInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	vector<BindingElementInfo> textureBindings{ textureImageElementInfo };
+	textureImageDescriptor = new VulkanDescriptor(vk, textureBindings, 0);
+	descriptors.push_back(textureImageDescriptor);
+}
+
+void Application::CreateUniformBuffer()
+{
+	uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.queueFamilyIndexCount = 1;
+	bufferInfo.pQueueFamilyIndices = &vulkanContext->getVulkanHandles().queueFamilyIndices.GraphicQueueIndex;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.size = sizeof(UniformBufferObject);
+	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+
+	uniformDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		uniformBuffers[i] = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, false);
+
+		BindingElementInfo uniformElementInfo;
+		uniformElementInfo.binding = 0;
+		uniformElementInfo.pImmutableSamplers = nullptr;
+		uniformElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uniformElementInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		uniformElementInfo.descriptorCount = 1;
+
+		vector<BindingElementInfo> uniformBindings{ uniformElementInfo };
+
+		uniformDescriptors[i] = new VulkanDescriptor(vulkanContext->getVulkanHandles(), uniformBindings, 1);
+		descriptors.push_back(uniformDescriptors[i]);
+	}
+}
+
+void Application::UpdateDescriptorBinding()
+{
+	// Image Binding
+	VkDescriptorImageInfo textureDescImageInfo{};
+	textureDescImageInfo.sampler = vulkanSampler->getSampler();
+	textureDescImageInfo.imageView = textureImage->getHandles().imageView;
+	textureDescImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	ImageBindingUpdateInfo imageBindingInfo{};
+	imageBindingInfo.binding = 0;
+	imageBindingInfo.imageInfo = textureDescImageInfo;
+
+	textureImageDescriptor->UpdateImageBinding(1, &imageBindingInfo);
+
+	// UBO Binding
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		VkDescriptorBufferInfo uniformBufferInfo{};
+		uniformBufferInfo.buffer = uniformBuffers[i]->getHandles().buffer;
+		uniformBufferInfo.offset = 0;
+		uniformBufferInfo.range = uniformBuffers[i]->getHandles().bufferSize;
+
+		BufferBindingUpdateInfo bufferBindingInfo{};
+		bufferBindingInfo.binding = 0;
+		bufferBindingInfo.bufferInfo = uniformBufferInfo;
+
+		uniformDescriptors[i]->UpdateBufferBinding(1, &bufferBindingInfo);
+	}
 }
 
 void Application::UpdateUniforms()
@@ -104,24 +178,34 @@ void Application::UpdateUniforms()
 	float time = chrono::duration<float, chrono::seconds::period>(currentTime - startTime).count();
 
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	ubo.view = glm::lookAt(glm::vec3(0.0f, 2.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	ubo.proj = glm::perspective(glm::radians(45.0f), swapchainHandles.swapChainExtent.width / (float)swapchainHandles.swapChainExtent.height, 0.1f, 10.0f);
+	ubo.view = glm::lookAt(glm::vec3(0.0f, 1.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	ubo.proj = glm::perspective(glm::radians(45.0f), vulkanSwapchain->getHandles().swapChainExtent.width / (float)vulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
 
 	ubo.proj[1][1] *= -1;
 
-	vulkanDescriptorManager->UpdateUniformBuffer(ubo, currentFrame);
+	uniformBuffers[currentFrame]->UploadData(&ubo, sizeof(ubo), 0);
 }
 
 Application::~Application()
 {
-	vkDeviceWaitIdle(vulkanHandles.device);
+	vkDeviceWaitIdle(vulkanContext->getVulkanHandles().device);
+
 
 	delete(vertexBuffer);
 	delete(indexBuffer);
+	delete(vulkanSampler);
+
+
 	delete(textureImage);
 
-	delete(vulkanSyncManager);
+	for (auto uniformBuffer : uniformBuffers)
+	{
+		delete(uniformBuffer);
+	}
+
 	delete(vulkanDescriptorManager);
+
+	delete(vulkanSyncManager);
 	delete(vulkanPipeline);
 	delete(vulkanCommandManager);
 	delete(vulkanFrameBuffer);
@@ -139,15 +223,15 @@ void Application::Loop()
 		DrawFrame();
 	}
 
-	vkDeviceWaitIdle(vulkanHandles.device);
+	vkDeviceWaitIdle(vulkanContext->getVulkanHandles().device);
 }
 
 void Application::DrawFrame()
 {
-	vkWaitForFences(vulkanHandles.device, 1, &vulkanSyncManager->getCurrentFence(currentFrame), VK_TRUE, UINT64_MAX);
+	vkWaitForFences(vulkanContext->getVulkanHandles().device, 1, &vulkanSyncManager->getCurrentFence(currentFrame), VK_TRUE, UINT64_MAX);
 
 	uint32_t imageIndex;
-	VkResult result = vkAcquireNextImageKHR(vulkanHandles.device, swapchainHandles.swapchain, UINT64_MAX,
+	VkResult result = vkAcquireNextImageKHR(vulkanContext->getVulkanHandles().device, vulkanSwapchain->getHandles().swapchain, UINT64_MAX,
 		vulkanSyncManager->getCurrentImageAvailableSemaphore(currentFrame),
 		VK_NULL_HANDLE, &imageIndex);
 
@@ -160,20 +244,20 @@ void Application::DrawFrame()
 		throw runtime_error("FAILED TO ACQUIRE SWAPCHAIN IMAGE");
 	}
 
-	vkResetFences(vulkanHandles.device, 1, &vulkanSyncManager->getCurrentFence(currentFrame));
+	vkResetFences(vulkanContext->getVulkanHandles().device, 1, &vulkanSyncManager->getCurrentFence(currentFrame));
 
 	// Update Data For Frame
 	UpdateUniforms();
 
-	vkResetCommandBuffer(commandManagerHandles.commandBuffers[currentFrame], 0);
-	RecordCommandBuffer(commandManagerHandles.commandBuffers[currentFrame], imageIndex);
+	vkResetCommandBuffer(vulkanCommandManager->getHandles().commandBuffers[currentFrame], 0);
+	RecordCommandBuffer(vulkanCommandManager->getHandles().commandBuffers[currentFrame], imageIndex);
 
 	VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandManagerHandles.commandBuffers[currentFrame];
+	submitInfo.pCommandBuffers = &vulkanCommandManager->getHandles().commandBuffers[currentFrame];
 
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = &vulkanSyncManager->getCurrentImageAvailableSemaphore(currentFrame);
@@ -182,19 +266,19 @@ void Application::DrawFrame()
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = &vulkanSyncManager->getCurrentRenderFinishedSemaphore(imageIndex);
 
-	VK_CHECK(vkQueueSubmit(vulkanHandles.graphicQueue, 1, &submitInfo, vulkanSyncManager->getCurrentFence(currentFrame)),
+	VK_CHECK(vkQueueSubmit(vulkanContext->getVulkanHandles().graphicQueue, 1, &submitInfo, vulkanSyncManager->getCurrentFence(currentFrame)),
 		"FAILED TO SUBMIT COMMAND BUFFER");
 
 
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.swapchainCount = 1;
-	presentInfo.pSwapchains = &swapchainHandles.swapchain;
+	presentInfo.pSwapchains = &vulkanSwapchain->getHandles().swapchain;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = &vulkanSyncManager->getCurrentRenderFinishedSemaphore(imageIndex);
 	presentInfo.pImageIndices = &imageIndex;
 
-	result = vkQueuePresentKHR(vulkanHandles.presentQueue, &presentInfo);
+	result = vkQueuePresentKHR(vulkanContext->getVulkanHandles().presentQueue, &presentInfo);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
 	{
@@ -224,14 +308,14 @@ void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageI
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassBeginInfo.clearValueCount = 3;
 	renderPassBeginInfo.pClearValues = clearValues;
-	renderPassBeginInfo.framebuffer = frameBufferHandles.frameBuffers[imageIndex];
-	renderPassBeginInfo.renderPass = renderPassHandles.renderPass;
-	renderPassBeginInfo.renderArea.extent = swapchainHandles.swapChainExtent;
+	renderPassBeginInfo.framebuffer = vulkanFrameBuffer->getHandles().frameBuffers[imageIndex];
+	renderPassBeginInfo.renderPass = vulkanRenderPass->getHandles().renderPass;
+	renderPassBeginInfo.renderArea.extent = vulkanSwapchain->getHandles().swapChainExtent;
 	renderPassBeginInfo.renderArea.offset = { 0, 0 };
 
 	vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineHandles.graphicsPipeline);
+	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline->getHandles().graphicsPipeline);
 
 	// Bind VertexBuffer and IndexBuffer
 	VkDeviceSize offset = 0;
@@ -239,15 +323,28 @@ void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageI
 	vkCmdBindIndexBuffer(cmdBuffer, indexBuffer->getHandles().buffer, 0, VK_INDEX_TYPE_UINT16);
 
 	// Bind Descriptor Set
-	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-		pipelineHandles.pipelineLayout, 
-		0, 1, 
-		&descriptorManagerHandles.descriptorSets[currentFrame], 
-		0, nullptr);
+	BindDescriptorSet(cmdBuffer);
 
 	vkCmdDrawIndexed(cmdBuffer, indices.size(), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(cmdBuffer);
 
 	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "FAILED TO END COMMAND BUFFER");
+}
+
+void Application::BindDescriptorSet(const VkCommandBuffer& cmdBuffer)
+{
+	// Binding Texture Image Descriptor Set
+	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		vulkanPipeline->getHandles().pipelineLayout,
+		textureImageDescriptor->getHandles().setIndex, 1,
+		&textureImageDescriptor->getHandles().descriptorSet,
+		0, nullptr);
+	
+	// Binding UBO Descriptor Set
+	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		vulkanPipeline->getHandles().pipelineLayout,
+		uniformDescriptors[currentFrame]->getSetIndex() , 1,
+		&uniformDescriptors[currentFrame]->getHandles().descriptorSet,
+		0, nullptr);
 }

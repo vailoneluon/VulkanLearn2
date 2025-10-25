@@ -1,42 +1,32 @@
 #pragma once
-#include <vulkan/vulkan.h>
-#include <vector>
 #include "VulkanContext.h"
-#include "VulkanCommandManager.h"
-#include "VulkanBuffer.h"
-#include "VulkanTypes.h"
+#include "VulkanDescriptor.h"
 
-using namespace std;
 
 struct DescriptorManagerHandles
 {
 	VkDescriptorPool descriptorPool;
-	VkDescriptorSetLayout descriptorSetLayout;
-	vector<VkDescriptorSet> descriptorSets;
+
+	vector<VulkanDescriptor*> descriptors;
 };
 
 class VulkanDescriptorManager
 {
 public:
-	VulkanDescriptorManager(const VulkanHandles& vulkanHandles, VulkanCommandManager* const cmd, int MAX_FRAMES_IN_FLIGHT);
+	VulkanDescriptorManager(const VulkanHandles& vulkanHandles, vector<VulkanDescriptor*>& vulkanDescriptors);
 	~VulkanDescriptorManager();
 
 	const DescriptorManagerHandles& getHandles() const { return handles; }
 
-	void UpdateUniformBuffer(UniformBufferObject& ubo, int currentFrame);
-
 private:
 	const VulkanHandles& vk;
-	VulkanCommandManager* const cmd;
-	int MAX_FRAMES_IN_FLIGHT;
-
-	vector<VulkanBuffer*> uboBuffers;
 
 	DescriptorManagerHandles handles;
 
-	void CreateUniformBuffer();
+	unordered_map<VkDescriptorType, uint32_t> descriptorCountByType;
 
-	void CreateDescriptorSetLayout();
 	void CreateDescriptorPool();
-	void CreateDescriptorSets();
+	void AllocateDescriptorSet();
+
+	unordered_map<VkDescriptorType, uint32_t> countDescriptorByType();
 };

@@ -1,11 +1,8 @@
 #pragma once
-#include <vulkan/vulkan.h>
-#include <vector>
 #include "VulkanContext.h"
-#include "VulkanSwapchain.h"
 #include "VulkanImage.h"
+#include "VulkanSwapchain.h"
 #include "VulkanRenderPass.h"
-using namespace std;
 
 struct FrameBufferHandles 
 {

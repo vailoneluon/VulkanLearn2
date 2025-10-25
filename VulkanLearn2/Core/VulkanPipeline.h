@@ -1,12 +1,10 @@
 ﻿#pragma once
-#include <vulkan/vulkan.h>
-#include <string>
-#include <vector>
 #include "VulkanContext.h"
-#include "VulkanRenderPass.h"
-#include "VulkanSwapchain.h"
 
-using namespace std;
+struct RenderPassHandles;
+struct SwapchainHandles;
+class VulkanDescriptor;
+
 
 struct PipelineHandles
 {
@@ -22,7 +20,7 @@ public:
 		const RenderPassHandles& renderPassHandles,
 		const SwapchainHandles& swapchainHandles,
 		VkSampleCountFlagBits msaaSamples,
-		vector<VkDescriptorSetLayout>& descSetLayouts
+		vector<VulkanDescriptor*>& descriptors
 	);
 	~VulkanPipeline();
 
@@ -36,10 +34,9 @@ private:
 	static vector<char> readShaderFile(const string& filename);
 
 	// Hàm helper tạo VkShaderModule
-	VkShaderModule createShaderModule(const vector<char>& code);
+	VkShaderModule createShaderModule(const string& shaderFilePath);
 
-	// Hàm tạo Pipeline Layout rỗng (như bạn yêu cầu)
-	void createPipelineLayout(vector<VkDescriptorSetLayout>& descSetLayouts);
+	void createPipelineLayout(const vector<VulkanDescriptor*>& descriptors);
 
 	// Hàm tạo Pipeline chính
 	void createGraphicsPipeline(
