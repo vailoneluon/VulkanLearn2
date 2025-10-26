@@ -30,7 +30,7 @@ void VulkanSwapchain::querrySwapchainSupportDetails(VkPhysicalDevice physDevice,
 	handles.swapchainSuportDetails.formats.resize(formatCount);
 	if (formatCount == 0)
 	{
-		throw runtime_error("DONT HAVE SUPPORT SURFACE FORMAT");
+		throw std::runtime_error("DONT HAVE SUPPORT SURFACE FORMAT");
 	}
 	vkGetPhysicalDeviceSurfaceFormatsKHR(physDevice, surface, &formatCount, handles.swapchainSuportDetails.formats.data());
 
@@ -38,7 +38,7 @@ void VulkanSwapchain::querrySwapchainSupportDetails(VkPhysicalDevice physDevice,
 	vkGetPhysicalDeviceSurfacePresentModesKHR(physDevice, surface, &presentModeCount, nullptr);
 	if (presentModeCount == 0)
 	{
-		throw runtime_error("DONT HAVE SUPPORT PRESENT MODE");
+		throw std::runtime_error("DONT HAVE SUPPORT PRESENT MODE");
 	}
 	handles.swapchainSuportDetails.presentModes.resize(presentModeCount);
 	vkGetPhysicalDeviceSurfacePresentModesKHR(physDevice, surface, &presentModeCount, handles.swapchainSuportDetails.presentModes.data());
@@ -64,8 +64,8 @@ void VulkanSwapchain::chooseSwapchainExtent()
 		glfwGetFramebufferSize(window, &width, &height);
 
 		extent = { static_cast<uint32_t> (width), static_cast<uint32_t>(height) };
-		extent.width = clamp(extent.width, handles.swapchainSuportDetails.capabilities.minImageExtent.width, handles.swapchainSuportDetails.capabilities.maxImageExtent.width);
-		extent.height = clamp(extent.height, handles.swapchainSuportDetails.capabilities.minImageExtent.height, handles.swapchainSuportDetails.capabilities.maxImageExtent.height);
+		extent.width = std::clamp(extent.width, handles.swapchainSuportDetails.capabilities.minImageExtent.width, handles.swapchainSuportDetails.capabilities.maxImageExtent.width);
+		extent.height = std::clamp(extent.height, handles.swapchainSuportDetails.capabilities.minImageExtent.height, handles.swapchainSuportDetails.capabilities.maxImageExtent.height);
 		handles.swapChainExtent = extent;
 		return;
 	}
@@ -138,7 +138,7 @@ void VulkanSwapchain::CreateSwapchain()
 
 void VulkanSwapchain::CreateSwapchainImageview()
 {
-	vector<VkImage> swapchainImages;
+	std::vector<VkImage> swapchainImages;
 
 	vkGetSwapchainImagesKHR(vk.device, handles.swapchain, &handles.swapchainImageCount, nullptr);
 	swapchainImages.resize(handles.swapchainImageCount);

@@ -114,5 +114,5 @@ uint32_t VulkanBuffer::findMemoryTypeIndex(uint32_t memoryTypeBits, VkMemoryProp
 			return i;
 		}
 	}
-	throw runtime_error("FAILED TO FIND SUITABLE MEMMORY TYPE");
+	throw std::runtime_error("FAILED TO FIND SUITABLE MEMMORY TYPE");
 }

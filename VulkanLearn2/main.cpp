@@ -76,7 +76,7 @@ Application::Application()
 
 }
 
-void Application::LoadModelFromFile(const string& filePath)
+void Application::LoadModelFromFile(const std::string& filePath)
 {
 	modelData = modelLoader.LoadModelFromFile(filePath);
 }
@@ -128,7 +128,7 @@ void Application::CreateTextureImage(const VulkanHandles& vk)
 	textureImageElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	textureImageElementInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	vector<BindingElementInfo> textureBindings{ textureImageElementInfo };
+	std::vector<BindingElementInfo> textureBindings{ textureImageElementInfo };
 	textureImageDescriptor = new VulkanDescriptor(vk, textureBindings, 0);
 	descriptors.push_back(textureImageDescriptor);
 }
@@ -157,7 +157,7 @@ void Application::CreateUniformBuffer()
 		uniformElementInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		uniformElementInfo.descriptorCount = 1;
 
-		vector<BindingElementInfo> uniformBindings{ uniformElementInfo };
+		std::vector<BindingElementInfo> uniformBindings{ uniformElementInfo };
 
 		uniformDescriptors[i] = new VulkanDescriptor(vulkanContext->getVulkanHandles(), uniformBindings, 1);
 		descriptors.push_back(uniformDescriptors[i]);
@@ -196,10 +196,10 @@ void Application::UpdateDescriptorBinding()
 
 void Application::UpdateUniforms()
 {
-	static auto startTime = chrono::high_resolution_clock::now();
+	static auto startTime = std::chrono::high_resolution_clock::now();
 
-	auto currentTime = chrono::high_resolution_clock::now();
-	float time = chrono::duration<float, chrono::seconds::period>(currentTime - startTime).count();
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 	//ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	pushConstantData.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -266,7 +266,7 @@ void Application::DrawFrame()
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
 	{
-		throw runtime_error("FAILED TO ACQUIRE SWAPCHAIN IMAGE");
+		throw std::runtime_error("FAILED TO ACQUIRE SWAPCHAIN IMAGE");
 	}
 
 	vkResetFences(vulkanContext->getVulkanHandles().device, 1, &vulkanSyncManager->getCurrentFence(currentFrame));
@@ -310,7 +310,7 @@ void Application::DrawFrame()
 	}
 	else if (result != VK_SUCCESS)
 	{
-		throw runtime_error("FAILED TO PRESENT SWAPCHAIN IMAGE");
+		throw std::runtime_error("FAILED TO PRESENT SWAPCHAIN IMAGE");
 	}
 
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;

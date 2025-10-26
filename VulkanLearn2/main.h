@@ -30,7 +30,7 @@ private:
 	ModelLoader modelLoader;
 	ModelData modelData{};
 
-	void LoadModelFromFile(const string& filePath);
+	void LoadModelFromFile(const std::string& filePath);
 
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -59,13 +59,13 @@ private:
 	VulkanBuffer* vertexBuffer;
 	VulkanBuffer* indexBuffer;
 
-	vector<VulkanDescriptor*> descriptors;
+	std::vector<VulkanDescriptor*> descriptors;
 	VulkanImage* textureImage;
 	VulkanDescriptor* textureImageDescriptor;
 
 	UniformBufferObject ubo{};
-	vector<VulkanBuffer*> uniformBuffers;
-	vector<VulkanDescriptor*> uniformDescriptors;
+	std::vector<VulkanBuffer*> uniformBuffers;
+	std::vector<VulkanDescriptor*> uniformDescriptors;
 
 	PushConstantData pushConstantData;
 

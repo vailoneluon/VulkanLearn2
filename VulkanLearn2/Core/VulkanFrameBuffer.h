@@ -6,7 +6,7 @@
 
 struct FrameBufferHandles 
 {
-	vector<VkFramebuffer> frameBuffers;
+	std::vector<VkFramebuffer> frameBuffers;
 	VulkanImage* colorImage;
 	VulkanImage* depthStencilImage;
 };

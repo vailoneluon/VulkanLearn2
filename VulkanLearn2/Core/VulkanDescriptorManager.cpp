@@ -2,7 +2,7 @@
 #include "VulkanDescriptorManager.h"
 
 
-VulkanDescriptorManager::VulkanDescriptorManager(const VulkanHandles& vulkanHandles, vector<VulkanDescriptor*>& vulkanDescriptors) :
+VulkanDescriptorManager::VulkanDescriptorManager(const VulkanHandles& vulkanHandles, std::vector<VulkanDescriptor*>& vulkanDescriptors) :
 	vk(vulkanHandles)
 {
 	handles.descriptors.insert(handles.descriptors.end(), vulkanDescriptors.begin(), vulkanDescriptors.end());
@@ -26,7 +26,7 @@ void VulkanDescriptorManager::CreateDescriptorPool()
 {
 	descriptorCountByType = countDescriptorByType();
 
-	vector<VkDescriptorPoolSize> poolSizes;
+	std::vector<VkDescriptorPoolSize> poolSizes;
 
 	for (const auto&[descType, count] : descriptorCountByType)
 	{
@@ -54,9 +54,9 @@ void VulkanDescriptorManager::AllocateDescriptorSet()
 	}
 }
 
-unordered_map<VkDescriptorType, glm::uint32_t> VulkanDescriptorManager::countDescriptorByType()
+std::unordered_map<VkDescriptorType, glm::uint32_t> VulkanDescriptorManager::countDescriptorByType()
 {
-	unordered_map<VkDescriptorType, uint32_t> countAns;
+	std::unordered_map<VkDescriptorType, uint32_t> countAns;
 
 	for (const auto& descriptor : handles.descriptors)
 	{

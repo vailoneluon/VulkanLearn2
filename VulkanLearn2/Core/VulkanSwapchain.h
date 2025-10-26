@@ -4,8 +4,8 @@
 struct SwapchainSupportDetails
 {
 	VkSurfaceCapabilitiesKHR capabilities;
-	vector<VkSurfaceFormatKHR> formats;
-	vector<VkPresentModeKHR> presentModes;
+	std::vector<VkSurfaceFormatKHR> formats;
+	std::vector<VkPresentModeKHR> presentModes;
 
 	VkSurfaceFormatKHR chosenFormat;
 	VkPresentModeKHR chosenPresentMode;
@@ -22,7 +22,7 @@ struct SwapchainHandles
 	SwapchainSupportDetails swapchainSuportDetails;
 	VkExtent2D swapChainExtent;
 
-	vector<VkImageView> swapchainImageViews;
+	std::vector<VkImageView> swapchainImageViews;
 };
 
 class VulkanSwapchain

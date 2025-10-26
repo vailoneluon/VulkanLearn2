@@ -2,7 +2,7 @@
 #include "VulkanContext.h"
 
 
-VulkanContext::VulkanContext(GLFWwindow* window, vector<const char*> instanceExtensions)
+VulkanContext::VulkanContext(GLFWwindow* window, std::vector<const char*> instanceExtensions)
 {
 	CreateInstance(instanceExtensions);
 	CreateSurface(window);
@@ -20,7 +20,7 @@ VulkanContext::~VulkanContext()
 	vkDestroyInstance(handles.instance, nullptr);
 }
 
-void VulkanContext::CreateInstance(vector<const char*> extensions)
+void VulkanContext::CreateInstance(std::vector<const char*> extensions)
 {
 	instanceExtensionsRequired.insert(instanceExtensionsRequired.end(), extensions.begin(), extensions.end());
 
@@ -55,7 +55,7 @@ void VulkanContext::ChoosePhysicalDevice()
 	// Sử dụng handles.instance
 	vkEnumeratePhysicalDevices(handles.instance, &physicalDeviceCount, nullptr);
 
-	vector<VkPhysicalDevice> physicalDevices;
+	std::vector<VkPhysicalDevice> physicalDevices;
 	physicalDevices.resize(physicalDeviceCount);
 	// Sử dụng handles.instance
 	vkEnumeratePhysicalDevices(handles.instance, &physicalDeviceCount, physicalDevices.data());
@@ -70,7 +70,7 @@ void VulkanContext::ChoosePhysicalDevice()
 			VkPhysicalDeviceProperties deviceProperty{};
 			// Sử dụng handles.physicalDevice
 			vkGetPhysicalDeviceProperties(handles.physicalDevice, &deviceProperty);
-			cout << "Selected GPU: " << deviceProperty.deviceName << endl;
+			std::cout << "Selected GPU: " << deviceProperty.deviceName << std::endl;
 
 			break;
 		}
@@ -85,10 +85,10 @@ void VulkanContext::ChoosePhysicalDevice()
 
 void VulkanContext::CreateLogicalDevice()
 {
-	vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	const float queuePriority = 1.0f;
 
-	set<uint32_t> queueFamilyIndicesSet = { handles.queueFamilyIndices.GraphicQueueIndex, handles.queueFamilyIndices.PresentQueueIndex };
+	std::set<uint32_t> queueFamilyIndicesSet = { handles.queueFamilyIndices.GraphicQueueIndex, handles.queueFamilyIndices.PresentQueueIndex };
 	for (uint32_t queueFamily : queueFamilyIndicesSet)
 	{
 		VkDeviceQueueCreateInfo queueInfo{};
@@ -129,7 +129,7 @@ bool VulkanContext::isPhysicalDeviceSuitable(VkPhysicalDevice physDevice)
 	// Check have Graphic and Present Queue
 	uint32_t queueFamilyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, nullptr);
-	vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyCount);
+	std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, queueFamilyProperties.data());
 
 	for (uint32_t i = 0; i < queueFamilyCount; i++)
@@ -161,10 +161,10 @@ bool VulkanContext::isPhysicalDeviceSuitable(VkPhysicalDevice physDevice)
 	uint32_t physExtensionCount = 0;
 	vkEnumerateDeviceExtensionProperties(physDevice, nullptr, &physExtensionCount, nullptr);
 
-	vector<VkExtensionProperties> deviceExtensions(physExtensionCount);
+	std::vector<VkExtensionProperties> deviceExtensions(physExtensionCount);
 	vkEnumerateDeviceExtensionProperties(physDevice, nullptr, &physExtensionCount, deviceExtensions.data());
 
-	set<string> requiredExtensions(physicalRequireDeviceExtensions.begin(), physicalRequireDeviceExtensions.end());
+	std::set<std::string> requiredExtensions(physicalRequireDeviceExtensions.begin(), physicalRequireDeviceExtensions.end());
 
 	for (const auto& extension : deviceExtensions)
 	{

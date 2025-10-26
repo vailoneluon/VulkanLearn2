@@ -2,7 +2,7 @@
 #include "VulkanDescriptor.h"
 
 
-VulkanDescriptor::VulkanDescriptor(const VulkanHandles& vulkanHandles, const vector<BindingElementInfo>& vulkanBindingInfos, uint32_t setIndex):
+VulkanDescriptor::VulkanDescriptor(const VulkanHandles& vulkanHandles, const std::vector<BindingElementInfo>& vulkanBindingInfos, uint32_t setIndex):
 	vk(vulkanHandles), bindingInfos(vulkanBindingInfos)
 {
 	handles.setIndex = setIndex;
@@ -31,9 +31,9 @@ BindingElementInfo VulkanDescriptor::getBindingElementInfo(uint32_t binding)
 	showError("FAILED TO FIND BINDING ELEMENT INFO BY BINDING INDEX");
 }
 
-void VulkanDescriptor::CreateSetLayout(const vector<BindingElementInfo>& vulkanBindingInfos)
+void VulkanDescriptor::CreateSetLayout(const std::vector<BindingElementInfo>& vulkanBindingInfos)
 {
-	vector<VkDescriptorSetLayoutBinding> layoutBindings;
+	std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
 	for (const auto& bindingInfo : vulkanBindingInfos)
 	{
 		VkDescriptorSetLayoutBinding layoutBinding{};
@@ -66,7 +66,7 @@ void VulkanDescriptor::AllocateDescriptorSet(const VkDescriptorPool& descriptorP
 
 void VulkanDescriptor::UpdateImageBinding(int updateCount, const ImageBindingUpdateInfo* pImageBindingInfo)
 {
-	vector<VkWriteDescriptorSet> descriptorSetWrites;
+	std::vector<VkWriteDescriptorSet> descriptorSetWrites;
 	for (int i = 0; i < updateCount; i++)
 	{
 		VkWriteDescriptorSet descriptorSetWrite{};
@@ -90,7 +90,7 @@ void VulkanDescriptor::UpdateImageBinding(int updateCount, const ImageBindingUpd
 
 void VulkanDescriptor::UpdateBufferBinding(int updateCount, const BufferBindingUpdateInfo* pBufferBindingInfo)
 {
-	vector<VkWriteDescriptorSet> descriptorSetWrites;
+	std::vector<VkWriteDescriptorSet> descriptorSetWrites;
 	for (int i = 0; i < updateCount; i++)
 	{
 		VkWriteDescriptorSet descriptorSetWrite{};
@@ -112,7 +112,7 @@ void VulkanDescriptor::UpdateBufferBinding(int updateCount, const BufferBindingU
 	vkUpdateDescriptorSets(vk.device, descriptorSetWrites.size(), descriptorSetWrites.data(), 0, nullptr);
 }
 
-void VulkanDescriptor::CountDescriptorByType(const vector<BindingElementInfo>& bindingInfos)
+void VulkanDescriptor::CountDescriptorByType(const std::vector<BindingElementInfo>& bindingInfos)
 {
 	for (const auto& bindingInfo : bindingInfos)
 	{

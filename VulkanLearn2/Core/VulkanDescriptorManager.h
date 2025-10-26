@@ -7,13 +7,13 @@ struct DescriptorManagerHandles
 {
 	VkDescriptorPool descriptorPool;
 
-	vector<VulkanDescriptor*> descriptors;
+	std::vector<VulkanDescriptor*> descriptors;
 };
 
 class VulkanDescriptorManager
 {
 public:
-	VulkanDescriptorManager(const VulkanHandles& vulkanHandles, vector<VulkanDescriptor*>& vulkanDescriptors);
+	VulkanDescriptorManager(const VulkanHandles& vulkanHandles, std::vector<VulkanDescriptor*>& vulkanDescriptors);
 	~VulkanDescriptorManager();
 
 	const DescriptorManagerHandles& getHandles() const { return handles; }
@@ -23,10 +23,10 @@ private:
 
 	DescriptorManagerHandles handles;
 
-	unordered_map<VkDescriptorType, uint32_t> descriptorCountByType;
+	std::unordered_map<VkDescriptorType, uint32_t> descriptorCountByType;
 
 	void CreateDescriptorPool();
 	void AllocateDescriptorSet();
 
-	unordered_map<VkDescriptorType, uint32_t> countDescriptorByType();
+	std::unordered_map<VkDescriptorType, uint32_t> countDescriptorByType();
 };

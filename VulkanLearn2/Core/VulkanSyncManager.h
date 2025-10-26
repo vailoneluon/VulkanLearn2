@@ -3,9 +3,9 @@
 
 struct SyncManagerHandles
 {
-	vector<VkSemaphore> imageAvailableSemaphores;
-	vector<VkSemaphore> renderFinishedSemaphores;
-	vector<VkFence> inFlightFences;
+	std::vector<VkSemaphore> imageAvailableSemaphores;
+	std::vector<VkSemaphore> renderFinishedSemaphores;
+	std::vector<VkFence> inFlightFences;
 };
 
 class VulkanSyncManager

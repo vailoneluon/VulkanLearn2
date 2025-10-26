@@ -7,7 +7,7 @@ struct DescriptorHandles
 	VkDescriptorSet descriptorSet;
 
 	uint32_t setIndex;
-	unordered_map<VkDescriptorType, uint32_t> descriptorCountByType;
+	std::unordered_map<VkDescriptorType, uint32_t> descriptorCountByType;
 };
 
 
@@ -38,7 +38,7 @@ struct BufferBindingUpdateInfo
 class VulkanDescriptor
 {
 public:
-	VulkanDescriptor(const VulkanHandles& vulkanHandles, const vector<BindingElementInfo>& vulkanBindingInfos, uint32_t setIndex);
+	VulkanDescriptor(const VulkanHandles& vulkanHandles, const std::vector<BindingElementInfo>& vulkanBindingInfos, uint32_t setIndex);
 	~VulkanDescriptor();
 
 	const DescriptorHandles& getHandles() const { return handles; }
@@ -53,10 +53,10 @@ private:
 	const VulkanHandles& vk;
 	DescriptorHandles handles;
 
-	const vector<BindingElementInfo> bindingInfos;
+	const std::vector<BindingElementInfo> bindingInfos;
 	BindingElementInfo getBindingElementInfo(uint32_t binding);
 
-	void CreateSetLayout(const vector<BindingElementInfo>& bindingInfos);
+	void CreateSetLayout(const std::vector<BindingElementInfo>& bindingInfos);
 
-	void CountDescriptorByType(const vector<BindingElementInfo>& bindingInfos);
+	void CountDescriptorByType(const std::vector<BindingElementInfo>& bindingInfos);
 };

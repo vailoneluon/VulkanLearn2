@@ -20,7 +20,7 @@ public:
 		const RenderPassHandles& renderPassHandles,
 		const SwapchainHandles& swapchainHandles,
 		VkSampleCountFlagBits msaaSamples,
-		vector<VulkanDescriptor*>& descriptors
+		std::vector<VulkanDescriptor*>& descriptors
 	);
 	~VulkanPipeline();
 
@@ -31,12 +31,12 @@ private:
 	const VulkanHandles& vk;
 
 	// Hàm helper để đọc file shader
-	static vector<char> readShaderFile(const string& filename);
+	static std::vector<char> readShaderFile(const std::string& filename);
 
 	// Hàm helper tạo VkShaderModule
-	VkShaderModule createShaderModule(const string& shaderFilePath);
+	VkShaderModule createShaderModule(const std::string& shaderFilePath);
 
-	void createPipelineLayout(const vector<VulkanDescriptor*>& descriptors);
+	void createPipelineLayout(const std::vector<VulkanDescriptor*>& descriptors);
 
 	// Hàm tạo Pipeline chính
 	void createGraphicsPipeline(

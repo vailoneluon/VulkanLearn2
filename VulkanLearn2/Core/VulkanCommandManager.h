@@ -4,7 +4,7 @@
 struct CommandManagerHandles
 {
 	VkCommandPool commandPool;
-	vector<VkCommandBuffer> commandBuffers;
+	std::vector<VkCommandBuffer> commandBuffers;
 };
 
 class VulkanCommandManager

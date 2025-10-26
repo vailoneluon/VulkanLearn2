@@ -37,7 +37,7 @@ void VulkanCommandManager::CreateCommandBuffer(int MAX_FRAMES_IN_FLIGHT)
 
 	if (vkAllocateCommandBuffers(vk.device, &allocInfo, handles.commandBuffers.data()) != VK_SUCCESS)
 	{
-		throw runtime_error("FAILED TO ALLOC COMMAND BUFFER");
+		throw std::runtime_error("FAILED TO ALLOC COMMAND BUFFER");
 	}
 }
 

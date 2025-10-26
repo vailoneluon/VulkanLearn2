@@ -9,7 +9,7 @@ VulkanPipeline::VulkanPipeline(
 	const RenderPassHandles& renderPassHandles,
 	const SwapchainHandles& swapchainHandles,
 	VkSampleCountFlagBits msaaSamples,
-	vector<VulkanDescriptor*>& descriptors)
+	std::vector<VulkanDescriptor*>& descriptors)
 	: vk(vulkanHandles)
 {
 	VkShaderModule vertShaderModule = createShaderModule("Shaders/vert.spv");
@@ -39,9 +39,9 @@ VulkanPipeline::~VulkanPipeline()
 }
 
 // Hàm đọc file (thường dùng cho shader)
-vector<char> VulkanPipeline::readShaderFile(const string& filename)
+std::vector<char> VulkanPipeline::readShaderFile(const std::string& filename)
 {
-	ifstream file(filename, ios::ate | ios::binary);
+	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
 	if (!file.is_open())
 	{
@@ -49,7 +49,7 @@ vector<char> VulkanPipeline::readShaderFile(const string& filename)
 	}
 
 	size_t fileSize = (size_t)file.tellg();
-	vector<char> buffer(fileSize);
+	std::vector<char> buffer(fileSize);
 
 	file.seekg(0);
 	file.read(buffer.data(), fileSize);
@@ -59,9 +59,9 @@ vector<char> VulkanPipeline::readShaderFile(const string& filename)
 }
 
 // Hàm tạo Shader Module từ mã SPIR-V
-VkShaderModule VulkanPipeline::createShaderModule(const string& shaderFilePath)
+VkShaderModule VulkanPipeline::createShaderModule(const std::string& shaderFilePath)
 {
-	vector<char> code = readShaderFile(shaderFilePath);
+	std::vector<char> code = readShaderFile(shaderFilePath);
 
 	VkShaderModuleCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -74,11 +74,11 @@ VkShaderModule VulkanPipeline::createShaderModule(const string& shaderFilePath)
 }
 
 // Tạo một Pipeline Layout 
-void VulkanPipeline::createPipelineLayout(const vector<VulkanDescriptor*>& descriptors)
+void VulkanPipeline::createPipelineLayout(const std::vector<VulkanDescriptor*>& descriptors)
 {
 	// Sắp xếp layout theo thứ tự SetIndex.
-	vector<VkDescriptorSetLayout> descSetLayouts;
-	map<uint32_t, VkDescriptorSetLayout> descSetLayoutMaps;
+	std::vector<VkDescriptorSetLayout> descSetLayouts;
+	std::map<uint32_t, VkDescriptorSetLayout> descSetLayoutMaps;
 	for (const auto* descriptor : descriptors)
 	{
 		descSetLayoutMaps[descriptor->getSetIndex()] = descriptor->getHandles().descriptorSetLayout;

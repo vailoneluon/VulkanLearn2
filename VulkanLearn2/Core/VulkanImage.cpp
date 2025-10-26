@@ -95,16 +95,16 @@ TextureImageInfo VulkanImage::loadImageFromFile(const char* filePath)
 	//stbi_set_flip_vertically_on_load(true);
 	stbi_uc* pixels = stbi_load(filePath, &texWidth, &texHeight, &texChanels, STBI_rgb_alpha);
 
-	uint32_t textureImageMipLevels = static_cast<uint32_t>(floor(log2(max(texWidth, texHeight)))) + 1;
+	uint32_t textureImageMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 	if (!pixels)
 	{
-		throw runtime_error(string("FAILED TO LOAD IMAGE FROM") + filePath);
+		throw std::runtime_error(std::string("FAILED TO LOAD IMAGE FROM") + filePath);
 	}
 	else
 	{
-		cout << string("LOADED IMAGE FROM FILE: ") + filePath << endl;
+		std::cout << std::string("LOADED IMAGE FROM FILE: ") + filePath << std::endl;
 	}
 
 	TextureImageInfo textureImageInfo{texWidth, texHeight, texChanels, textureImageMipLevels, imageSize, pixels};
@@ -218,7 +218,7 @@ uint32_t VulkanImage::findMemoryTypeIndex(uint32_t memoryTypeBits, VkMemoryPrope
 			return i;
 		}
 	}
-	throw runtime_error("FAILED TO FIND SUITABLE MEMMORY TYPE");
+	throw std::runtime_error("FAILED TO FIND SUITABLE MEMMORY TYPE");
 }
 
 void VulkanImage::TransitionImageLayout(VkCommandBuffer& cmdBuffer, VkImage& image, uint32_t mipLevels,

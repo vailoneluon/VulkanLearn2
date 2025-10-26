@@ -2,7 +2,7 @@
 #include "Window.h"
 
 
-Window::Window(int w, int h, const string& t):
+Window::Window(int w, int h, const std::string& t):
 	width(w), height(h), title(t)
 {
 	if (!glfwInit())
@@ -48,10 +48,10 @@ GLFWwindow* Window::getGLFWWindow()
 	return window;
 }
 
-vector<const char*> Window::getInstanceExtensionsRequired()
+std::vector<const char*> Window::getInstanceExtensionsRequired()
 {
 	uint32_t extensionCount = 0;
 	const char** extensions = glfwGetRequiredInstanceExtensions(&extensionCount);
-	vector<const char*> result (extensions, extensions + extensionCount);
+	std::vector<const char*> result (extensions, extensions + extensionCount);
 	return result;
 }

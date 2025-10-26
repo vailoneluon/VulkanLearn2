@@ -21,7 +21,7 @@ struct VulkanHandles
 class VulkanContext
 {
 public:
-	VulkanContext(GLFWwindow* window, vector<const char*> extensions);
+	VulkanContext(GLFWwindow* window, std::vector<const char*> extensions);
 	~VulkanContext();
 
 	const VulkanHandles& getVulkanHandles() const { return handles; }
@@ -31,11 +31,11 @@ private:
 	VulkanHandles handles;
 
 	const char* validationLayers[1] = { "VK_LAYER_KHRONOS_validation" };
-	vector<const char*> instanceExtensionsRequired = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
-	vector<const char*> physicalRequireDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	std::vector<const char*> instanceExtensionsRequired = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
+	std::vector<const char*> physicalRequireDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 
-	void CreateInstance(vector<const char*> extensions);
+	void CreateInstance(std::vector<const char*> extensions);
 	void CreateSurface(GLFWwindow* window);
 	void ChoosePhysicalDevice();
 	void CreateLogicalDevice();

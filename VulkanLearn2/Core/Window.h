@@ -3,13 +3,13 @@
 class Window
 {
 public:
-	Window(int width, int height, const string& title);
+	Window(int width, int height, const std::string& title);
 	~Window();
 
 	GLFWwindow* getGLFWWindow();
-	vector<const char*> getInstanceExtensionsRequired();
+	std::vector<const char*> getInstanceExtensionsRequired();
 
-	// Không cho copy
+	// Khï¿½ng cho copy
 	Window(const Window&) = delete;
 	Window& operator=(const Window&) = delete;
 	
@@ -19,6 +19,6 @@ public:
 private:
 	int width;
 	int height;
-	string title;
+	std::string title;
 	GLFWwindow* window;
 };

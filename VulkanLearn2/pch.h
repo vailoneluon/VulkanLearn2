@@ -14,8 +14,7 @@
 #include <algorithm>
 #include <chrono>
 
-// === Sử dụng namespace phổ biến ===
-using namespace std;
+
 
 // === Các thư viện bên ngoài (External) ===
 
