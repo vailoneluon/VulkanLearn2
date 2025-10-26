@@ -201,7 +201,8 @@ void Application::UpdateUniforms()
 	auto currentTime = chrono::high_resolution_clock::now();
 	float time = chrono::duration<float, chrono::seconds::period>(currentTime - startTime).count();
 
-	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	//ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	pushConstantData.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	ubo.view = glm::lookAt(glm::vec3(0.0f, 5.0f, 5.0f), glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), vulkanSwapchain->getHandles().swapChainExtent.width / (float)vulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
 
@@ -348,6 +349,9 @@ void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageI
 
 	// Bind Descriptor Set
 	BindDescriptorSet(cmdBuffer);
+
+	// Push Constant Data
+	vkCmdPushConstants(cmdBuffer, vulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstantData), &pushConstantData);
 
 	vkCmdDrawIndexed(cmdBuffer, modelData.indices.size(), 1, 0, 0, 0);
 

@@ -39,7 +39,7 @@ private:
 
 	const VkClearColorValue backgroundColor = { 0.1f, 0.1f, 0.2f, 1.0f };
 
-	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_2_BIT;
+	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_4_BIT;
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 
 	int currentFrame = 0;
@@ -67,6 +67,7 @@ private:
 	vector<VulkanBuffer*> uniformBuffers;
 	vector<VulkanDescriptor*> uniformDescriptors;
 
+	PushConstantData pushConstantData;
 
 	void CreateVertexBuffer();
 	void CreateIndexBuffer();

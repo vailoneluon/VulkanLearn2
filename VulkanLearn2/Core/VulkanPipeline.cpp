@@ -89,12 +89,19 @@ void VulkanPipeline::createPipelineLayout(const vector<VulkanDescriptor*>& descr
 	}
 
 	// Tạo Pipeline Layout 
+	// Push Constant
+
+	VkPushConstantRange pushConstantRange{};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	pushConstantRange.offset = 0;
+	pushConstantRange.size = sizeof(PushConstantData);
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = descSetLayouts.size(); 
 	pipelineLayoutInfo.pSetLayouts = descSetLayouts.data();
-	pipelineLayoutInfo.pushConstantRangeCount = 0; // Không có push constant
-	pipelineLayoutInfo.pPushConstantRanges = nullptr;
+	pipelineLayoutInfo.pushConstantRangeCount = 1; // Không có push constant
+	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
 	VK_CHECK(vkCreatePipelineLayout(vk.device, &pipelineLayoutInfo, nullptr, &handles.pipelineLayout), "FAILED TO CREATE PIPELINE LAYOUT");
 }
