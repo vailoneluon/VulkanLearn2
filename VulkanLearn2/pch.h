@@ -14,6 +14,9 @@
 #include <algorithm>
 #include <chrono>
 
+// === Sử dụng namespace phổ biến ===
+using namespace std;
+
 // === Các thư viện bên ngoài (External) ===
 
 // 1. GLFW (Bao gồm cả Vulkan)
@@ -33,5 +36,3 @@
 #include "Utils/ErrorHelper.h"
 #include "Core/VulkanTypes.h" // Thêm cả VulkanTypes vào PCH
 
-// === Sử dụng namespace phổ biến ===
-using namespace std;

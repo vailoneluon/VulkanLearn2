@@ -1,10 +1,9 @@
 #pragma once
 
-
 struct Vertex
 {
 	glm::vec3 pos;
-	glm::vec3 color;
+	glm::vec3 normal;
 	glm::vec2 uv;
 
 	static VkVertexInputBindingDescription GetBindingDesc()
@@ -29,7 +28,7 @@ struct Vertex
 		attributeDescs[1].binding = 0;
 		attributeDescs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescs[1].location = 1;
-		attributeDescs[1].offset = offsetof(Vertex, color);
+		attributeDescs[1].offset = offsetof(Vertex, normal);
 
 		attributeDescs[2].binding = 0;
 		attributeDescs[2].format = VK_FORMAT_R32G32_SFLOAT;
@@ -45,4 +44,11 @@ struct UniformBufferObject
 	alignas(16) glm::mat4 model;
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
+};
+
+struct ModelData
+{
+	std::string textureFilePath;
+	std::vector<Vertex> vertices;
+	std::vector<uint16_t> indices;
 };
