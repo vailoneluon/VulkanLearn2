@@ -37,6 +37,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Utils\ModelLoader.cpp" />
     <ClCompile Include="Utils\stb_image.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
@@ -60,6 +61,8 @@
     <ClInclude Include="main.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Utils\ErrorHelper.h" />
+    <ClInclude Include="Utils\ModelLoader.h" />
+    <ClInclude Include="Utils\DebugTimer.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\compile.bat" />

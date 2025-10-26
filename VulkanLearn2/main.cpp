@@ -14,6 +14,8 @@
 #include "Core/VulkanSampler.h"
 #include "Core/VulkanDescriptor.h"
 
+#include "Utils/DebugTimer.h"
+
 int main()
 {
 	Application app;
@@ -23,6 +25,13 @@ int main()
 
 Application::Application()
 {
+	//ScopeTimer totalTime("App TotalTime");
+
+	{
+	//ScopeTimer totalTime("Load Model TotalTime");
+	LoadModelFromFile("Resources/AnimeGirlModel/source/AnimeGirl_01_2023.assbin");
+	}
+	
 	window = new Window(800, 600, "ZOLCOL VULKAN");
 
 	vulkanContext = new VulkanContext(window->getGLFWWindow(), window->getInstanceExtensionsRequired());
@@ -33,8 +42,12 @@ Application::Application()
 	vulkanCommandManager = new VulkanCommandManager(vulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 
 	vulkanSampler = new VulkanSampler(vulkanContext->getVulkanHandles());
+	
 	CreateUniformBuffer();
+	{
+	//ScopeTimer totalTime("Create Texture Image TotalTime");
 	CreateTextureImage(vulkanContext->getVulkanHandles());
+	}
 
 	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), descriptors);
 	UpdateDescriptorBinding();
@@ -52,14 +65,25 @@ Application::Application()
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+	{
+	//ScopeTimer totalTime("Create Vertex Buffer TotalTime");
 	CreateVertexBuffer();
+	}
+	{
+	//ScopeTimer totalTime("Create Index Buffer TotalTime");
 	CreateIndexBuffer();
+	}
 
+}
+
+void Application::LoadModelFromFile(const string& filePath)
+{
+	modelData = modelLoader.LoadModelFromFile(filePath);
 }
 
 void Application::CreateVertexBuffer()
 {
-	uint32_t bufferSize = vertices.size() * sizeof(vertices[0]);
+	uint32_t bufferSize = modelData.vertices.size() * sizeof(modelData.vertices[0]);
 
 	VkBufferCreateInfo bufferInfo{};
 
@@ -72,12 +96,12 @@ void Application::CreateVertexBuffer()
 
 	vertexBuffer = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, true);
 
-	vertexBuffer->UploadData(vertices.data(), bufferSize, 0);
+	vertexBuffer->UploadData(modelData.vertices.data(), bufferSize, 0);
 }
 
 void Application::CreateIndexBuffer()
 {
-	uint32_t bufferSize = indices.size() * sizeof(indices[0]);
+	uint32_t bufferSize = modelData.indices.size() * sizeof(modelData.indices[0]);
 
 	VkBufferCreateInfo bufferInfo{};
 
@@ -90,12 +114,12 @@ void Application::CreateIndexBuffer()
 
 	indexBuffer = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, true);
 
-	indexBuffer->UploadData(indices.data(), bufferSize, 0);
+	indexBuffer->UploadData(modelData.indices.data(), bufferSize, 0);
 }
 
 void Application::CreateTextureImage(const VulkanHandles& vk)
 {
-	textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, "Images/image.jpg", true);
+	textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, modelData.textureFilePath.c_str(), false);
 
 	BindingElementInfo textureImageElementInfo;
 	textureImageElementInfo.binding = 0;
@@ -178,7 +202,7 @@ void Application::UpdateUniforms()
 	float time = chrono::duration<float, chrono::seconds::period>(currentTime - startTime).count();
 
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	ubo.view = glm::lookAt(glm::vec3(0.0f, 1.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	ubo.view = glm::lookAt(glm::vec3(0.0f, 5.0f, 5.0f), glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), vulkanSwapchain->getHandles().swapChainExtent.width / (float)vulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
 
 	ubo.proj[1][1] *= -1;
@@ -325,7 +349,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageI
 	// Bind Descriptor Set
 	BindDescriptorSet(cmdBuffer);
 
-	vkCmdDrawIndexed(cmdBuffer, indices.size(), 1, 0, 0, 0);
+	vkCmdDrawIndexed(cmdBuffer, modelData.indices.size(), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(cmdBuffer);
 
