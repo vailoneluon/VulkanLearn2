@@ -97,5 +97,8 @@ ModelData ModelLoader::LoadModelFromFile(const std::string& filePath)
 		}
 	}
 
+	modelData.vertexBufferSize = modelData.vertices.size() * sizeof(modelData.vertices[0]);
+	modelData.indexBufferSize = modelData.indices.size() * sizeof(modelData.indices[0]);
+
 	return modelData;
 }

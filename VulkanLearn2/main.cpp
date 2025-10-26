@@ -15,6 +15,7 @@
 #include "Core/VulkanDescriptor.h"
 
 #include "Utils/DebugTimer.h"
+#include <Scene/RenderObject.h>
 
 int main()
 {
@@ -78,12 +79,27 @@ Application::Application()
 
 void Application::LoadModelFromFile(const std::string& filePath)
 {
-	modelData = modelLoader.LoadModelFromFile(filePath);
+	girlObj = new RenderObject(filePath);
+	girlObj2 = new RenderObject(filePath);
+
+	renderObjects.push_back(girlObj);
+	renderObjects.push_back(girlObj2);
+
+	//modelData = modelLoader.LoadModelFromFile(filePath);
 }
 
 void Application::CreateVertexBuffer()
 {
-	uint32_t bufferSize = modelData.vertices.size() * sizeof(modelData.vertices[0]);
+	//uint32_t bufferSize = modelData.vertices.size() * sizeof(modelData.vertices[0]);
+	// Tính buffer size bao gồm toàn bộ vertex của toàn bộ render object
+	uint32_t bufferSize = 0;
+	VkDeviceSize currentOffset = 0;
+	for (int i = 0; i < renderObjects.size(); i++)
+	{
+		bufferSize += renderObjects[i]->getHandles().modelData.vertexBufferSize;
+		renderObjects[i]->SetMeshRangeOffSet(currentOffset);
+		currentOffset += bufferSize;
+	}
 
 	VkBufferCreateInfo bufferInfo{};
 
@@ -96,12 +112,23 @@ void Application::CreateVertexBuffer()
 
 	vertexBuffer = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, true);
 
-	vertexBuffer->UploadData(modelData.vertices.data(), bufferSize, 0);
+	for (const auto& renderObject : renderObjects)
+	{
+		auto uploadSize = renderObject->getHandles().modelData.vertexBufferSize;
+		vertexBuffer->UploadData(renderObject->getHandles().modelData.vertices.data(), uploadSize, renderObject->getHandles().meshRange.vertexOffset);
+	}
 }
 
 void Application::CreateIndexBuffer()
 {
-	uint32_t bufferSize = modelData.indices.size() * sizeof(modelData.indices[0]);
+	uint32_t bufferSize = 0;
+	VkDeviceSize currentOffset = 0;
+	for (int i = 0; i < renderObjects.size(); i++)
+	{
+		bufferSize += renderObjects[i]->getHandles().modelData.indexBufferSize;
+		renderObjects[i]->SetMeshRangeOffSet( -1,currentOffset);
+		currentOffset += bufferSize;
+	}
 
 	VkBufferCreateInfo bufferInfo{};
 
@@ -114,12 +141,16 @@ void Application::CreateIndexBuffer()
 
 	indexBuffer = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, true);
 
-	indexBuffer->UploadData(modelData.indices.data(), bufferSize, 0);
+	for (const auto& renderObject : renderObjects)
+	{
+		auto uploadSize = renderObject->getHandles().modelData.indexBufferSize;
+		indexBuffer->UploadData(renderObject->getHandles().modelData.indices.data(), uploadSize, renderObject->getHandles().meshRange.indexOffset);
+	}
 }
 
 void Application::CreateTextureImage(const VulkanHandles& vk)
 {
-	textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, modelData.textureFilePath.c_str(), false);
+	textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, girlObj->getHandles().modelData.textureFilePath.c_str(), false);
 
 	BindingElementInfo textureImageElementInfo;
 	textureImageElementInfo.binding = 0;
@@ -197,12 +228,16 @@ void Application::UpdateDescriptorBinding()
 void Application::UpdateUniforms()
 {
 	static auto startTime = std::chrono::high_resolution_clock::now();
-
+	static auto lastTime = std::chrono::high_resolution_clock::now();
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+	float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
+	lastTime = currentTime;
 
-	//ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	pushConstantData.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	girlObj->Translate(glm::vec3(0, 0.2*deltaTime, 0));
+	girlObj->Rotate(glm::vec3(0, deltaTime * 45.0f, 0));
+	girlObj2->Rotate(glm::vec3(0, deltaTime * -45.0f, 0));
+	//pushConstantData.model = girlObj->GetModelMatrix();
 	ubo.view = glm::lookAt(glm::vec3(0.0f, 5.0f, 5.0f), glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), vulkanSwapchain->getHandles().swapChainExtent.width / (float)vulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
 
@@ -287,7 +322,7 @@ void Application::DrawFrame()
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = &vulkanSyncManager->getCurrentImageAvailableSemaphore(currentFrame);
 	submitInfo.pWaitDstStageMask = &waitStage;
-
+	
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = &vulkanSyncManager->getCurrentRenderFinishedSemaphore(imageIndex);
 
@@ -350,15 +385,26 @@ void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageI
 	// Bind Descriptor Set
 	BindDescriptorSet(cmdBuffer);
 
-	// Push Constant Data
-	vkCmdPushConstants(cmdBuffer, vulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstantData), &pushConstantData);
 
-	vkCmdDrawIndexed(cmdBuffer, modelData.indices.size(), 1, 0, 0, 0);
+	for (const auto& renderObject : renderObjects)
+	{
+		if (renderObject == girlObj) continue;
+		// Push Constant Data
+		pushConstantData.model = renderObject->GetModelMatrix();
+		vkCmdPushConstants(cmdBuffer, vulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstantData), &pushConstantData);
+		vkCmdDrawIndexed(cmdBuffer, renderObject->getHandles().meshRange.indexCount,
+			1, 
+			renderObject->getHandles().meshRange.firstIndex,
+			renderObject->getHandles().meshRange.vertexOffset, 0);
+	}
+	//vkCmdDrawIndexed(cmdBuffer, modelData.indices.size(), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(cmdBuffer);
 
 	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "FAILED TO END COMMAND BUFFER");
 }
+
+
 
 void Application::BindDescriptorSet(const VkCommandBuffer& cmdBuffer)
 {

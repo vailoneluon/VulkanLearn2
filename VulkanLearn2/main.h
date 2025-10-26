@@ -17,6 +17,7 @@ class VulkanSyncManager;
 class VulkanBuffer;
 class VulkanImage;
 class VulkanDescriptor;
+class RenderObject;
 
 class Application
 {
@@ -27,10 +28,15 @@ public:
 	void Loop();
 private:
 
-	ModelLoader modelLoader;
-	ModelData modelData{};
+	/*ModelLoader modelLoader;
+	ModelData modelData{};*/
 
 	void LoadModelFromFile(const std::string& filePath);
+
+	RenderObject* girlObj;
+	RenderObject* girlObj2;
+
+	std::vector<RenderObject*> renderObjects;
 
 	//////////////////////////////////////////////////////////////////////////////////////////////
 

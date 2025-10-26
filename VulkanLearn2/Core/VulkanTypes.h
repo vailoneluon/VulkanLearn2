@@ -6,12 +6,12 @@ struct Vertex
 	glm::vec3 normal;
 	glm::vec2 uv;
 
-	static VkVertexInputBindingDescription GetBindingDesc()
+	static std::array<VkVertexInputBindingDescription, 1> GetBindingDesc()
 	{
-		VkVertexInputBindingDescription bindingDesc{};
-		bindingDesc.binding = 0;
-		bindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		bindingDesc.stride = sizeof(Vertex);
+		std::array<VkVertexInputBindingDescription, 1> bindingDesc{};
+		bindingDesc[0].binding = 0;
+		bindingDesc[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		bindingDesc[0].stride = sizeof(Vertex);
 
 		return bindingDesc;
 	}
@@ -56,4 +56,24 @@ struct ModelData
 	std::string textureFilePath;
 	std::vector<Vertex> vertices;
 	std::vector<uint16_t> indices;
+
+	VkDeviceSize vertexBufferSize;
+	VkDeviceSize indexBufferSize;
+};
+
+struct ModelTransform
+{
+	glm::vec3 position = glm::vec3(0, 0, 0);
+	glm::vec3 rotation = glm::vec3(0, 0, 0);
+	glm::vec3 scale = glm::vec3(1, 1, 1);
+};
+
+struct MeshRange
+{
+	uint32_t vertexCount;
+	VkDeviceSize vertexOffset;
+
+	uint32_t firstIndex;
+	VkDeviceSize indexOffset;
+	uint32_t indexCount;
 };
