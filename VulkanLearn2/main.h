@@ -18,6 +18,7 @@ class VulkanBuffer;
 class VulkanImage;
 class VulkanDescriptor;
 class RenderObject;
+class MeshManager;
 
 class Application
 {
@@ -28,15 +29,8 @@ public:
 	void Loop();
 private:
 
-	/*ModelLoader modelLoader;
-	ModelData modelData{};*/
-
-	void LoadModelFromFile(const std::string& filePath);
-
-	RenderObject* girlObj;
-	RenderObject* girlObj2;
-	RenderObject* girlObj3;
-
+	RenderObject* obj1;
+	RenderObject* obj2;
 	std::vector<RenderObject*> renderObjects;
 
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -63,8 +57,7 @@ private:
 	VulkanPipeline* vulkanPipeline;
 	VulkanSyncManager* vulkanSyncManager;
 
-	VulkanBuffer* vertexBuffer;
-	VulkanBuffer* indexBuffer;
+	MeshManager* meshManager;
 
 	std::vector<VulkanDescriptor*> descriptors;
 	VulkanImage* textureImage;

@@ -50,31 +50,3 @@ struct PushConstantData
 {
 	alignas(16) glm::mat4 model;
 };
-
-struct ModelData
-{
-	std::string textureFilePath;
-	std::vector<Vertex> vertices;
-	std::vector<uint16_t> indices;
-
-	VkDeviceSize vertexBufferSize;
-	VkDeviceSize indexBufferSize;
-};
-
-struct ModelTransform
-{
-	glm::vec3 position = glm::vec3(0, 0, 0);
-	glm::vec3 rotation = glm::vec3(0, 0, 0);
-	glm::vec3 scale = glm::vec3(1, 1, 1);
-};
-
-struct MeshRange
-{
-	uint32_t firstVertex;
-	uint32_t vertexCount;
-	VkDeviceSize vertexOffset;
-
-	uint32_t firstIndex;
-	VkDeviceSize indexOffset;
-	uint32_t indexCount;
-};

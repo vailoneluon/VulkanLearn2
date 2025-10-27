@@ -16,6 +16,8 @@
 
 #include "Utils/DebugTimer.h"
 #include <Scene/RenderObject.h>
+#include "Scene/MeshManager.h"
+#include "Scene/Model.h"
 
 int main()
 {
@@ -26,12 +28,6 @@ int main()
 
 Application::Application()
 {
-	//ScopeTimer totalTime("App TotalTime");
-
-	{
-	//ScopeTimer totalTime("Load Model TotalTime");
-	LoadModelFromFile("Resources/AnimeGirlModel/source/AnimeGirl_01_2023.assbin");
-	}
 	
 	window = new Window(800, 600, "ZOLCOL VULKAN");
 
@@ -45,10 +41,20 @@ Application::Application()
 	vulkanSampler = new VulkanSampler(vulkanContext->getVulkanHandles());
 	
 	CreateUniformBuffer();
-	{
-	//ScopeTimer totalTime("Create Texture Image TotalTime");
+
+	/////////////////////////
+	meshManager = new MeshManager(vulkanContext->getVulkanHandles(), vulkanCommandManager);
+	obj1 = new RenderObject("Resources/Swimsuit/model.assbin", meshManager);
+	obj2 = new RenderObject("Resources/AnimeGirlModel/source/AnimeGirl_01_2023.assbin", meshManager);
+	renderObjects.push_back(obj1);
+	renderObjects.push_back(obj2);
+
+	/////////////////
+
+	//{
+	////ScopeTimer totalTime("Create Texture Image TotalTime");
 	CreateTextureImage(vulkanContext->getVulkanHandles());
-	}
+	//}
 
 	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), descriptors);
 	UpdateDescriptorBinding();
@@ -66,85 +72,15 @@ Application::Application()
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	{
-	//ScopeTimer totalTime("Create Vertex Buffer TotalTime");
-	CreateVertexBuffer();
-	}
-	{
-	//ScopeTimer totalTime("Create Index Buffer TotalTime");
-	CreateIndexBuffer();
-	}
+	meshManager->CreateBuffers();
 
 }
 
-void Application::LoadModelFromFile(const std::string& filePath)
-{
-	girlObj = new RenderObject(filePath);
-	girlObj2 = new RenderObject(filePath);
-
-	renderObjects.push_back(girlObj);
-	renderObjects.push_back(girlObj2);
-}
-
-void Application::CreateVertexBuffer()
-{
-	//uint32_t bufferSize = modelData.vertices.size() * sizeof(modelData.vertices[0]);
-	// Tính buffer size bao gồm toàn bộ vertex của toàn bộ render object
-	uint32_t bufferSize = 0;
-	for (int i = 0; i < renderObjects.size(); i++)
-	{
-		renderObjects[i]->SetMeshRangeOffSet(bufferSize);
-		bufferSize += renderObjects[i]->getHandles().modelData.vertexBufferSize;
-	}
-
-	VkBufferCreateInfo bufferInfo{};
-
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.queueFamilyIndexCount = 1;
-	bufferInfo.pQueueFamilyIndices = &vulkanContext->getVulkanHandles().queueFamilyIndices.GraphicQueueIndex;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	bufferInfo.size = bufferSize;
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-
-	vertexBuffer = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, true);
-
-	for (const auto& renderObject : renderObjects)
-	{
-		auto uploadSize = renderObject->getHandles().modelData.vertexBufferSize;
-		vertexBuffer->UploadData(renderObject->getHandles().modelData.vertices.data(), uploadSize, renderObject->getHandles().meshRange.vertexOffset);
-	}
-}
-
-void Application::CreateIndexBuffer()
-{
-	uint32_t bufferSize = 0;
-	for (int i = 0; i < renderObjects.size(); i++)
-	{
-		renderObjects[i]->SetMeshRangeOffSet( -1,bufferSize);
-		bufferSize += renderObjects[i]->getHandles().modelData.indexBufferSize;
-	}
-
-	VkBufferCreateInfo bufferInfo{};
-
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.queueFamilyIndexCount = 1;
-	bufferInfo.pQueueFamilyIndices = &vulkanContext->getVulkanHandles().queueFamilyIndices.GraphicQueueIndex;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	bufferInfo.size = bufferSize;
-	bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-
-	indexBuffer = new VulkanBuffer(vulkanContext->getVulkanHandles(), vulkanCommandManager, bufferInfo, true);
-
-	for (const auto& renderObject : renderObjects)
-	{
-		auto uploadSize = renderObject->getHandles().modelData.indexBufferSize;
-		indexBuffer->UploadData(renderObject->getHandles().modelData.indices.data(), uploadSize, renderObject->getHandles().meshRange.indexOffset);
-	}
-}
 
 void Application::CreateTextureImage(const VulkanHandles& vk)
 {
-	textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, girlObj->getHandles().modelData.textureFilePath.c_str(), false);
+	textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, "Resources/Swimsuit/Textures/T000.png", false);
+	//textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, "Resources/AnimeGirlModel/textures/AnimeGirl_01_2023_dif.png", false);
 
 	BindingElementInfo textureImageElementInfo;
 	textureImageElementInfo.binding = 0;
@@ -242,10 +178,12 @@ void Application::UpdateRenderObjectTransform()
 	float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
 	lastTime = currentTime;
 
-	girlObj->SetPosition({-1, 0, 0});
-	girlObj2->SetPosition({1, 0, 0});
-	girlObj->Rotate(glm::vec3(0, deltaTime * 45.0f, 0));
-	girlObj2->Rotate(glm::vec3(0, deltaTime * -45.0f, 0));
+
+	obj1->Rotate(glm::vec3(0, deltaTime * 45.0f, 0));
+	obj1->Scale({0.05f, 0.05f, 0.05f});
+	
+	obj2->Rotate(glm::vec3(0, deltaTime * -45.0f, 0));
+	obj2->SetPosition({ -1, 0, 0 });
 }
 
 Application::~Application()
@@ -257,8 +195,7 @@ Application::~Application()
 		delete(renderObject);
 	}
 
-	delete(vertexBuffer);
-	delete(indexBuffer);
+	delete(meshManager);
 	delete(vulkanSampler);
 
 
@@ -386,8 +323,8 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 
 	// Bind VertexBuffer and IndexBuffer
 	VkDeviceSize offset = 0;
-	vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vertexBuffer->getHandles().buffer, &offset);
-	vkCmdBindIndexBuffer(cmdBuffer, indexBuffer->getHandles().buffer, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &meshManager->getVertexBuffer(), &offset);
+	vkCmdBindIndexBuffer(cmdBuffer, meshManager->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
 	// Bind Descriptor Set
 	BindDescriptorSet(cmdBuffer);
@@ -399,7 +336,6 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "FAILED TO END COMMAND BUFFER");
 }
 
-
 void Application::CmdDrawRenderObjects(const VkCommandBuffer& cmdBuffer)
 {
 	for (const auto& renderObject : renderObjects)
@@ -407,11 +343,12 @@ void Application::CmdDrawRenderObjects(const VkCommandBuffer& cmdBuffer)
 		// Push Constant Data
 		pushConstantData.model = renderObject->GetModelMatrix();
 		vkCmdPushConstants(cmdBuffer, vulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstantData), &pushConstantData);
-		// Draw Object
-		vkCmdDrawIndexed(cmdBuffer, renderObject->getHandles().meshRange.indexCount,
-			1,
-			renderObject->getHandles().meshRange.firstIndex,
-			renderObject->getHandles().meshRange.firstVertex, 0);
+
+		std::vector<Mesh*> meshes = renderObject->getHandles().model->getMeshes();		
+		for (const auto& mesh : meshes)
+		{
+			vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
+		}
 	}
 }
 

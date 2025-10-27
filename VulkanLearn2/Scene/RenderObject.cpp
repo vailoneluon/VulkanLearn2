@@ -1,29 +1,15 @@
 #include "pch.h"
+#include "Model.h"
 #include "RenderObject.h"
-#include <Utils/ModelLoader.h>
 
-RenderObject::RenderObject(const std::string& modelFilePath)
+RenderObject::RenderObject(const std::string& modelFilePath, MeshManager* meshManager)
 {
-	LoadModelFromFile(modelFilePath);
+	handles.model = new Model(modelFilePath, meshManager);
 }
 
 RenderObject::~RenderObject()
 {
-
-}
-
-void RenderObject::SetMeshRangeOffSet(VkDeviceSize vertexOffset /*= -1*/, VkDeviceSize indexOffset /*= -1*/)
-{
-	if (vertexOffset != -1)
-	{
-		handles.meshRange.vertexOffset = vertexOffset;
-		handles.meshRange.firstVertex = vertexOffset / sizeof(handles.modelData.vertices[0]);
-	}
-	if (indexOffset != -1)
-	{
-		handles.meshRange.indexOffset = indexOffset;
-		handles.meshRange.firstIndex = indexOffset / sizeof(handles.modelData.indices[0]);
-	}
+	delete(handles.model);
 }
 
 void RenderObject::Rotate(glm::vec3 angle)
@@ -41,15 +27,15 @@ void RenderObject::Scale(glm::vec3 scale)
 	handles.transform.scale = scale;
 }
 
-void RenderObject::SetPosition(glm::vec3 position)
+void RenderObject::SetPosition(glm::vec3 newPosition)
 {
-	handles.transform.position = position;
+	handles.transform.position = newPosition;
 }
 
 glm::mat4 RenderObject::GetModelMatrix() const
 {
 	glm::mat4 modelMatrix = glm::mat4(1.0f);
-	
+
 	modelMatrix = glm::translate(modelMatrix, handles.transform.position);
 
 	modelMatrix = glm::rotate(modelMatrix, glm::radians(handles.transform.rotation.z), glm::vec3(0, 0, 1));
@@ -59,13 +45,4 @@ glm::mat4 RenderObject::GetModelMatrix() const
 	modelMatrix = glm::scale(modelMatrix, handles.transform.scale);
 
 	return modelMatrix;
-}
-
-void RenderObject::LoadModelFromFile(const std::string& filePath)
-{
-	ModelLoader modelLoader;
-	handles.modelData = modelLoader.LoadModelFromFile(filePath);
-
-	handles.meshRange.vertexCount = handles.modelData.vertices.size();
-	handles.meshRange.indexCount = handles.modelData.indices.size();
 }
