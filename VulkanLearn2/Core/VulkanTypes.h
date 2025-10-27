@@ -70,6 +70,7 @@ struct ModelTransform
 
 struct MeshRange
 {
+	uint32_t firstVertex;
 	uint32_t vertexCount;
 	VkDeviceSize vertexOffset;
 

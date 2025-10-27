@@ -84,8 +84,6 @@ void Application::LoadModelFromFile(const std::string& filePath)
 
 	renderObjects.push_back(girlObj);
 	renderObjects.push_back(girlObj2);
-
-	//modelData = modelLoader.LoadModelFromFile(filePath);
 }
 
 void Application::CreateVertexBuffer()
@@ -93,12 +91,10 @@ void Application::CreateVertexBuffer()
 	//uint32_t bufferSize = modelData.vertices.size() * sizeof(modelData.vertices[0]);
 	// Tính buffer size bao gồm toàn bộ vertex của toàn bộ render object
 	uint32_t bufferSize = 0;
-	VkDeviceSize currentOffset = 0;
 	for (int i = 0; i < renderObjects.size(); i++)
 	{
+		renderObjects[i]->SetMeshRangeOffSet(bufferSize);
 		bufferSize += renderObjects[i]->getHandles().modelData.vertexBufferSize;
-		renderObjects[i]->SetMeshRangeOffSet(currentOffset);
-		currentOffset += bufferSize;
 	}
 
 	VkBufferCreateInfo bufferInfo{};
@@ -122,12 +118,10 @@ void Application::CreateVertexBuffer()
 void Application::CreateIndexBuffer()
 {
 	uint32_t bufferSize = 0;
-	VkDeviceSize currentOffset = 0;
 	for (int i = 0; i < renderObjects.size(); i++)
 	{
+		renderObjects[i]->SetMeshRangeOffSet( -1,bufferSize);
 		bufferSize += renderObjects[i]->getHandles().modelData.indexBufferSize;
-		renderObjects[i]->SetMeshRangeOffSet( -1,currentOffset);
-		currentOffset += bufferSize;
 	}
 
 	VkBufferCreateInfo bufferInfo{};
@@ -227,17 +221,10 @@ void Application::UpdateDescriptorBinding()
 
 void Application::UpdateUniforms()
 {
-	static auto startTime = std::chrono::high_resolution_clock::now();
-	static auto lastTime = std::chrono::high_resolution_clock::now();
+	/*static auto startTime = std::chrono::high_resolution_clock::now();
 	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-	float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
-	lastTime = currentTime;
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();*/
 
-	girlObj->Translate(glm::vec3(0, 0.2*deltaTime, 0));
-	girlObj->Rotate(glm::vec3(0, deltaTime * 45.0f, 0));
-	girlObj2->Rotate(glm::vec3(0, deltaTime * -45.0f, 0));
-	//pushConstantData.model = girlObj->GetModelMatrix();
 	ubo.view = glm::lookAt(glm::vec3(0.0f, 5.0f, 5.0f), glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), vulkanSwapchain->getHandles().swapChainExtent.width / (float)vulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
 
@@ -246,10 +233,29 @@ void Application::UpdateUniforms()
 	uniformBuffers[currentFrame]->UploadData(&ubo, sizeof(ubo), 0);
 }
 
+void Application::UpdateRenderObjectTransform()
+{
+	static auto startTime = std::chrono::high_resolution_clock::now();
+	static auto lastTime = std::chrono::high_resolution_clock::now();
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+	float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
+	lastTime = currentTime;
+
+	girlObj->SetPosition({-1, 0, 0});
+	girlObj2->SetPosition({1, 0, 0});
+	girlObj->Rotate(glm::vec3(0, deltaTime * 45.0f, 0));
+	girlObj2->Rotate(glm::vec3(0, deltaTime * -45.0f, 0));
+}
+
 Application::~Application()
 {
 	vkDeviceWaitIdle(vulkanContext->getVulkanHandles().device);
 
+	for (auto& renderObject : renderObjects)
+	{
+		delete(renderObject);
+	}
 
 	delete(vertexBuffer);
 	delete(indexBuffer);
@@ -258,7 +264,7 @@ Application::~Application()
 
 	delete(textureImage);
 
-	for (auto uniformBuffer : uniformBuffers)
+	for (auto& uniformBuffer : uniformBuffers)
 	{
 		delete(uniformBuffer);
 	}
@@ -308,6 +314,7 @@ void Application::DrawFrame()
 
 	// Update Data For Frame
 	UpdateUniforms();
+	UpdateRenderObjectTransform();
 
 	vkResetCommandBuffer(vulkanCommandManager->getHandles().commandBuffers[currentFrame], 0);
 	RecordCommandBuffer(vulkanCommandManager->getHandles().commandBuffers[currentFrame], imageIndex);
@@ -351,7 +358,7 @@ void Application::DrawFrame()
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex)
+void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex)
 {
 	VkCommandBufferBeginInfo cmdBeginInfo{};
 	cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -385,19 +392,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageI
 	// Bind Descriptor Set
 	BindDescriptorSet(cmdBuffer);
 
-
-	for (const auto& renderObject : renderObjects)
-	{
-		if (renderObject == girlObj) continue;
-		// Push Constant Data
-		pushConstantData.model = renderObject->GetModelMatrix();
-		vkCmdPushConstants(cmdBuffer, vulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstantData), &pushConstantData);
-		vkCmdDrawIndexed(cmdBuffer, renderObject->getHandles().meshRange.indexCount,
-			1, 
-			renderObject->getHandles().meshRange.firstIndex,
-			renderObject->getHandles().meshRange.vertexOffset, 0);
-	}
-	//vkCmdDrawIndexed(cmdBuffer, modelData.indices.size(), 1, 0, 0, 0);
+	CmdDrawRenderObjects(cmdBuffer);
 
 	vkCmdEndRenderPass(cmdBuffer);
 
@@ -405,6 +400,20 @@ void Application::RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageI
 }
 
 
+void Application::CmdDrawRenderObjects(const VkCommandBuffer& cmdBuffer)
+{
+	for (const auto& renderObject : renderObjects)
+	{
+		// Push Constant Data
+		pushConstantData.model = renderObject->GetModelMatrix();
+		vkCmdPushConstants(cmdBuffer, vulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstantData), &pushConstantData);
+		// Draw Object
+		vkCmdDrawIndexed(cmdBuffer, renderObject->getHandles().meshRange.indexCount,
+			1,
+			renderObject->getHandles().meshRange.firstIndex,
+			renderObject->getHandles().meshRange.firstVertex, 0);
+	}
+}
 
 void Application::BindDescriptorSet(const VkCommandBuffer& cmdBuffer)
 {

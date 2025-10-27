@@ -17,6 +17,7 @@ void RenderObject::SetMeshRangeOffSet(VkDeviceSize vertexOffset /*= -1*/, VkDevi
 	if (vertexOffset != -1)
 	{
 		handles.meshRange.vertexOffset = vertexOffset;
+		handles.meshRange.firstVertex = vertexOffset / sizeof(handles.modelData.vertices[0]);
 	}
 	if (indexOffset != -1)
 	{
@@ -38,6 +39,11 @@ void RenderObject::Translate(glm::vec3 translation)
 void RenderObject::Scale(glm::vec3 scale)
 {
 	handles.transform.scale = scale;
+}
+
+void RenderObject::SetPosition(glm::vec3 position)
+{
+	handles.transform.position = position;
 }
 
 glm::mat4 RenderObject::GetModelMatrix() const

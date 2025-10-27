@@ -21,6 +21,8 @@ public:
 	void Translate(glm::vec3 translation);
 	void Scale(glm::vec3 scale);
 
+	void SetPosition(glm::vec3 position);
+
 	glm::mat4 GetModelMatrix() const;
 private:
 	RenderObjectHandles handles;

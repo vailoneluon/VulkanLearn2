@@ -35,6 +35,7 @@ private:
 
 	RenderObject* girlObj;
 	RenderObject* girlObj2;
+	RenderObject* girlObj3;
 
 	std::vector<RenderObject*> renderObjects;
 
@@ -82,8 +83,10 @@ private:
 	void UpdateDescriptorBinding();
 
 	void UpdateUniforms();
+	void UpdateRenderObjectTransform();
 
-	void RecordCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex);
+	void RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex);
+	void CmdDrawRenderObjects(const VkCommandBuffer& cmdBuffer);
 	void BindDescriptorSet(const VkCommandBuffer& cmdBuffer);
 	void DrawFrame();
 
