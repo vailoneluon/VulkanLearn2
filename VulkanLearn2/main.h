@@ -19,6 +19,7 @@ class VulkanImage;
 class VulkanDescriptor;
 class RenderObject;
 class MeshManager;
+class TextureManager;
 
 class Application
 {
@@ -32,6 +33,7 @@ private:
 	RenderObject* obj1;
 	RenderObject* obj2;
 	std::vector<RenderObject*> renderObjects;
+
 
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -58,10 +60,9 @@ private:
 	VulkanSyncManager* vulkanSyncManager;
 
 	MeshManager* meshManager;
+	TextureManager* textureManager;
 
 	std::vector<VulkanDescriptor*> descriptors;
-	VulkanImage* textureImage;
-	VulkanDescriptor* textureImageDescriptor;
 
 	UniformBufferObject ubo{};
 	std::vector<VulkanBuffer*> uniformBuffers;

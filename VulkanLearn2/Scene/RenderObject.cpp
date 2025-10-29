@@ -1,10 +1,11 @@
 #include "pch.h"
 #include "Model.h"
 #include "RenderObject.h"
+#include "TextureManager.h"
 
-RenderObject::RenderObject(const std::string& modelFilePath, MeshManager* meshManager)
+RenderObject::RenderObject(const std::string& modelFilePath, MeshManager* meshManager, TextureManager* textureManager)
 {
-	handles.model = new Model(modelFilePath, meshManager);
+	handles.model = new Model(modelFilePath, meshManager, textureManager);
 }
 
 RenderObject::~RenderObject()
@@ -30,6 +31,11 @@ void RenderObject::Scale(glm::vec3 scale)
 void RenderObject::SetPosition(glm::vec3 newPosition)
 {
 	handles.transform.position = newPosition;
+}
+
+void RenderObject::SetRotation(glm::vec3 newRotation)
+{
+	handles.transform.rotation = newRotation;
 }
 
 glm::mat4 RenderObject::GetModelMatrix() const

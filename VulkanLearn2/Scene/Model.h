@@ -1,6 +1,7 @@
 #pragma once
 
 class MeshManager;
+class TextureManager;
 
 struct MeshRange
 {
@@ -27,10 +28,11 @@ struct ModelHandles
 class Model
 {
 public:
-	Model(const std::string& modelFilePath, MeshManager* meshManager);
+	Model(const std::string& modelFilePath, MeshManager* meshManager, TextureManager* textureManager);
 	~Model();
 
 	const std::vector<Mesh*> getMeshes() const { return handles.meshes; }
+	
 private:
 	ModelHandles handles;
 	

@@ -25,7 +25,11 @@ struct BindingElementInfo
 struct ImageBindingUpdateInfo
 {
 	uint32_t binding;
-	VkDescriptorImageInfo imageInfo;
+
+	uint32_t imageInfoCount;
+	VkDescriptorImageInfo* imageInfos;
+
+	uint32_t firstArrayElement;
 };
 
 struct BufferBindingUpdateInfo

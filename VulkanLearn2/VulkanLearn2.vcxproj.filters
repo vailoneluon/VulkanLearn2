@@ -96,6 +96,9 @@
     <ClCompile Include="Scene\MeshManager.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\TextureManager.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Window.h">
@@ -162,6 +165,9 @@
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene\MeshManager.h">
+      <Filter>Header Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\TextureManager.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
   </ItemGroup>

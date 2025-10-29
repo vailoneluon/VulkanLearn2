@@ -92,7 +92,7 @@ void VulkanImage::CreateImageView(const VulkanImageViewCreateInfo& vulkanImageVi
 TextureImageInfo VulkanImage::loadImageFromFile(const char* filePath)
 {
 	int texWidth, texHeight, texChanels;
-	//stbi_set_flip_vertically_on_load(true);
+	stbi_set_flip_vertically_on_load(true);
 	stbi_uc* pixels = stbi_load(filePath, &texWidth, &texHeight, &texChanels, STBI_rgb_alpha);
 
 	uint32_t textureImageMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;

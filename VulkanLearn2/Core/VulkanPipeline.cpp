@@ -83,7 +83,7 @@ void VulkanPipeline::createPipelineLayout(const std::vector<VulkanDescriptor*>& 
 	{
 		descSetLayoutMaps[descriptor->getSetIndex()] = descriptor->getHandles().descriptorSetLayout;
 	}
-	for (const auto&[setIndex, descriptorSetLayout] : descSetLayoutMaps)
+	for (const auto&[_, descriptorSetLayout] : descSetLayoutMaps)
 	{
 		descSetLayouts.push_back(descriptorSetLayout);
 	}

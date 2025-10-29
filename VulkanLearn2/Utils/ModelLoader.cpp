@@ -20,12 +20,22 @@ ModelData ModelLoader::LoadModelFromFile(const std::string& filePath)
 	ModelData modelData;
 
 	Assimp::Importer importer;
-	const aiScene* scene = importer.ReadFile(filePath,
+
+	unsigned int flags = 
 		aiProcess_Triangulate |
-		aiProcess_JoinIdenticalVertices|
-		aiProcess_FlipUVs |
-		//aiProcess_CalcTangentSpace |
-		aiProcess_GenSmoothNormals);
+		aiProcess_JoinIdenticalVertices |
+		aiProcess_GenSmoothNormals |
+		//aiProcess_FlipUVs |
+		aiProcess_CalcTangentSpace;
+
+	// Kiểm tra xem file có phải là .assbin không
+	if (filePath.rfind(".assbin") == (filePath.size() - 7))
+	{
+		flags = 0;
+	}
+
+	// Sử dụng 'flags' đã được cập nhật
+	const aiScene* scene = importer.ReadFile(filePath, flags);
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{

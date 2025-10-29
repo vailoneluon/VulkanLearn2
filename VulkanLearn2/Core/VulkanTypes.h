@@ -49,4 +49,5 @@ struct UniformBufferObject
 struct PushConstantData
 {
 	alignas(16) glm::mat4 model;
+	alignas(16) uint32_t textureId;
 };

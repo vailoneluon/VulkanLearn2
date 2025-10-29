@@ -76,10 +76,10 @@ void VulkanDescriptor::UpdateImageBinding(int updateCount, const ImageBindingUpd
 		descriptorSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorSetWrite.dstBinding = bindingInfo.binding;
 		descriptorSetWrite.descriptorType = bindingInfo.descriptorType;
-		descriptorSetWrite.descriptorCount = bindingInfo.descriptorCount;
-		descriptorSetWrite.dstArrayElement = 0;
+		descriptorSetWrite.descriptorCount = pImageBindingInfo[i].imageInfoCount;
+		descriptorSetWrite.dstArrayElement = pImageBindingInfo[i].firstArrayElement;
 
-		descriptorSetWrite.pImageInfo = &pImageBindingInfo[i].imageInfo;
+		descriptorSetWrite.pImageInfo = pImageBindingInfo[i].imageInfos;
 		descriptorSetWrite.dstSet = handles.descriptorSet;
 
 		descriptorSetWrites.push_back(descriptorSetWrite);

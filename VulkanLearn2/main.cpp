@@ -18,6 +18,7 @@
 #include <Scene/RenderObject.h>
 #include "Scene/MeshManager.h"
 #include "Scene/Model.h"
+#include "Scene/TextureManager.h"
 
 int main()
 {
@@ -44,17 +45,19 @@ Application::Application()
 
 	/////////////////////////
 	meshManager = new MeshManager(vulkanContext->getVulkanHandles(), vulkanCommandManager);
-	obj1 = new RenderObject("Resources/Swimsuit/model.assbin", meshManager);
-	obj2 = new RenderObject("Resources/AnimeGirlModel/source/AnimeGirl_01_2023.assbin", meshManager);
+	textureManager = new TextureManager(vulkanContext->getVulkanHandles(), vulkanCommandManager, vulkanSampler->getSampler());
+
+	obj1 = new RenderObject("Resources/bunnyGirl.assbin", meshManager, textureManager);
+	obj2 = new RenderObject("Resources/swimSuit.assbin", meshManager, textureManager);
+	obj1->SetRotation({ -90, 0, 0 });
+	//obj2->SetRotation({ -90, 0, 0 });
 	renderObjects.push_back(obj1);
 	renderObjects.push_back(obj2);
 
-	/////////////////
+	textureManager->CreateTextureImageDescriptor();
+	descriptors.push_back(textureManager->getDescriptor());
 
-	//{
-	////ScopeTimer totalTime("Create Texture Image TotalTime");
-	CreateTextureImage(vulkanContext->getVulkanHandles());
-	//}
+	/////////////////
 
 	vulkanDescriptorManager = new VulkanDescriptorManager(vulkanContext->getVulkanHandles(), descriptors);
 	UpdateDescriptorBinding();
@@ -73,26 +76,8 @@ Application::Application()
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	meshManager->CreateBuffers();
-
 }
 
-
-void Application::CreateTextureImage(const VulkanHandles& vk)
-{
-	textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, "Resources/Swimsuit/Textures/T000.png", false);
-	//textureImage = new VulkanImage(vulkanContext->getVulkanHandles(), vulkanCommandManager, "Resources/AnimeGirlModel/textures/AnimeGirl_01_2023_dif.png", false);
-
-	BindingElementInfo textureImageElementInfo;
-	textureImageElementInfo.binding = 0;
-	textureImageElementInfo.descriptorCount = 1;
-	textureImageElementInfo.pImmutableSamplers = nullptr;
-	textureImageElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	textureImageElementInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-	std::vector<BindingElementInfo> textureBindings{ textureImageElementInfo };
-	textureImageDescriptor = new VulkanDescriptor(vk, textureBindings, 0);
-	descriptors.push_back(textureImageDescriptor);
-}
 
 void Application::CreateUniformBuffer()
 {
@@ -127,17 +112,7 @@ void Application::CreateUniformBuffer()
 
 void Application::UpdateDescriptorBinding()
 {
-	// Image Binding
-	VkDescriptorImageInfo textureDescImageInfo{};
-	textureDescImageInfo.sampler = vulkanSampler->getSampler();
-	textureDescImageInfo.imageView = textureImage->getHandles().imageView;
-	textureDescImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-	ImageBindingUpdateInfo imageBindingInfo{};
-	imageBindingInfo.binding = 0;
-	imageBindingInfo.imageInfo = textureDescImageInfo;
-
-	textureImageDescriptor->UpdateImageBinding(1, &imageBindingInfo);
+	textureManager->UpdateTextureImageDescriptorBinding();
 
 	// UBO Binding
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -161,7 +136,7 @@ void Application::UpdateUniforms()
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();*/
 
-	ubo.view = glm::lookAt(glm::vec3(0.0f, 5.0f, 5.0f), glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	ubo.view = glm::lookAt(glm::vec3(0.0f, 3.0f, 4.0f), glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), vulkanSwapchain->getHandles().swapChainExtent.width / (float)vulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
 
 	ubo.proj[1][1] *= -1;
@@ -178,12 +153,13 @@ void Application::UpdateRenderObjectTransform()
 	float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
 	lastTime = currentTime;
 
-
+	obj1->SetPosition({ 1, 0, 0 });
 	obj1->Rotate(glm::vec3(0, deltaTime * 45.0f, 0));
 	obj1->Scale({0.05f, 0.05f, 0.05f});
 	
-	obj2->Rotate(glm::vec3(0, deltaTime * -45.0f, 0));
 	obj2->SetPosition({ -1, 0, 0 });
+	obj2->Scale({ 0.05f, 0.05f, 0.05f });
+	obj2->Rotate(glm::vec3(0, deltaTime * -45.0f, 0));
 }
 
 Application::~Application()
@@ -196,10 +172,9 @@ Application::~Application()
 	}
 
 	delete(meshManager);
+	delete(textureManager);
 	delete(vulkanSampler);
 
-
-	delete(textureImage);
 
 	for (auto& uniformBuffer : uniformBuffers)
 	{
@@ -324,11 +299,11 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 	// Bind VertexBuffer and IndexBuffer
 	VkDeviceSize offset = 0;
 	vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &meshManager->getVertexBuffer(), &offset);
-	vkCmdBindIndexBuffer(cmdBuffer, meshManager->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindIndexBuffer(cmdBuffer, meshManager->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
 	// Bind Descriptor Set
 	BindDescriptorSet(cmdBuffer);
-
+	
 	CmdDrawRenderObjects(cmdBuffer);
 
 	vkCmdEndRenderPass(cmdBuffer);
@@ -340,13 +315,16 @@ void Application::CmdDrawRenderObjects(const VkCommandBuffer& cmdBuffer)
 {
 	for (const auto& renderObject : renderObjects)
 	{
-		// Push Constant Data
-		pushConstantData.model = renderObject->GetModelMatrix();
-		vkCmdPushConstants(cmdBuffer, vulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstantData), &pushConstantData);
+		
 
 		std::vector<Mesh*> meshes = renderObject->getHandles().model->getMeshes();		
 		for (const auto& mesh : meshes)
 		{
+			// Push Constant Data
+			pushConstantData.model = renderObject->GetModelMatrix();
+			pushConstantData.textureId = mesh->textureId;
+			
+			vkCmdPushConstants(cmdBuffer, vulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstantData), &pushConstantData);
 			vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
 		}
 	}
@@ -357,8 +335,8 @@ void Application::BindDescriptorSet(const VkCommandBuffer& cmdBuffer)
 	// Binding Texture Image Descriptor Set
 	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
 		vulkanPipeline->getHandles().pipelineLayout,
-		textureImageDescriptor->getHandles().setIndex, 1,
-		&textureImageDescriptor->getHandles().descriptorSet,
+		textureManager->getDescriptor()->getHandles().setIndex, 1,
+		&textureManager->getDescriptor()->getHandles().descriptorSet,
 		0, nullptr);
 	
 	// Binding UBO Descriptor Set

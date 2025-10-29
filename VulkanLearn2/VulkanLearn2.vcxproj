@@ -40,6 +40,7 @@
     <ClCompile Include="Scene\MeshManager.cpp" />
     <ClCompile Include="Scene\Model.cpp" />
     <ClCompile Include="Scene\RenderObject.cpp" />
+    <ClCompile Include="Scene\TextureManager.cpp" />
     <ClCompile Include="Utils\ModelLoader.cpp" />
     <ClCompile Include="Utils\stb_image.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
@@ -66,6 +67,7 @@
     <ClInclude Include="Scene\MeshManager.h" />
     <ClInclude Include="Scene\Model.h" />
     <ClInclude Include="Scene\RenderObject.h" />
+    <ClInclude Include="Scene\TextureManager.h" />
     <ClInclude Include="Utils\ErrorHelper.h" />
     <ClInclude Include="Utils\ModelLoader.h" />
     <ClInclude Include="Utils\DebugTimer.h" />
@@ -135,7 +137,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <PreBuildEventUseInBuild>false</PreBuildEventUseInBuild>
+    <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
     <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -143,7 +145,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <PreBuildEventUseInBuild>false</PreBuildEventUseInBuild>
+    <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
     <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

@@ -13,7 +13,7 @@ struct MeshManagerHandles
 	VulkanBuffer* indexBuffer;
 	
 	std::vector<Vertex> allVertices;
-	std::vector<uint16_t> allIndices;
+	std::vector<uint32_t> allIndices;
 };
 
 class MeshManager
