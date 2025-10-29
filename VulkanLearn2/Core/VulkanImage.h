@@ -2,11 +2,21 @@
 #include "VulkanContext.h"
 #include "VulkanCommandManager.h"
 
+struct TextureImageInfo
+{
+	int texWidth, texHeight, texChanels;
+	uint32_t textureImageMipLevels;
+	VkDeviceSize imageSize;
+	stbi_uc* pixels;
+};
+
 struct ImageHandles
 {
 	VkImage image;
 	VkDeviceMemory imageMemory;
 	VkImageView imageView;
+
+	TextureImageInfo imageInfo;
 };
 
 struct VulkanImageCreateInfo
@@ -20,13 +30,6 @@ struct VulkanImageCreateInfo
 	VkMemoryPropertyFlags memoryFlags = 0;
 };
 
-struct TextureImageInfo 
-{
-	int texWidth, texHeight, texChanels;
-	uint32_t textureImageMipLevels;
-	VkDeviceSize imageSize;
-	stbi_uc* pixels;
-};
 
 struct VulkanImageViewCreateInfo
 {
@@ -42,6 +45,8 @@ public:
 	VulkanImage(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager,const char* filePath, bool isCreateMipmap = false);
 	~VulkanImage();
 
+	void UploadDataToImage(VulkanCommandManager* cmd, VkCommandBuffer& cmdBuffer, const TextureImageInfo& textureImageInfo);
+
 	const ImageHandles& getHandles() const{ return handles; }
 private:
 	ImageHandles handles;
@@ -54,7 +59,6 @@ private:
 	// Create Texture Image
 	TextureImageInfo loadImageFromFile(const char* filePath);
 	void CreateVulkanTextureImage(TextureImageInfo textureImageInfo);
-	void UploadDataToImage(VulkanCommandManager* cmd, TextureImageInfo& const textureImageInfo);
 
 	// Helper Function
 	uint32_t findMemoryTypeIndex(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties);
@@ -65,5 +69,5 @@ private:
 		uint32_t baseMipLevel = -1, uint32_t levelCount = -1,
 		VkAccessFlags srcAccessMask = 0, VkAccessFlags dstAccessMask = 0);
 
-	void GenerateMipMaps(VulkanCommandManager* cmd, VkImage image, uint32_t width, uint32_t height, uint32_t mipLevels);
+	void GenerateMipMaps(VulkanCommandManager* cmd, VkCommandBuffer& cmdBuffer, VkImage image, uint32_t width, uint32_t height, uint32_t mipLevels);
 };

@@ -8,8 +8,6 @@ class VulkanDescriptor;
 struct TextureImage
 {
 	uint32_t id;
-
-
 	VulkanImage* textureImage;
 
 	~TextureImage();
@@ -32,6 +30,7 @@ public:
 	VulkanDescriptor* getDescriptor() const { return handles.textureImageDescriptor; };
 
 	uint32_t LoadTextureImage(const std::string& imageFilePath);
+	void CopyDataToTextureImage();
 	void CreateTextureImageDescriptor();
 	void UpdateTextureImageDescriptorBinding();
 private:
@@ -42,7 +41,4 @@ private:
 	TextureManagerHandles handles;
 
 	TextureImage* CreateNewTextureImage(const std::string& imageFilePath);
-
-	
-	
 };

@@ -28,11 +28,24 @@ uint32_t TextureManager::LoadTextureImage(const std::string& imageFilePath)
 	return handles.filePathList[imageFilePath]->id;
 }
 
+
+
+void TextureManager::CopyDataToTextureImage()
+{
+	VkCommandBuffer singleTimeCmd = cmd->BeginSingleTimeCmdBuffer();
+	for (auto& textureImage : handles.allTextureImageLoaded)
+	{
+		textureImage->textureImage->UploadDataToImage(cmd, singleTimeCmd, textureImage->textureImage->getHandles().imageInfo);
+	}
+	cmd->EndSingleTimeCmdBuffer(singleTimeCmd);
+}
+
 void TextureManager::CreateTextureImageDescriptor()
 {
 	BindingElementInfo textureImageElementInfo;
 	textureImageElementInfo.binding = 0;
-	textureImageElementInfo.descriptorCount = handles.allTextureImageLoaded.size();
+	//textureImageElementInfo.descriptorCount = handles.allTextureImageLoaded.size();
+	textureImageElementInfo.descriptorCount = 256;
 	textureImageElementInfo.pImmutableSamplers = nullptr;
 	textureImageElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	textureImageElementInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -66,8 +79,8 @@ void TextureManager::UpdateTextureImageDescriptorBinding()
 
 TextureImage* TextureManager::CreateNewTextureImage(const std::string& imageFilePath)
 {
-	VulkanImage* image = new VulkanImage(vk, cmd, imageFilePath.c_str(), true);
-	TextureImage* textureImage = new TextureImage;
+	VulkanImage* image = new VulkanImage(vk, cmd, imageFilePath.c_str(), false);
+	TextureImage* textureImage = new TextureImage();
 	textureImage->textureImage = image;
 	textureImage->id = handles.allTextureImageLoaded.size();
 	handles.allTextureImageLoaded.push_back(textureImage);

@@ -22,8 +22,8 @@ VulkanImage::VulkanImage(const VulkanHandles& vulkanHandles, VulkanCommandManage
 		textureImageInfo.textureImageMipLevels = 1;
 	}
 
+	handles.imageInfo = textureImageInfo;
 	CreateVulkanTextureImage(textureImageInfo);
-	UploadDataToImage(commandManager, textureImageInfo);
 }
 
 VulkanImage::~VulkanImage()
@@ -131,9 +131,8 @@ void VulkanImage::CreateVulkanTextureImage(TextureImageInfo textureImageInfo)
 	CreateImageView(imageViewInfo);
 }
 
-void VulkanImage::UploadDataToImage(VulkanCommandManager* cmd, TextureImageInfo& const textureImageInfo)
+void VulkanImage::UploadDataToImage( VulkanCommandManager* cmd, VkCommandBuffer& cmdBuffer , const TextureImageInfo& textureImageInfo)
 {
-
 	// Create Staging buffer để làm trung gian upload ảnh.
 	VulkanBuffer* stagingBuffer;
 
@@ -151,11 +150,8 @@ void VulkanImage::UploadDataToImage(VulkanCommandManager* cmd, TextureImageInfo&
 	// Giải phóng bộ nhớ của ảnh trên RAM vì đã upload.
 	stbi_image_free(textureImageInfo.pixels);
 
-	
 	// Copy Data to Image
 	// - Trans Image Layout 
-	VkCommandBuffer cmdBuffer;
-	cmdBuffer = cmd->BeginSingleTimeCmdBuffer();
 
 	TransitionImageLayout(cmdBuffer, handles.image, textureImageInfo.textureImageMipLevels,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -183,23 +179,19 @@ void VulkanImage::UploadDataToImage(VulkanCommandManager* cmd, TextureImageInfo&
 	
 	vkCmdCopyBufferToImage(cmdBuffer, stagingBuffer->getHandles().buffer, handles.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-	cmd->EndSingleTimeCmdBuffer(cmdBuffer);
-
 	// Create Mipmap
 	if (textureImageInfo.textureImageMipLevels != 1)
 	{
-		GenerateMipMaps(cmd, handles.image, textureImageInfo.texWidth, textureImageInfo.texHeight, textureImageInfo.textureImageMipLevels);
+		GenerateMipMaps(cmd, cmdBuffer, handles.image, textureImageInfo.texWidth, textureImageInfo.texHeight, textureImageInfo.textureImageMipLevels);
 	}
 	else
 	{
-		VkCommandBuffer singleTimeCmd = cmd->BeginSingleTimeCmdBuffer();
-		TransitionImageLayout(singleTimeCmd, handles.image, 1,
+		TransitionImageLayout(cmdBuffer, handles.image, 1,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 			-1, -1, 
 			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT
 		);
-		cmd->EndSingleTimeCmdBuffer(singleTimeCmd);
 	}
 	// Cleanup
 	delete(stagingBuffer);
@@ -265,10 +257,8 @@ void VulkanImage::TransitionImageLayout(VkCommandBuffer& cmdBuffer, VkImage& ima
 	);
 }
 
-void VulkanImage::GenerateMipMaps(VulkanCommandManager* cmd, VkImage image, uint32_t width, uint32_t height, uint32_t mipLevels)
+void VulkanImage::GenerateMipMaps(VulkanCommandManager* cmd, VkCommandBuffer& cmdBuffer, VkImage image, uint32_t width, uint32_t height, uint32_t mipLevels)
 {
-	VkCommandBuffer cmdBuffer =cmd->BeginSingleTimeCmdBuffer();
-
 	for (int i = 1; i < mipLevels; i++)
 	{
 		TransitionImageLayout(cmdBuffer, image, mipLevels,
@@ -318,8 +308,5 @@ void VulkanImage::GenerateMipMaps(VulkanCommandManager* cmd, VkImage image, uint
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 		mipLevels - 1, 1,
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
-
-
-	cmd->EndSingleTimeCmdBuffer(cmdBuffer);
 }
 
