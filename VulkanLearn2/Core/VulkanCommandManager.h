@@ -15,7 +15,7 @@ public:
 	
 	const CommandManagerHandles& getHandles() const { return handles; }
 
-	VkCommandBuffer& BeginSingleTimeCmdBuffer();
+	VkCommandBuffer BeginSingleTimeCmdBuffer();
 	void EndSingleTimeCmdBuffer(VkCommandBuffer cmdBuffer);
 private:
 	const VulkanHandles& vk;

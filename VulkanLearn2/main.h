@@ -70,9 +70,6 @@ private:
 
 	PushConstantData pushConstantData;
 
-	void CreateVertexBuffer();
-	void CreateIndexBuffer();
-	void CreateTextureImage(const VulkanHandles& vk);
 	void CreateUniformBuffer();
 	void UpdateDescriptorBinding();
 

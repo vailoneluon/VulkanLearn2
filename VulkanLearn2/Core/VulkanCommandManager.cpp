@@ -41,7 +41,7 @@ void VulkanCommandManager::CreateCommandBuffer(int MAX_FRAMES_IN_FLIGHT)
 	}
 }
 
-VkCommandBuffer& VulkanCommandManager::BeginSingleTimeCmdBuffer()
+VkCommandBuffer VulkanCommandManager::BeginSingleTimeCmdBuffer()
 {
 	VkCommandBuffer cmdBuffer;
 	VkCommandBufferAllocateInfo allocInfo{};

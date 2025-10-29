@@ -30,8 +30,9 @@ public:
 	VulkanDescriptor* getDescriptor() const { return handles.textureImageDescriptor; };
 
 	uint32_t LoadTextureImage(const std::string& imageFilePath);
-	void CopyDataToTextureImage();
-	void CreateTextureImageDescriptor();
+
+	void FinalizeSetup();
+
 	void UpdateTextureImageDescriptorBinding();
 private:
 	const VulkanHandles& vk;
@@ -41,4 +42,7 @@ private:
 	TextureManagerHandles handles;
 
 	TextureImage* CreateNewTextureImage(const std::string& imageFilePath);
+
+	void UploadDataToTextureImage();
+	void CreateTextureImageDescriptor();
 };

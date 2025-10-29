@@ -131,7 +131,7 @@ void VulkanImage::CreateVulkanTextureImage(TextureImageInfo textureImageInfo)
 	CreateImageView(imageViewInfo);
 }
 
-void VulkanImage::UploadDataToImage( VulkanCommandManager* cmd, VkCommandBuffer& cmdBuffer , const TextureImageInfo& textureImageInfo)
+VulkanBuffer* VulkanImage::UploadDataToImage( VulkanCommandManager* cmd, VkCommandBuffer& cmdBuffer , const TextureImageInfo& textureImageInfo)
 {
 	// Create Staging buffer để làm trung gian upload ảnh.
 	VulkanBuffer* stagingBuffer;
@@ -193,8 +193,8 @@ void VulkanImage::UploadDataToImage( VulkanCommandManager* cmd, VkCommandBuffer&
 			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT
 		);
 	}
-	// Cleanup
-	delete(stagingBuffer);
+	
+	return stagingBuffer;
 }
 
 uint32_t VulkanImage::findMemoryTypeIndex(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties)

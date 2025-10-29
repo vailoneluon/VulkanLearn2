@@ -2,6 +2,8 @@
 #include "VulkanContext.h"
 #include "VulkanCommandManager.h"
 
+class VulkanBuffer;
+
 struct TextureImageInfo
 {
 	int texWidth, texHeight, texChanels;
@@ -45,7 +47,7 @@ public:
 	VulkanImage(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager,const char* filePath, bool isCreateMipmap = false);
 	~VulkanImage();
 
-	void UploadDataToImage(VulkanCommandManager* cmd, VkCommandBuffer& cmdBuffer, const TextureImageInfo& textureImageInfo);
+	VulkanBuffer* UploadDataToImage(VulkanCommandManager* cmd, VkCommandBuffer& cmdBuffer, const TextureImageInfo& textureImageInfo);
 
 	const ImageHandles& getHandles() const{ return handles; }
 private:

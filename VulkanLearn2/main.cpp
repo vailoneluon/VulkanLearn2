@@ -54,8 +54,7 @@ Application::Application()
 	renderObjects.push_back(obj1);
 	renderObjects.push_back(obj2);
 
-	textureManager->CopyDataToTextureImage();
-	textureManager->CreateTextureImageDescriptor();
+	textureManager->FinalizeSetup();
 	descriptors.push_back(textureManager->getDescriptor());
 
 	/////////////////

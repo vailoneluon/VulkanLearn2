@@ -3,6 +3,7 @@
 #include "Core/VulkanCommandManager.h"
 #include "Core/VulkanImage.h"
 #include "Core/VulkanDescriptor.h"
+#include "Core/VulkanBuffer.h"
 
 TextureManager::TextureManager(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager, const VkSampler& sampler):
 	vk(vulkanHandles), cmd(commandManager), spl(sampler)
@@ -28,16 +29,26 @@ uint32_t TextureManager::LoadTextureImage(const std::string& imageFilePath)
 	return handles.filePathList[imageFilePath]->id;
 }
 
-
-
-void TextureManager::CopyDataToTextureImage()
+void TextureManager::FinalizeSetup()
 {
+	UploadDataToTextureImage();
+	CreateTextureImageDescriptor();
+}
+
+void TextureManager::UploadDataToTextureImage()
+{
+	std::vector<VulkanBuffer*> stagingBuffers;
 	VkCommandBuffer singleTimeCmd = cmd->BeginSingleTimeCmdBuffer();
 	for (auto& textureImage : handles.allTextureImageLoaded)
 	{
-		textureImage->textureImage->UploadDataToImage(cmd, singleTimeCmd, textureImage->textureImage->getHandles().imageInfo);
+		stagingBuffers.push_back(textureImage->textureImage->UploadDataToImage(cmd, singleTimeCmd, textureImage->textureImage->getHandles().imageInfo));
 	}
 	cmd->EndSingleTimeCmdBuffer(singleTimeCmd);
+
+	for (auto& stagingBuffer : stagingBuffers)
+	{
+		delete(stagingBuffer);
+	}
 }
 
 void TextureManager::CreateTextureImageDescriptor()
