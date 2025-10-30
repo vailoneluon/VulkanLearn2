@@ -1,34 +1,43 @@
 #include "pch.h"
 #include "VulkanDescriptorManager.h"
+#include "VulkanDescriptor.h"
 
 
 VulkanDescriptorManager::VulkanDescriptorManager(const VulkanHandles& vulkanHandles, std::vector<VulkanDescriptor*>& vulkanDescriptors) :
-	vk(vulkanHandles)
+	m_VulkanHandles(vulkanHandles)
 {
-	handles.descriptors.insert(handles.descriptors.end(), vulkanDescriptors.begin(), vulkanDescriptors.end());
+	// Sao chép danh sách các descriptor cần quản lý.
+	m_Handles.descriptors = vulkanDescriptors;
 
+	// Thực hiện các bước khởi tạo.
 	CreateDescriptorPool();
-	AllocateDescriptorSet();
+	AllocateDescriptorSets();
 }
 
 VulkanDescriptorManager::~VulkanDescriptorManager()
 {
-	vkDestroyDescriptorPool(vk.device, handles.descriptorPool, nullptr);
+	// Hủy descriptor pool, hành động này sẽ tự động giải phóng tất cả các descriptor set
+	// đã được cấp phát từ pool này.
+	vkDestroyDescriptorPool(m_VulkanHandles.device, m_Handles.descriptorPool, nullptr);
 
-	for (const auto& descriptor : handles.descriptors)
+	// LƯU Ý: Vòng lặp này giải phóng các đối tượng VulkanDescriptor, bao gồm cả các
+	// DescriptorSetLayout của chúng. Điều này là đúng vì Manager sở hữu các descriptor này.
+	for (const auto& descriptor : m_Handles.descriptors)
 	{
 		delete(descriptor);
 	}
-	
 }
 
 void VulkanDescriptorManager::CreateDescriptorPool()
 {
-	descriptorCountByType = countDescriptorByType();
+	// 1. Đếm tổng số lượng descriptor cần thiết cho mỗi loại.
+	CountTotalDescriptorsByType();
 
+	// 2. Tạo danh sách các VkDescriptorPoolSize dựa trên kết quả đã đếm.
 	std::vector<VkDescriptorPoolSize> poolSizes;
+	poolSizes.reserve(m_DescriptorCountByType.size());
 
-	for (const auto&[descType, count] : descriptorCountByType)
+	for (const auto&[descType, count] : m_DescriptorCountByType)
 	{
 		VkDescriptorPoolSize poolSize{};
 		poolSize.type = descType;
@@ -37,35 +46,35 @@ void VulkanDescriptorManager::CreateDescriptorPool()
 		poolSizes.push_back(poolSize);
 	}
 
+	// 3. Tạo Descriptor Pool.
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = poolSizes.size();
+	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = handles.descriptors.size();
+	// maxSets là tổng số lượng Descriptor Set có thể được cấp phát từ pool này.
+	poolInfo.maxSets = static_cast<uint32_t>(m_Handles.descriptors.size());
 
-	VK_CHECK(vkCreateDescriptorPool(vk.device, &poolInfo, nullptr, &handles.descriptorPool), "FAILED TO CREATE DESCRIPTOR POOL");
+	VK_CHECK(vkCreateDescriptorPool(m_VulkanHandles.device, &poolInfo, nullptr, &m_Handles.descriptorPool), "LỖI: Tạo descriptor pool thất bại!");
 }
 
-void VulkanDescriptorManager::AllocateDescriptorSet()
+void VulkanDescriptorManager::AllocateDescriptorSets()
 {
-	for (const auto& descriptor : handles.descriptors)
+	// Yêu cầu mỗi đối tượng VulkanDescriptor tự cấp phát Descriptor Set của nó từ pool chung.
+	for (const auto& descriptor : m_Handles.descriptors)
 	{
-		descriptor->AllocateDescriptorSet(handles.descriptorPool);
+		descriptor->AllocateDescriptorSet(m_Handles.descriptorPool);
 	}
 }
 
-std::unordered_map<VkDescriptorType, glm::uint32_t> VulkanDescriptorManager::countDescriptorByType()
+void VulkanDescriptorManager::CountTotalDescriptorsByType()
 {
-	std::unordered_map<VkDescriptorType, uint32_t> countAns;
-
-	for (const auto& descriptor : handles.descriptors)
+	// Duyệt qua từng VulkanDescriptor được quản lý.
+	for (const auto& descriptor : m_Handles.descriptors)
 	{
+		// Lấy map đếm của descriptor đó và cộng dồn vào map tổng của manager.
 		for (const auto& [descType, count] : descriptor->getHandles().descriptorCountByType)
 		{
-			countAns[descType] += count;
+			m_DescriptorCountByType[descType] += count;
 		}
 	}
-
-	return countAns;
 }
-

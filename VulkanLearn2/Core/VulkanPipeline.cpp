@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "VulkanPipeline.h"
 #include "VulkanRenderPass.h"
 #include "VulkanSwapchain.h"
@@ -10,16 +10,17 @@ VulkanPipeline::VulkanPipeline(
 	const SwapchainHandles& swapchainHandles,
 	VkSampleCountFlagBits msaaSamples,
 	std::vector<VulkanDescriptor*>& descriptors)
-	: vk(vulkanHandles)
+	: m_VulkanHandles(vulkanHandles)
 {
-	VkShaderModule vertShaderModule = createShaderModule("Shaders/vert.spv");
-	VkShaderModule fragShaderModule = createShaderModule("Shaders/frag.spv");
+	// Tạo các shader module từ file SPIR-V đã được biên dịch.
+	VkShaderModule vertShaderModule = CreateShaderModule("Shaders/vert.spv");
+	VkShaderModule fragShaderModule = CreateShaderModule("Shaders/frag.spv");
 
-	// Tạo Pipeline Layout 
-	createPipelineLayout(descriptors);
+	// Tạo Pipeline Layout, định nghĩa các descriptor set và push constant mà pipeline sẽ sử dụng.
+	CreatePipelineLayout(descriptors);
 
-	// Tạo Graphics Pipeline
-	createGraphicsPipeline(
+	// Tạo Graphics Pipeline với tất cả các cấu hình cần thiết.
+	CreateGraphicsPipeline(
 		renderPassHandles,
 		swapchainHandles,
 		msaaSamples,
@@ -27,30 +28,33 @@ VulkanPipeline::VulkanPipeline(
 		fragShaderModule
 	);
 
-	// Hủy shader module sau khi pipeline đã được tạo
-	vkDestroyShaderModule(vk.device, fragShaderModule, nullptr);
-	vkDestroyShaderModule(vk.device, vertShaderModule, nullptr);
+	// Sau khi pipeline đã được tạo, các shader module không còn cần thiết và có thể được hủy.
+	vkDestroyShaderModule(m_VulkanHandles.device, fragShaderModule, nullptr);
+	vkDestroyShaderModule(m_VulkanHandles.device, vertShaderModule, nullptr);
 }
 
 VulkanPipeline::~VulkanPipeline()
 {
-	vkDestroyPipeline(vk.device, handles.graphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(vk.device, handles.pipelineLayout, nullptr);
+	// Hủy pipeline và layout của nó.
+	vkDestroyPipeline(m_VulkanHandles.device, m_Handles.graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(m_VulkanHandles.device, m_Handles.pipelineLayout, nullptr);
 }
 
-// Hàm đọc file (thường dùng cho shader)
-std::vector<char> VulkanPipeline::readShaderFile(const std::string& filename)
+std::vector<char> VulkanPipeline::ReadShaderFile(const std::string& filename)
 {
+	// Mở file ở chế độ nhị phân và con trỏ đặt ở cuối file.
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
 	if (!file.is_open())
 	{
-		showError("FAILED TO OPEN SHADER FILE: " + filename);
+		throw std::runtime_error("LỖI: Không thể mở file shader: " + filename);
 	}
 
+	// Lấy kích thước file từ vị trí con trỏ.
 	size_t fileSize = (size_t)file.tellg();
 	std::vector<char> buffer(fileSize);
 
+	// Quay lại đầu file và đọc toàn bộ nội dung.
 	file.seekg(0);
 	file.read(buffer.data(), fileSize);
 	file.close();
@@ -58,10 +62,9 @@ std::vector<char> VulkanPipeline::readShaderFile(const std::string& filename)
 	return buffer;
 }
 
-// Hàm tạo Shader Module từ mã SPIR-V
-VkShaderModule VulkanPipeline::createShaderModule(const std::string& shaderFilePath)
+VkShaderModule VulkanPipeline::CreateShaderModule(const std::string& shaderFilePath)
 {
-	std::vector<char> code = readShaderFile(shaderFilePath);
+	std::vector<char> code = ReadShaderFile(shaderFilePath);
 
 	VkShaderModuleCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -69,57 +72,56 @@ VkShaderModule VulkanPipeline::createShaderModule(const std::string& shaderFileP
 	createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
 	VkShaderModule shaderModule;
-	VK_CHECK(vkCreateShaderModule(vk.device, &createInfo, nullptr, &shaderModule), "FAILED TO CREATE SHADER MODULE");
+	VK_CHECK(vkCreateShaderModule(m_VulkanHandles.device, &createInfo, nullptr, &shaderModule), "LỖI: Tạo shader module thất bại!");
 	return shaderModule;
 }
 
-// Tạo một Pipeline Layout 
-void VulkanPipeline::createPipelineLayout(const std::vector<VulkanDescriptor*>& descriptors)
+void VulkanPipeline::CreatePipelineLayout(const std::vector<VulkanDescriptor*>& descriptors)
 {
-	// Sắp xếp layout theo thứ tự SetIndex.
-	std::vector<VkDescriptorSetLayout> descSetLayouts;
-	std::map<uint32_t, VkDescriptorSetLayout> descSetLayoutMaps;
+	// Sắp xếp các descriptor set layout theo chỉ số set (set index) để đảm bảo thứ tự đúng.
+	std::map<uint32_t, VkDescriptorSetLayout> sortedLayouts;
 	for (const auto* descriptor : descriptors)
 	{
-		descSetLayoutMaps[descriptor->getSetIndex()] = descriptor->getHandles().descriptorSetLayout;
+		sortedLayouts[descriptor->getSetIndex()] = descriptor->getHandles().descriptorSetLayout;
 	}
-	for (const auto&[setIndex, descriptorSetLayout] : descSetLayoutMaps)
+
+	std::vector<VkDescriptorSetLayout> descSetLayouts;
+	descSetLayouts.reserve(sortedLayouts.size());
+	for (const auto& pair : sortedLayouts)
 	{
-		descSetLayouts.push_back(descriptorSetLayout);
+		descSetLayouts.push_back(pair.second);
 	}
 
-	// Tạo Pipeline Layout 
-	// Push Constant
-
+	// Định nghĩa một dải push constant để truyền ma trận model vào vertex shader.
 	VkPushConstantRange pushConstantRange{};
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	pushConstantRange.offset = 0;
 	pushConstantRange.size = sizeof(PushConstantData);
 
+	// Tạo Pipeline Layout.
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = descSetLayouts.size(); 
+	pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descSetLayouts.size()); 
 	pipelineLayoutInfo.pSetLayouts = descSetLayouts.data();
-	pipelineLayoutInfo.pushConstantRangeCount = 1; // Không có push constant
+	pipelineLayoutInfo.pushConstantRangeCount = 1;
 	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
-	VK_CHECK(vkCreatePipelineLayout(vk.device, &pipelineLayoutInfo, nullptr, &handles.pipelineLayout), "FAILED TO CREATE PIPELINE LAYOUT");
+	VK_CHECK(vkCreatePipelineLayout(m_VulkanHandles.device, &pipelineLayoutInfo, nullptr, &m_Handles.pipelineLayout), "LỖI: Tạo pipeline layout thất bại!");
 }
 
-// Hàm tạo pipeline chính
-void VulkanPipeline::createGraphicsPipeline(
+void VulkanPipeline::CreateGraphicsPipeline(
 	const RenderPassHandles& renderPassHandles,
 	const SwapchainHandles& swapchainHandles,
 	VkSampleCountFlagBits msaaSamples,
 	VkShaderModule vertShaderModule,
 	VkShaderModule fragShaderModule)
 {
-	// 1. Định nghĩa giai đoạn Shader
+	// 1. Giai đoạn Shader
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
 	vertShaderStageInfo.module = vertShaderModule;
-	vertShaderStageInfo.pName = "main";
+	vertShaderStageInfo.pName = "main"; // Tên hàm entry point trong shader
 
 	VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
 	fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -129,24 +131,25 @@ void VulkanPipeline::createGraphicsPipeline(
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-	// Vertex Pipeline
+	// 2. Giai đoạn Vertex Input: Mô tả định dạng dữ liệu vertex đầu vào.
 	auto vertexBindingDescs = Vertex::GetBindingDesc();
 	auto vertexAttributeDescs = Vertex::GetAttributeDesc();
 
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 1;
-	vertexInputInfo.pVertexBindingDescriptions = &vertexBindingDescs;
-	vertexInputInfo.vertexAttributeDescriptionCount = vertexAttributeDescs.size();
+	vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexBindingDescs.size());
+	vertexInputInfo.pVertexBindingDescriptions = vertexBindingDescs.data();
+	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexAttributeDescs.size());
 	vertexInputInfo.pVertexAttributeDescriptions = vertexAttributeDescs.data();
 
-	// 3. Input Assembly (Vẽ tam giác)
+	// 3. Giai đoạn Input Assembly: Mô tả cách các vertex được lắp ráp thành primitive (vd: tam giác).
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-	// 4. Viewport và Scissor (Sử dụng kích thước của swapchain)
+	// 4. Giai đoạn Viewport và Scissor: Định nghĩa vùng không gian render.
+	// Khai báo tĩnh, kích thước viewport và scissor sẽ được cố định khi tạo pipeline.
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
@@ -166,36 +169,33 @@ void VulkanPipeline::createGraphicsPipeline(
 	viewportState.scissorCount = 1;
 	viewportState.pScissors = &scissor;
 
-	// 5. Rasterizer (Tô đầy tam giác)
+	// 5. Giai đoạn Rasterization: Chuyển đổi primitive thành fragment.
 	VkPipelineRasterizationStateCreateInfo rasterizer{};
 	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizer.depthClampEnable = VK_FALSE;
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
-	//rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.cullMode = VK_CULL_MODE_NONE;
+	rasterizer.cullMode = VK_CULL_MODE_NONE; // Tạm thời không cull mặt nào
 	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 
-	// 6. Multisampling (Sử dụng MSAA từ class FrameBuffer)
+	// 6. Giai đoạn Multisampling: Cấu hình cho MSAA.
 	VkPipelineMultisampleStateCreateInfo multisampling{};
 	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multisampling.sampleShadingEnable = VK_FALSE;
 	multisampling.rasterizationSamples = msaaSamples;
 
-	// 7. Depth/Stencil (Bật kiểm tra độ sâu)
-	// (Phù hợp với render pass của bạn)
+	// 7. Giai đoạn Depth/Stencil: Cấu hình kiểm tra chiều sâu.
 	VkPipelineDepthStencilStateCreateInfo depthStencil{};
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencil.depthTestEnable = VK_TRUE;
 	depthStencil.depthWriteEnable = VK_TRUE;
 	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
-	depthStencil.stencilTestEnable = VK_FALSE; // Bật stencil test
+	depthStencil.stencilTestEnable = VK_FALSE;
 
-	// 8. Color Blending (Ghi đè màu, không trộn)
-	// (Phù hợp với color attachment và resolve attachment)
+	// 8. Giai đoạn Color Blending: Cấu hình cách màu sắc được ghi vào framebuffer.
 	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	colorBlendAttachment.blendEnable = VK_FALSE;
@@ -206,7 +206,10 @@ void VulkanPipeline::createGraphicsPipeline(
 	colorBlending.attachmentCount = 1;
 	colorBlending.pAttachments = &colorBlendAttachment;
 
-	// 9. Tạo Pipeline
+	// 9. Dynamic State: Không sử dụng dynamic state cho viewport và scissor nữa.
+	// pDynamicState được set là nullptr.
+
+	// 10. Tổng hợp và tạo Graphics Pipeline
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineInfo.stageCount = 2;
@@ -219,9 +222,9 @@ void VulkanPipeline::createGraphicsPipeline(
 	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = nullptr; // Không có state động
-	pipelineInfo.layout = handles.pipelineLayout;
-	pipelineInfo.renderPass = renderPassHandles.renderPass; // Render pass
-	pipelineInfo.subpass = 0; // Subpass đầu tiên
+	pipelineInfo.layout = m_Handles.pipelineLayout;
+	pipelineInfo.renderPass = renderPassHandles.renderPass;
+	pipelineInfo.subpass = 0;
 
-	VK_CHECK(vkCreateGraphicsPipelines(vk.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &handles.graphicsPipeline), "FAILED TO CREATE GRAPHICS PIPELINE");
+	VK_CHECK(vkCreateGraphicsPipelines(m_VulkanHandles.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Handles.graphicsPipeline), "LỖI: Tạo graphics pipeline thất bại!");
 }

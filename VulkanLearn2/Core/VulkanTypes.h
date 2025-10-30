@@ -6,12 +6,12 @@ struct Vertex
 	glm::vec3 normal;
 	glm::vec2 uv;
 
-	static VkVertexInputBindingDescription GetBindingDesc()
+	static std::array<VkVertexInputBindingDescription, 1> GetBindingDesc()
 	{
-		VkVertexInputBindingDescription bindingDesc{};
-		bindingDesc.binding = 0;
-		bindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		bindingDesc.stride = sizeof(Vertex);
+		std::array<VkVertexInputBindingDescription, 1> bindingDesc{};
+		bindingDesc[0].binding = 0;
+		bindingDesc[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		bindingDesc[0].stride = sizeof(Vertex);
 
 		return bindingDesc;
 	}
@@ -49,11 +49,5 @@ struct UniformBufferObject
 struct PushConstantData
 {
 	alignas(16) glm::mat4 model;
-};
-
-struct ModelData
-{
-	std::string textureFilePath;
-	std::vector<Vertex> vertices;
-	std::vector<uint16_t> indices;
+	alignas(16) uint32_t textureId;
 };

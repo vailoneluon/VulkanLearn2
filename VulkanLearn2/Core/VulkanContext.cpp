@@ -1,9 +1,10 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "VulkanContext.h"
 
 
 VulkanContext::VulkanContext(GLFWwindow* window, std::vector<const char*> instanceExtensions)
 {
+	// Tuần tự thực hiện các bước khởi tạo Vulkan.
 	CreateInstance(instanceExtensions);
 	CreateSurface(window);
 	ChoosePhysicalDevice();
@@ -12,18 +13,18 @@ VulkanContext::VulkanContext(GLFWwindow* window, std::vector<const char*> instan
 
 VulkanContext::~VulkanContext()
 {
-	// Sử dụng handles.instance và handles.surface
-	vkDestroySurfaceKHR(handles.instance, handles.surface, nullptr);
-
-	// Sử dụng handles.device và handles.instance
-	vkDestroyDevice(handles.device, nullptr);
-	vkDestroyInstance(handles.instance, nullptr);
+	// Hủy các tài nguyên theo thứ tự ngược lại với lúc tạo.
+	vkDestroySurfaceKHR(m_Handles.instance, m_Handles.surface, nullptr);
+	vkDestroyDevice(m_Handles.device, nullptr);
+	vkDestroyInstance(m_Handles.instance, nullptr);
 }
 
-void VulkanContext::CreateInstance(std::vector<const char*> extensions)
+void VulkanContext::CreateInstance(const std::vector<const char*>& extensions)
 {
-	instanceExtensionsRequired.insert(instanceExtensionsRequired.end(), extensions.begin(), extensions.end());
+	// Gộp các extension yêu cầu bởi GLFW vào danh sách extension chung.
+	m_InstanceExtensionsRequired.insert(m_InstanceExtensionsRequired.end(), extensions.begin(), extensions.end());
 
+	// Thông tin về ứng dụng (tùy chọn nhưng nên có).
 	VkApplicationInfo appInfo{};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pEngineName = "ZOLCOL ENGINE";
@@ -31,55 +32,55 @@ void VulkanContext::CreateInstance(std::vector<const char*> extensions)
 	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 	appInfo.apiVersion = VK_API_VERSION_1_3;
 
+	// Thông tin để tạo Vulkan instance.
 	VkInstanceCreateInfo instanceInfo{};
 	instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	instanceInfo.pApplicationInfo = &appInfo;
-	instanceInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensionsRequired.size());
-	instanceInfo.ppEnabledExtensionNames = instanceExtensionsRequired.data();
+	instanceInfo.enabledExtensionCount = static_cast<uint32_t>(m_InstanceExtensionsRequired.size());
+	instanceInfo.ppEnabledExtensionNames = m_InstanceExtensionsRequired.data();
 	instanceInfo.enabledLayerCount = 1;
-	instanceInfo.ppEnabledLayerNames = validationLayers;
+	instanceInfo.ppEnabledLayerNames = m_ValidationLayers;
 
-	// Gán kết quả vào handles.instance
-	VK_CHECK(vkCreateInstance(&instanceInfo, nullptr, &handles.instance), "FAILED TO CREATE VULKAN INSTANCE");
+	VK_CHECK(vkCreateInstance(&instanceInfo, nullptr, &m_Handles.instance), "LỖI: Tạo Vulkan instance thất bại!");
 }
 
 void VulkanContext::CreateSurface(GLFWwindow* window)
 {
-	// Sử dụng handles.instance và gán kết quả cho handles.surface
-	VK_CHECK(glfwCreateWindowSurface(handles.instance, window, nullptr, &handles.surface), "FAILED TO CREATE WINDOW SURFACE");
+	// Tạo một surface (bề mặt vẽ) từ cửa sổ GLFW.
+	// Surface là cầu nối giữa Vulkan và hệ thống cửa sổ của HĐH.
+	VK_CHECK(glfwCreateWindowSurface(m_Handles.instance, window, nullptr, &m_Handles.surface), "LỖI: Tạo window surface thất bại!");
 }
 
 void VulkanContext::ChoosePhysicalDevice()
 {
 	uint32_t physicalDeviceCount = 0;
-	// Sử dụng handles.instance
-	vkEnumeratePhysicalDevices(handles.instance, &physicalDeviceCount, nullptr);
+	vkEnumeratePhysicalDevices(m_Handles.instance, &physicalDeviceCount, nullptr);
 
-	std::vector<VkPhysicalDevice> physicalDevices;
-	physicalDevices.resize(physicalDeviceCount);
-	// Sử dụng handles.instance
-	vkEnumeratePhysicalDevices(handles.instance, &physicalDeviceCount, physicalDevices.data());
+	if (physicalDeviceCount == 0) {
+		throw std::runtime_error("LỖI: Không tìm thấy GPU nào hỗ trợ Vulkan!");
+	}
 
-	for (int i = 0; i < physicalDeviceCount; i++)
+	std::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
+	vkEnumeratePhysicalDevices(m_Handles.instance, &physicalDeviceCount, physicalDevices.data());
+
+	// Duyệt qua tất cả các GPU có sẵn và chọn cái đầu tiên phù hợp.
+	for (const auto& device : physicalDevices)
 	{
-		if (isPhysicalDeviceSuitable(physicalDevices[i]))
+		if (isPhysicalDeviceSuitable(device))
 		{
-			// Gán vào handles.physicalDevice
-			handles.physicalDevice = physicalDevices[i];
+			m_Handles.physicalDevice = device;
 
 			VkPhysicalDeviceProperties deviceProperty{};
-			// Sử dụng handles.physicalDevice
-			vkGetPhysicalDeviceProperties(handles.physicalDevice, &deviceProperty);
-			std::cout << "Selected GPU: " << deviceProperty.deviceName << std::endl;
+			vkGetPhysicalDeviceProperties(m_Handles.physicalDevice, &deviceProperty);
+			std::cout << "GPU được chọn: " << deviceProperty.deviceName << std::endl;
 
 			break;
 		}
 	}
 
-	// Kiểm tra handles.physicalDevice
-	if (handles.physicalDevice == VK_NULL_HANDLE)
+	if (m_Handles.physicalDevice == VK_NULL_HANDLE)
 	{
-		showError("FAILED TO CHOOSE PHYSICAL DEVICE");
+		throw std::runtime_error("LỖI: Không tìm thấy GPU nào phù hợp yêu cầu!");
 	}
 }
 
@@ -88,90 +89,92 @@ void VulkanContext::CreateLogicalDevice()
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	const float queuePriority = 1.0f;
 
-	std::set<uint32_t> queueFamilyIndicesSet = { handles.queueFamilyIndices.GraphicQueueIndex, handles.queueFamilyIndices.PresentQueueIndex };
-	for (uint32_t queueFamily : queueFamilyIndicesSet)
+	// Sử dụng std::set để tự động loại bỏ các queue family index trùng lặp (ví dụ: graphic và present là cùng một queue).
+	std::set<uint32_t> uniqueQueueFamilyIndices = { m_Handles.queueFamilyIndices.GraphicQueueIndex, m_Handles.queueFamilyIndices.PresentQueueIndex };
+	
+	for (uint32_t queueFamilyIndex : uniqueQueueFamilyIndices)
 	{
 		VkDeviceQueueCreateInfo queueInfo{};
 		queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queueInfo.pQueuePriorities = &queuePriority;
 		queueInfo.queueCount = 1;
-		queueInfo.queueFamilyIndex = queueFamily;
+		queueInfo.queueFamilyIndex = queueFamilyIndex;
 
 		queueCreateInfos.push_back(queueInfo);
 	}
 
+	// Các tính năng của physical device mà chúng ta muốn sử dụng.
 	VkPhysicalDeviceFeatures features{};
-	features.fillModeNonSolid = VK_TRUE;
-	features.samplerAnisotropy = VK_TRUE;
+	features.fillModeNonSolid = VK_TRUE; // Cho phép vẽ wireframe
+	features.samplerAnisotropy = VK_TRUE; // Cho phép lọc bất đẳng hướng
 
+	// Thông tin để tạo logical device.
 	VkDeviceCreateInfo deviceInfo{};
 	deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	deviceInfo.enabledExtensionCount = static_cast<uint32_t>(physicalRequireDeviceExtensions.size());
-	deviceInfo.ppEnabledExtensionNames = physicalRequireDeviceExtensions.data();
+	deviceInfo.enabledExtensionCount = static_cast<uint32_t>(m_DeviceExtensionsRequired.size());
+	deviceInfo.ppEnabledExtensionNames = m_DeviceExtensionsRequired.data();
 	deviceInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 	deviceInfo.pQueueCreateInfos = queueCreateInfos.data();
 	deviceInfo.pEnabledFeatures = &features;
 
-	// Sử dụng handles.physicalDevice và gán kết quả cho handles.device
-	VK_CHECK(vkCreateDevice(handles.physicalDevice, &deviceInfo, nullptr, &handles.device), "FAILED TO CREATE LOGICAL DEVICE");
+	VK_CHECK(vkCreateDevice(m_Handles.physicalDevice, &deviceInfo, nullptr, &m_Handles.device), "LỖI: Tạo logical device thất bại!");
 
-	// Sử dụng handles.device
-	vkGetDeviceQueue(handles.device, handles.queueFamilyIndices.GraphicQueueIndex, 0, &handles.graphicQueue);
-	vkGetDeviceQueue(handles.device, handles.queueFamilyIndices.PresentQueueIndex, 0, &handles.presentQueue);
+	// Lấy handle của các queue từ logical device.
+	vkGetDeviceQueue(m_Handles.device, m_Handles.queueFamilyIndices.GraphicQueueIndex, 0, &m_Handles.graphicQueue);
+	vkGetDeviceQueue(m_Handles.device, m_Handles.queueFamilyIndices.PresentQueueIndex, 0, &m_Handles.presentQueue);
 }
 
 bool VulkanContext::isPhysicalDeviceSuitable(VkPhysicalDevice physDevice)
 {
-	bool hasGraphicQueue = false;
-	bool hasPresentQueue = false;
-	bool hasExtensionsRequired = false;
-
-	// Check have Graphic and Present Queue
+	// --- Tìm các queue family cần thiết --- 
 	uint32_t queueFamilyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, nullptr);
 	std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, queueFamilyProperties.data());
 
+	bool hasGraphicQueue = false;
+	bool hasPresentQueue = false;
+
 	for (uint32_t i = 0; i < queueFamilyCount; i++)
 	{
+		// Tìm queue family hỗ trợ graphics.
 		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
 		{
 			hasGraphicQueue = true;
-			handles.queueFamilyIndices.GraphicQueueIndex = i;
-			// Không cần break ở đây để tìm queue family tốt nhất (nếu cần)
+			m_Handles.queueFamilyIndices.GraphicQueueIndex = i;
 		}
 
+		// Tìm queue family hỗ trợ present lên surface.
 		VkBool32 presentSupport = VK_FALSE;
-		// Sử dụng handles.surface
-		vkGetPhysicalDeviceSurfaceSupportKHR(physDevice, i, handles.surface, &presentSupport);
+		vkGetPhysicalDeviceSurfaceSupportKHR(physDevice, i, m_Handles.surface, &presentSupport);
 		if (presentSupport)
 		{
 			hasPresentQueue = true;
-			handles.queueFamilyIndices.PresentQueueIndex = i;
+			m_Handles.queueFamilyIndices.PresentQueueIndex = i;
 		}
 
 		if (hasGraphicQueue && hasPresentQueue)
 		{
-			// Có thể break ở đây nếu bạn chỉ cần tìm cặp đầu tiên
-			break;
+			break; // Đã tìm thấy đủ các queue cần thiết.
 		}
 	}
 
-	// Kiểm tra extension có hỗ trợ không.
+	// --- Kiểm tra các device extension được yêu cầu --- 
 	uint32_t physExtensionCount = 0;
 	vkEnumerateDeviceExtensionProperties(physDevice, nullptr, &physExtensionCount, nullptr);
 
-	std::vector<VkExtensionProperties> deviceExtensions(physExtensionCount);
-	vkEnumerateDeviceExtensionProperties(physDevice, nullptr, &physExtensionCount, deviceExtensions.data());
+	std::vector<VkExtensionProperties> availableExtensions(physExtensionCount);
+	vkEnumerateDeviceExtensionProperties(physDevice, nullptr, &physExtensionCount, availableExtensions.data());
 
-	std::set<std::string> requiredExtensions(physicalRequireDeviceExtensions.begin(), physicalRequireDeviceExtensions.end());
+	// Dùng std::set để kiểm tra hiệu quả.
+	std::set<std::string> requiredExtensions(m_DeviceExtensionsRequired.begin(), m_DeviceExtensionsRequired.end());
 
-	for (const auto& extension : deviceExtensions)
+	for (const auto& extension : availableExtensions)
 	{
 		requiredExtensions.erase(extension.extensionName);
 	}
 
-	hasExtensionsRequired = requiredExtensions.empty();
+	bool hasExtensionsRequired = requiredExtensions.empty();
 
 	return hasExtensionsRequired && hasGraphicQueue && hasPresentQueue;
 }
