@@ -6,18 +6,30 @@
 
 Model::Model(const std::string& modelFilePath, MeshManager* meshManager, TextureManager* textureManager)
 {
+	// 1. Dùng ModelLoader để tải dữ liệu thô (vertex, index, texture path) từ file model.
 	ModelLoader modelLoader;
 	ModelData modelData = modelLoader.LoadModelFromFile(modelFilePath);
-	handles.meshes = meshManager->createMeshFromMeshData(modelData.meshData.data(), modelData.meshData.size());
-	for (int i = 0; i < handles.meshes.size(); i++)
+
+	// 2. Dùng MeshManager để tạo các đối tượng Mesh từ dữ liệu thô.
+	//    Hàm này sẽ đưa dữ liệu vertex/index vào các buffer chung và trả về các struct Mesh
+	//    chứa thông tin về vị trí và kích thước của dữ liệu đó trong buffer.
+	m_Handles.meshes = meshManager->createMeshFromMeshData(modelData.meshData.data(), modelData.meshData.size());
+
+	// 3. Với mỗi mesh, tải texture tương ứng thông qua TextureManager.
+	for (int i = 0; i < m_Handles.meshes.size(); i++)
 	{
-		handles.meshes[i]->textureId = textureManager->LoadTextureImage("Resources/Textures/" + modelData.meshData[i].textureFilePath);
+		// Lấy ID của texture và gán vào mesh.
+		// LƯU Ý: Đường dẫn texture đang được ghép nối cứng với prefix "Resources/Textures/".
+		// Điều này có thể cần được cấu hình linh hoạt hơn trong tương lai.
+		m_Handles.meshes[i]->textureId = textureManager->LoadTextureImage("Resources/Textures/" + modelData.meshData[i].textureFilePath);
 	}
 }
 
 Model::~Model()
 {
-	for (auto& mesh : handles.meshes)
+	// Class Model sở hữu các con trỏ Mesh* mà nó nhận từ MeshManager.
+	// Do đó, destructor của Model có trách nhiệm giải phóng chúng.
+	for (auto& mesh : m_Handles.meshes)
 	{
 		delete(mesh);
 	}

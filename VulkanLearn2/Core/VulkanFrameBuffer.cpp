@@ -66,7 +66,7 @@ void VulkanFrameBuffer::CreateFrameBuffers()
 
 	for (int i = 0; i < sc.swapchainImageCount; i++)
 	{
-		VkImageView attachments[] = { handles.colorImage->getHandles().imageView,  handles.depthStencilImage->getHandles().imageView, sc.swapchainImageViews[i] };
+		VkImageView attachments[] = { handles.colorImage->GetHandles().imageView,  handles.depthStencilImage->GetHandles().imageView, sc.swapchainImageViews[i] };
 
 		VkFramebufferCreateInfo frameBufferInfo{};
 		frameBufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

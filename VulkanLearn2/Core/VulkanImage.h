@@ -1,26 +1,31 @@
 #pragma once
 #include "VulkanContext.h"
-#include "VulkanCommandManager.h"
 
 class VulkanBuffer;
+class VulkanCommandManager;
 
-struct TextureImageInfo
+// Thông tin về một texture được tải từ file.
+struct TextureInfo
 {
-	int texWidth, texHeight, texChanels;
-	uint32_t textureImageMipLevels;
-	VkDeviceSize imageSize;
-	stbi_uc* pixels;
+	int width = 0;
+	int height = 0;
+	int channels = 0;
+	uint32_t mipLevels = 1;
+	VkDeviceSize size = 0;
+	stbi_uc* pixels = nullptr;
 };
 
-struct ImageHandles
+// Chứa các handle của Vulkan cho một image.
+struct VulkanImageHandles
 {
-	VkImage image;
-	VkDeviceMemory imageMemory;
-	VkImageView imageView;
+	VkImage image = VK_NULL_HANDLE;
+	VkDeviceMemory imageMemory = VK_NULL_HANDLE;
+	VkImageView imageView = VK_NULL_HANDLE;
 
-	TextureImageInfo imageInfo;
+	TextureInfo textureInfo; // Chỉ dùng khi image là một texture
 };
 
+// Thông tin để tạo VkImage.
 struct VulkanImageCreateInfo
 {
 	uint32_t width = 0;
@@ -32,7 +37,7 @@ struct VulkanImageCreateInfo
 	VkMemoryPropertyFlags memoryFlags = 0;
 };
 
-
+// Thông tin để tạo VkImageView.
 struct VulkanImageViewCreateInfo
 {
 	VkFormat format = VK_FORMAT_UNDEFINED;
@@ -40,36 +45,53 @@ struct VulkanImageViewCreateInfo
 	uint32_t mipLevels = 1;
 };
 
+// Class VulkanImage đóng gói một VkImage và các tài nguyên liên quan (VkImageView, VkDeviceMemory).
+// Có thể được sử dụng cho texture, depth buffer, color attachment, v.v.
 class VulkanImage
 {
 public:
-	VulkanImage(const VulkanHandles& vulkanHandles, const VulkanImageCreateInfo& imageCreateInfo, const VulkanImageViewCreateInfo& imageViewCreateInfo);
-	VulkanImage(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager,const char* filePath, bool isCreateMipmap = false);
+	// Constructor cho image chung (ví dụ: depth buffer, color attachment).
+	VulkanImage(const VulkanHandles& vulkanHandles, const VulkanImageCreateInfo& imageCI, const VulkanImageViewCreateInfo& imageViewCI);
+	// Constructor để tải texture từ file.
+	VulkanImage(const VulkanHandles& vulkanHandles, const char* filePath, bool createMipmaps = false);
 	~VulkanImage();
 
-	VulkanBuffer* UploadDataToImage(VulkanCommandManager* cmd, VkCommandBuffer& cmdBuffer, const TextureImageInfo& textureImageInfo);
+	// Tải dữ liệu pixel vào image thông qua một staging buffer.
+	// Trả về staging buffer, caller có trách nhiệm giải phóng nó sau khi command buffer thực thi xong.
+	VulkanBuffer* UploadTextureData(VulkanCommandManager* cmdManager, VkCommandBuffer& cmdBuffer);
 
-	const ImageHandles& getHandles() const{ return handles; }
-private:
-	ImageHandles handles;
-	const VulkanHandles& vk;
+	// Getter
+	const VulkanImageHandles& GetHandles() const { return m_Handles; }
 
-	void CreateImage(const VulkanImageCreateInfo& vulkanImageInfo);
-	void CreateImageView(const VulkanImageViewCreateInfo& vulkanImageViewInfo);
-
-
-	// Create Texture Image
-	TextureImageInfo loadImageFromFile(const char* filePath);
-	void CreateVulkanTextureImage(TextureImageInfo textureImageInfo);
-
-	// Helper Function
-	uint32_t findMemoryTypeIndex(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties);
+	// --- Static Helpers ---
 	
-	void TransitionImageLayout(VkCommandBuffer& cmdBuffer, VkImage& image, uint32_t mipLevels,
-		VkImageLayout oldLayout, VkImageLayout newLayout,
-		VkPipelineStageFlags srcStageFlag, VkPipelineStageFlags dstStageFlag,
-		uint32_t baseMipLevel = -1, uint32_t levelCount = -1,
-		VkAccessFlags srcAccessMask = 0, VkAccessFlags dstAccessMask = 0);
+	// Chuyển đổi layout của một image bằng pipeline barrier.
+	static void TransitionLayout(
+		VkCommandBuffer& cmdBuffer, 
+		VkImage& image, 
+		uint32_t totalMipLevels,
+		VkImageLayout oldLayout, 
+		VkImageLayout newLayout,
+		VkPipelineStageFlags srcStage, 
+		VkPipelineStageFlags dstStage,
+		VkAccessFlags srcAccessMask = 0, 
+		VkAccessFlags dstAccessMask = 0,
+		uint32_t baseMipLevel = 0,
+		uint32_t levelCount = 0 // 0 có nghĩa là tất cả các level từ baseMipLevel
+	);
 
-	void GenerateMipMaps(VulkanCommandManager* cmd, VkCommandBuffer& cmdBuffer, VkImage image, uint32_t width, uint32_t height, uint32_t mipLevels);
+private:
+	VulkanImageHandles m_Handles;
+	const VulkanHandles& m_VulkanHandles;
+
+	// --- Hàm khởi tạo ---
+	void CreateImage(const VulkanImageCreateInfo& imageCI);
+	void CreateImageView(const VulkanImageViewCreateInfo& imageViewCI);
+	
+	// --- Các hàm helper cho Texture ---
+	void LoadImageDataFromFile(const char* filePath, bool createMipmaps);
+
+	// --- Các hàm helper chung ---
+	uint32_t FindMemoryTypeIndex(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties);
+	void GenerateMipmaps(VkCommandBuffer& cmdBuffer, VkImage image, uint32_t width, uint32_t height, uint32_t mipLevels);
 };
