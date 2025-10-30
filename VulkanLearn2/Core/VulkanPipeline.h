@@ -1,17 +1,24 @@
-﻿#pragma once
+#pragma once
 #include "VulkanContext.h"
+#include <string>
+#include <vector>
+#include <map>
 
+// Forward declarations
 struct RenderPassHandles;
 struct SwapchainHandles;
 class VulkanDescriptor;
 
-
+// Struct chứa các handle nội bộ của VulkanPipeline.
 struct PipelineHandles
 {
-	VkPipelineLayout pipelineLayout;
-	VkPipeline graphicsPipeline;
+	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+	VkPipeline graphicsPipeline = VK_NULL_HANDLE;
 };
 
+// Class quản lý việc tạo ra một Graphics Pipeline hoàn chỉnh.
+// Nó bao gồm việc đọc shader, tạo pipeline layout và cấu hình tất cả các giai đoạn
+// của pipeline (vertex input, rasterization, color blending, v.v.).
 class VulkanPipeline
 {
 public:
@@ -24,22 +31,29 @@ public:
 	);
 	~VulkanPipeline();
 
-	const PipelineHandles& getHandles() const { return handles; }
+	// Lấy các handle nội bộ.
+	const PipelineHandles& getHandles() const { return m_Handles; }
 
 private:
-	PipelineHandles handles;
-	const VulkanHandles& vk;
+	// --- Dữ liệu nội bộ ---
+	PipelineHandles m_Handles;
 
-	// Hàm helper để đọc file shader
-	static std::vector<char> readShaderFile(const std::string& filename);
+	// --- Tham chiếu Vulkan ---
+	const VulkanHandles& m_VulkanHandles;
 
-	// Hàm helper tạo VkShaderModule
-	VkShaderModule createShaderModule(const std::string& shaderFilePath);
+	// --- Hàm helper private ---
 
-	void createPipelineLayout(const std::vector<VulkanDescriptor*>& descriptors);
+	// Đọc nội dung file shader (mã SPIR-V).
+	static std::vector<char> ReadShaderFile(const std::string& filename);
 
-	// Hàm tạo Pipeline chính
-	void createGraphicsPipeline(
+	// Tạo một VkShaderModule từ mã SPIR-V đã đọc.
+	VkShaderModule CreateShaderModule(const std::string& shaderFilePath);
+
+	// Tạo pipeline layout từ danh sách các descriptor set layout.
+	void CreatePipelineLayout(const std::vector<VulkanDescriptor*>& descriptors);
+
+	// Hàm chính để tạo Graphics Pipeline.
+	void CreateGraphicsPipeline(
 		const RenderPassHandles& renderPassHandles,
 		const SwapchainHandles& swapchainHandles,
 		VkSampleCountFlagBits msaaSamples,
