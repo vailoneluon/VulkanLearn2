@@ -42,6 +42,9 @@ Application::Application()
 	
 	// 3. Tạo uniform buffers, một cái cho mỗi frame-in-flight
 	CreateUniformBuffers();
+	// Tạo dynamic Buffer, tính toán blocksize trước.
+	CalculateBlockSizeForDynamicBuffer();
+	CreateDynamicBuffers();
 
 	// 4. Tạo các manager cho scene và tải object
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
@@ -97,6 +100,11 @@ Application::~Application()
 		delete(uniformBuffer);
 	}
 
+	for (auto& dynamicBuffer : m_DynamicBuffers)
+	{
+		delete(dynamicBuffer);
+	}
+
 	delete(m_VulkanDescriptorManager);
 	delete(m_VulkanSyncManager);
 	delete(m_VulkanPipeline);
@@ -142,6 +150,56 @@ void Application::CreateUniformBuffers()
 	}
 }
 
+void Application::CalculateBlockSizeForDynamicBuffer()
+{
+	VkPhysicalDeviceProperties props;
+	vkGetPhysicalDeviceProperties(m_VulkanContext->getVulkanHandles().physicalDevice, &props);
+	VkDeviceSize minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
+
+	VkDeviceSize DboObjectSize = sizeof(DynamicBufferObject);
+	m_DynamicBlockSize = DboObjectSize;
+	if (minUboAlignment > 0)
+	{
+		m_DynamicBlockSize = (m_DynamicBlockSize + minUboAlignment - 1) & ~(minUboAlignment - 1);
+	}
+}
+
+// Tạo mỗi Dynamic Buffer Mỗi Frame-in-flight cho Model matrix.
+void Application::CreateDynamicBuffers()
+{
+	m_DynamicBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	m_DynamicDescriptor.resize(MAX_FRAMES_IN_FLIGHT);
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.queueFamilyIndexCount = 1;
+	bufferInfo.pQueueFamilyIndices = &m_VulkanContext->getVulkanHandles().queueFamilyIndices.GraphicQueueIndex;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+	bufferInfo.size = m_DynamicBlockSize * 2;	// 2 là số lượng Dynamic buffer. Hiện tại mỗi cái dành cho 1 renderObject.
+
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		// Tạo buffer
+		m_DynamicBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, true);
+		
+		// Tạo descriptor set layout
+		BindingElementInfo dynamicElementInfo{};
+		dynamicElementInfo.binding = 0;
+		dynamicElementInfo.descriptorCount = 1;
+		dynamicElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		dynamicElementInfo.pImmutableSamplers = nullptr;
+		dynamicElementInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		std::vector<BindingElementInfo> bindingElementInfos = { dynamicElementInfo };
+
+		m_DynamicDescriptor[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), bindingElementInfos, 2);
+
+		// Thêm Descriptor vào danh sách để tạo pipelineLayout
+		m_PipelineDescriptors.push_back(m_DynamicDescriptor[i]);
+	}
+}
+
 // Cập nhật descriptor sets để trỏ đến đúng tài nguyên buffer/image.
 void Application::UpdateDescriptorBindings()
 {
@@ -158,9 +216,28 @@ void Application::UpdateDescriptorBindings()
 
 		BufferDescriptorUpdateInfo bufferBindingInfo{};
 		bufferBindingInfo.binding = 0;
-		bufferBindingInfo.bufferInfo = uniformBufferInfo;
+		bufferBindingInfo.bufferInfo = &uniformBufferInfo;
+		bufferBindingInfo.bufferInfoCount = 1;
+		bufferBindingInfo.firstArrayElement = 0;
 
 		m_UniformDescriptors[i]->WriteBufferSets(1, &bufferBindingInfo);
+	}
+
+	// Cập nhật descriptor của dynamic cho mỗi frame
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		VkDescriptorBufferInfo dynamicBufferInfo{};
+		dynamicBufferInfo.buffer = m_DynamicBuffers[i]->getHandles().buffer;
+		dynamicBufferInfo.offset = 0;
+		dynamicBufferInfo.range = m_DynamicBlockSize;
+
+		BufferDescriptorUpdateInfo bufferBindingInfo{};
+		bufferBindingInfo.binding = 0;
+		bufferBindingInfo.bufferInfo = &dynamicBufferInfo;
+		bufferBindingInfo.bufferInfoCount = 1;
+		bufferBindingInfo.firstArrayElement = 0;
+
+		m_DynamicDescriptor[i]->WriteBufferSets(1, &bufferBindingInfo);
 	}
 }
 
@@ -179,6 +256,15 @@ void Application::UpdateUniforms()
 
 	// Tải dữ liệu UBO lên buffer của GPU cho frame hiện tại
 	m_UniformBuffers[m_CurrentFrame]->UploadData(&m_Ubo, sizeof(m_Ubo), 0);
+}
+
+void Application::UpdateDynamicBuffers()
+{
+	m_Dbo.model = m_BunnyGirl->GetModelMatrix();
+	m_DynamicBuffers[m_CurrentFrame]->UploadData(&m_Dbo, sizeof(m_Dbo), m_DynamicBlockSize * 0);
+
+	m_Dbo.model = m_Swimsuit->GetModelMatrix();
+	m_DynamicBuffers[m_CurrentFrame]->UploadData(&m_Dbo, sizeof(m_Dbo), m_DynamicBlockSize * 1);
 }
 
 // Cập nhật transform (vị trí, xoay, tỷ lệ) của các object trong scene.
@@ -241,8 +327,9 @@ void Application::DrawFrame()
 	vkResetFences(m_VulkanContext->getVulkanHandles().device, 1, &m_VulkanSyncManager->getCurrentFence(m_CurrentFrame));
 
 	// 4. Cập nhật dữ liệu động cho frame hiện tại
-	UpdateUniforms();
 	UpdateRenderObjectTransforms();
+	UpdateUniforms();
+	UpdateDynamicBuffers();
 
 	// 5. Ghi command buffer để vẽ
 	vkResetCommandBuffer(m_VulkanCommandManager->getHandles().commandBuffers[m_CurrentFrame], 0);
@@ -336,6 +423,25 @@ void Application::CmdDrawRenderObjects(const VkCommandBuffer& cmdBuffer)
 {
 	for (const auto& renderObject : m_RenderObjects)
 	{
+		// Cập nhật model matrix qua dynamic offset
+		// Bind descriptor set cho dynamic buffer (Set 2) của frame hiện tại
+		uint32_t dynamicOffsets[1] = { m_DynamicBlockSize * 0 };
+		if (renderObject == m_BunnyGirl)
+		{
+			dynamicOffsets[0] = m_DynamicBlockSize * 0;
+		}
+		else
+		{
+			dynamicOffsets[0] = m_DynamicBlockSize * 1;
+		}
+
+		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			m_VulkanPipeline->getHandles().pipelineLayout,
+			m_DynamicDescriptor[m_CurrentFrame]->getSetIndex(), 1,
+			&m_DynamicDescriptor[m_CurrentFrame]->getHandles().descriptorSet,
+			1, dynamicOffsets);
+
+
 		std::vector<Mesh*> meshes = renderObject->getHandles().model->getMeshes();		
 		for (const auto& mesh : meshes)
 		{
@@ -344,7 +450,7 @@ void Application::CmdDrawRenderObjects(const VkCommandBuffer& cmdBuffer)
 			m_PushConstantData.textureId = mesh->textureId;
 			
 			vkCmdPushConstants(cmdBuffer, m_VulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(m_PushConstantData), &m_PushConstantData);
-			
+
 			// Vẽ mesh theo index
 			vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
 		}
@@ -367,4 +473,6 @@ void Application::BindDescriptorSets(const VkCommandBuffer& cmdBuffer)
 		m_UniformDescriptors[m_CurrentFrame]->getSetIndex() , 1,
 		&m_UniformDescriptors[m_CurrentFrame]->getHandles().descriptorSet,
 		0, nullptr);
+
+	
 }

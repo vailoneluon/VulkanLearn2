@@ -42,6 +42,9 @@ private:
 	// --- Trạng thái cốt lõi của ứng dụng ---
 	int m_CurrentFrame = 0; // Index của frame hiện tại đang được xử lý
 
+	// --- Block size Dynamic Buffer
+	VkDeviceSize m_DynamicBlockSize;
+
 	// --- Quản lý cửa sổ ---
 	Window* m_Window;
 
@@ -71,16 +74,24 @@ private:
 	std::vector<VulkanDescriptor*> m_UniformDescriptors; // Một descriptor cho mỗi uniform buffer
 	std::vector<VulkanDescriptor*> m_PipelineDescriptors; // Tất cả descriptor được sử dụng bởi pipeline
 
+	// --- Dynamic Uniform Buffer
+	DynamicBufferObject m_Dbo{}; // Dynamic Buffer Object (DBO) - hiện tại ví dụ truyền model matrix thay cho pushconstant
+	std::vector<VulkanBuffer*> m_DynamicBuffers; // Một dynamic buffer cho mỗi frame đang xử lý
+	std::vector<VulkanDescriptor*> m_DynamicDescriptor; // Một dynamic descriptor tương ứng mỗi dynamic buffer.
+
 	PushConstantData m_PushConstantData; // Dữ liệu cho push constants (ví dụ: ma trận model)
 
 	// --- Các hàm private ---
 
 	// Các hàm hỗ trợ khởi tạo
 	void CreateUniformBuffers();
+	void CalculateBlockSizeForDynamicBuffer();
+	void CreateDynamicBuffers();
 	void UpdateDescriptorBindings();
 
 	// Cập nhật mỗi frame
 	void UpdateUniforms();
+	void UpdateDynamicBuffers();
 	void UpdateRenderObjectTransforms();
 
 	// Vẽ

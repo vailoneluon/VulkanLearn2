@@ -112,9 +112,9 @@ void VulkanDescriptor::WriteBufferSets(int updateCount, const BufferDescriptorUp
 		descriptorSetWrite.dstSet = m_Handles.descriptorSet;
 		descriptorSetWrite.dstBinding = bindingInfo.binding;
 		descriptorSetWrite.descriptorType = bindingInfo.descriptorType;
-		descriptorSetWrite.descriptorCount = bindingInfo.descriptorCount;
-		descriptorSetWrite.dstArrayElement = 0;
-		descriptorSetWrite.pBufferInfo = &pBufferBindingInfo[i].bufferInfo;
+		descriptorSetWrite.descriptorCount = pBufferBindingInfo[i].bufferInfoCount;
+		descriptorSetWrite.dstArrayElement = pBufferBindingInfo[i].firstArrayElement;
+		descriptorSetWrite.pBufferInfo = pBufferBindingInfo[i].bufferInfo;
 
 		descriptorSetWrites.push_back(descriptorSetWrite);
 	}

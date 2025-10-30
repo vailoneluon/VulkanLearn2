@@ -12,13 +12,17 @@ layout(set = 1, binding = 0) uniform UniformBufferObject {
     mat4 proj;
 } ubo;
 
+layout(set = 2, binding = 0) uniform DynamicBufferObject{
+	mat4 model;
+} dbo;
+
 layout(push_constant) uniform PushConstantData {
     mat4 model;
     uint textureId;
 } pc;
 
 void main() {
-    gl_Position = ubo.proj * ubo.view * pc.model * vec4(inPosition, 1.0);
+    gl_Position = ubo.proj * ubo.view * dbo.model * vec4(inPosition, 1.0);
     fragTexCoord = inTexCoord;
     textureId = pc.textureId;
 }

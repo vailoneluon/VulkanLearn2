@@ -38,7 +38,9 @@ struct ImageDescriptorUpdateInfo
 struct BufferDescriptorUpdateInfo
 {
 	uint32_t binding;
-	VkDescriptorBufferInfo bufferInfo;
+	uint32_t bufferInfoCount;
+	VkDescriptorBufferInfo* bufferInfo;
+	uint32_t firstArrayElement;
 };
 
 
