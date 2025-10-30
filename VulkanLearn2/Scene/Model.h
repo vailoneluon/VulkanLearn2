@@ -14,11 +14,9 @@ struct MeshRange
 {
 	uint32_t firstVertex;
 	uint32_t vertexCount;
-	VkDeviceSize vertexOffset;
 
 	uint32_t firstIndex;
 	uint32_t indexCount;
-	VkDeviceSize indexOffset;
 };
 
 // Đại diện cho một mesh con trong một model.

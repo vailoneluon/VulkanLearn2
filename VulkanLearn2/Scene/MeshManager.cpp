@@ -34,7 +34,6 @@ std::vector<Mesh*> MeshManager::createMeshFromMeshData(const MeshData* meshData,
 		totalIndicesToReserve += meshData[i].indices.size();
 	}
 
-	
 	m_Handles.allVertices.reserve(m_Handles.allVertices.size() + totalVerticesToReserve);
 	m_Handles.allIndices.reserve(m_Handles.allIndices.size() + totalIndicesToReserve);
 	
@@ -54,10 +53,8 @@ std::vector<Mesh*> MeshManager::createMeshFromMeshData(const MeshData* meshData,
 		MeshRange meshRange;
 		
 		meshRange.firstVertex = vertexIndexOffset;
-		meshRange.vertexOffset = vertexIndexOffset * sizeof(sizeof(meshData[i].vertices[0])); 
 
 		meshRange.firstIndex = indexIndexOffset;
-		meshRange.indexOffset = indexIndexOffset * sizeof(sizeof(meshData[i].indices[0])); 
 
 		meshRange.vertexCount = meshData[i].vertices.size();
 		meshRange.indexCount = meshData[i].indices.size();

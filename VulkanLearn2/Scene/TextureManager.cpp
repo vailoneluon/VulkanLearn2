@@ -139,8 +139,5 @@ TextureImage* TextureManager::CreateNewTextureImage(const std::string& imageFile
 
 TextureImage::~TextureImage()
 {
-	// LƯU Ý: Code gốc đang cố gắng `delete(textureImage)`, là một thành viên của chính struct này.
-	// Đây là lỗi logic, nó sẽ không giải phóng con trỏ `VulkanImage*` bên trong.
-	// Dòng code đúng phải là `delete image;` (nếu thành viên được đổi tên thành `image`).
 	delete(textureImage);
 }

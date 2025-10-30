@@ -9,17 +9,13 @@ class VulkanCommandManager;
 class VulkanImage;
 class VulkanDescriptor;
 
-// Đề xuất đổi tên: ManagedTexture
-//ManagedTexture
+
 // Struct chứa thông tin về một texture đã được quản lý bởi Manager.
 struct TextureImage
 {
 	uint32_t id;
 	VulkanImage* textureImage;
 
-	// LƯU Ý: Destructor này có lỗi logic. Nó đang cố gắng `delete(textureImage)`
-	// là một thành viên của chính struct này, không phải là con trỏ `VulkanImage*`.
-	// Điều này sẽ không hoạt động như mong đợi và không giải phóng bộ nhớ của VulkanImage.
 	~TextureImage();
 };
 
