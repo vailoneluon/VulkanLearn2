@@ -156,7 +156,7 @@ void Application::UpdateDescriptorBindings()
 		uniformBufferInfo.offset = 0;
 		uniformBufferInfo.range = m_UniformBuffers[i]->getHandles().bufferSize;
 
-		BufferBindingUpdateInfo bufferBindingInfo{};
+		BufferDescriptorUpdateInfo bufferBindingInfo{};
 		bufferBindingInfo.binding = 0;
 		bufferBindingInfo.bufferInfo = uniformBufferInfo;
 

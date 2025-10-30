@@ -1,66 +1,77 @@
-﻿#pragma once
+#pragma once
 #include "VulkanContext.h"
+#include <vector>
+#include <unordered_map>
 
+// Struct chứa các handle và thông tin nội bộ của một VulkanDescriptor.
 struct DescriptorHandles
 {
-	VkDescriptorSetLayout descriptorSetLayout;
-	VkDescriptorSet descriptorSet;
+	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
-	uint32_t setIndex;
+	uint32_t setIndex = 0;
 	std::unordered_map<VkDescriptorType, uint32_t> descriptorCountByType;
 };
 
 
+// Struct mô tả thông tin cho một binding trong một descriptor set layout.
 struct BindingElementInfo
 {
 	uint32_t              binding;
-
 	VkDescriptorType      descriptorType;
 	uint32_t              descriptorCount;
 	VkShaderStageFlags    stageFlags;
 	const VkSampler*      pImmutableSamplers = nullptr;
-
 };
 
-struct ImageBindingUpdateInfo
+// Struct chứa thông tin để cập nhật một binding dạng image/sampler.
+struct ImageDescriptorUpdateInfo
 {
 	uint32_t binding;
-
 	uint32_t imageInfoCount;
 	VkDescriptorImageInfo* imageInfos;
-
 	uint32_t firstArrayElement;
 };
 
-struct BufferBindingUpdateInfo
+
+// Struct chứa thông tin để cập nhật một binding dạng buffer.
+struct BufferDescriptorUpdateInfo
 {
 	uint32_t binding;
 	VkDescriptorBufferInfo bufferInfo;
 };
 
 
+// Class đóng gói một Descriptor Set và Layout của nó.
+// Nó định nghĩa cấu trúc của một set (các binding) và quản lý việc cấp phát, cập nhật set đó.
 class VulkanDescriptor
 {
 public:
-	VulkanDescriptor(const VulkanHandles& vulkanHandles, const std::vector<BindingElementInfo>& vulkanBindingInfos, uint32_t setIndex);
+	VulkanDescriptor(const VulkanHandles& vulkanHandles, const std::vector<BindingElementInfo>& bindingInfos, uint32_t setIndex);
 	~VulkanDescriptor();
 
-	const DescriptorHandles& getHandles() const { return handles; }
-	uint32_t getSetIndex() const { return handles.setIndex; }
+	// --- Getters ---
+	const DescriptorHandles& getHandles() const { return m_Handles; }
+	uint32_t getSetIndex() const { return m_Handles.setIndex; }
 
+	// Cấp phát descriptor set từ một pool đã có.
 	void AllocateDescriptorSet(const VkDescriptorPool& descriptorPool);
 
-	void UpdateImageBinding(int updateCount, const ImageBindingUpdateInfo* pImageBindingInfo);
-	void UpdateBufferBinding(int updateCount, const BufferBindingUpdateInfo* pBufferBindingInfo);
+	// Cập nhật các binding trong set với thông tin image.
+	void UpdateImageBinding(int updateCount, const ImageDescriptorUpdateInfo* pImageBindingInfo);
+	// Cập nhật các binding trong set với thông tin buffer.
+	void UpdateBufferBinding(int updateCount, const BufferDescriptorUpdateInfo* pBufferBindingInfo);
 
 private:
-	const VulkanHandles& vk;
-	DescriptorHandles handles;
+	// --- Tham chiếu Vulkan ---
+	const VulkanHandles& m_VulkanHandles;
 
-	const std::vector<BindingElementInfo> bindingInfos;
+	// --- Dữ liệu nội bộ ---
+	DescriptorHandles m_Handles;
+	const std::vector<BindingElementInfo> m_BindingInfos;
+
+	// --- Hàm helper private ---
 	BindingElementInfo getBindingElementInfo(uint32_t binding);
-
 	void CreateSetLayout(const std::vector<BindingElementInfo>& bindingInfos);
-
-	void CountDescriptorByType(const std::vector<BindingElementInfo>& bindingInfos);
+	void CountDescriptorsByType(const std::vector<BindingElementInfo>& bindingInfos);
 };

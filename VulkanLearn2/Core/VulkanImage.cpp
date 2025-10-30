@@ -97,6 +97,7 @@ void VulkanImage::CreateImageView(const VulkanImageViewCreateInfo& imageViewCI)
 	VK_CHECK(vkCreateImageView(m_VulkanHandles.device, &viewInfo, nullptr, &m_Handles.imageView), "LỖI: Tạo VkImageView thất bại!");
 }
 
+// Tải dữ liệu ảnh vào RAM.
 void VulkanImage::LoadImageDataFromFile(const char* filePath, bool createMipmaps)
 {
 	stbi_set_flip_vertically_on_load(true); // Vulkan có hệ tọa độ Y ngược với nhiều API khác
@@ -104,10 +105,10 @@ void VulkanImage::LoadImageDataFromFile(const char* filePath, bool createMipmaps
 
 	if (!pixels)
 	{
-		throw std::runtime_error(std::string("LỖI: Tải ảnh thất bại từ: ") + filePath);
+		throw std::runtime_error(std::string("FAILED TO LOAD IMAGE: ") + filePath);
 	}
 	
-	std::cout << "Tải ảnh thành công từ: " << filePath << std::endl;
+	std::cout << "LOADED IMAGE: " << filePath << std::endl;
 
 	m_Handles.textureInfo.pixels = pixels;
 	m_Handles.textureInfo.size = m_Handles.textureInfo.width * m_Handles.textureInfo.height * 4;
@@ -122,6 +123,7 @@ void VulkanImage::LoadImageDataFromFile(const char* filePath, bool createMipmaps
 	}
 }
 
+// Tải dữ liệu từ RAM lên GPU.
 VulkanBuffer* VulkanImage::UploadTextureData(VulkanCommandManager* cmdManager, VkCommandBuffer& cmdBuffer)
 {
 	// --- 1. Tạo Staging Buffer ---

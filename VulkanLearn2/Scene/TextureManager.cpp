@@ -112,7 +112,7 @@ void TextureManager::UpdateTextureImageDescriptorBinding()
 	}
 
 	// Chuẩn bị thông tin để cập nhật descriptor set.
-	ImageBindingUpdateInfo updateInfo{};
+	ImageDescriptorUpdateInfo updateInfo{};
 	updateInfo.binding = 0;
 	updateInfo.firstArrayElement = 0;
 	updateInfo.imageInfoCount = m_Handles.allTextureImageLoaded.size();
