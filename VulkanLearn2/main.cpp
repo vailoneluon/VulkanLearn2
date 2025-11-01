@@ -42,6 +42,7 @@ Application::Application()
 	
 	// 3. Tạo uniform buffers, một cái cho mỗi frame-in-flight
 	CreateUniformBuffers();
+	CreateInstanceBuffers();
 
 	// 4. Tạo các manager cho scene và tải object
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
@@ -97,6 +98,11 @@ Application::~Application()
 		delete(uniformBuffer);
 	}
 
+	for (auto& instanceBuffer : instanceBuffers)
+	{
+		delete(instanceBuffer);
+	}
+
 	delete(m_VulkanDescriptorManager);
 	delete(m_VulkanSyncManager);
 	delete(m_VulkanPipeline);
@@ -139,6 +145,39 @@ void Application::CreateUniformBuffers()
 		
 		// Thêm descriptor vào danh sách tất cả descriptor để tạo pipeline
 		m_PipelineDescriptors.push_back(m_UniformDescriptors[i]);
+	}
+}
+
+void Application::CreateInstanceBuffers()
+{
+	// Khởi tạo giá trị Instance Data.
+	instanceDatas.resize(instanceCount);
+
+	for (int i = 0; i < instanceCount; i++)
+	{
+		// Tính toán một vector dịch chuyển khác nhau cho mỗi instance
+
+		glm::vec3 offsetVector = glm::vec3(0 , 0.0f,i * -1.0f);
+
+		// Tạo ma trận dịch chuyển từ vector đó và gán cho instance hiện tại
+		instanceDatas[i].modelOffset = glm::translate(glm::mat4(1.0f), offsetVector);
+	}
+
+	// Khởi tạo Instance Buffer và truyền giá trị từ Instance Datas
+	instanceBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.queueFamilyIndexCount = 1;
+	bufferInfo.pQueueFamilyIndices = &m_VulkanContext->getVulkanHandles().queueFamilyIndices.GraphicQueueIndex;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.size = sizeof(InstanceData) * instanceCount;
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		instanceBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, true);
+		instanceBuffers[i]->UploadData(instanceDatas.data(), sizeof(InstanceData) * instanceCount, 0);
 	}
 }
 
@@ -319,6 +358,11 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 	// Bind global vertex buffer và index buffer cho tất cả các mesh
 	VkDeviceSize offset = 0;
 	vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_MeshManager->getVertexBuffer(), &offset);
+	
+	// Bind Instance Buffer
+	vkCmdBindVertexBuffers(cmdBuffer, 1, 1, &instanceBuffers[m_CurrentFrame]->getHandles().buffer, &offset);
+
+
 	vkCmdBindIndexBuffer(cmdBuffer, m_MeshManager->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
 	// Bind descriptor sets cho shader (textures, uniforms)
@@ -348,7 +392,11 @@ void Application::CmdDrawRenderObjects(const VkCommandBuffer& cmdBuffer)
 			vkCmdPushConstants(cmdBuffer, m_VulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(m_PushConstantData), &m_PushConstantData);
 			
 			// Vẽ mesh theo index
-			vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
+			//vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
+
+			// Vẽ instance
+			vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, instanceCount, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
+
 		}
 	}
 }
