@@ -184,6 +184,12 @@
     <None Include="Shaders\compile.bat">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="Shaders\mainShader.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\mainShader.frag">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Images\image.jpg">

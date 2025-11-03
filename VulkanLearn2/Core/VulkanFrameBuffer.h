@@ -10,11 +10,16 @@ class VulkanImage;
 struct FrameBufferHandles 
 {
 	// Mỗi image trong swapchain sẽ có một framebuffer tương ứng.
-	std::vector<VkFramebuffer> frameBuffers;
+	std::vector<VkFramebuffer> mainFrameBuffers;
 
 	// Các attachment không thuộc swapchain (được tạo và quản lý bởi Framebuffer).
 	VulkanImage* colorImage = nullptr; // Dành cho MSAA.
 	VulkanImage* depthStencilImage = nullptr;
+
+	// Attachment cho RTT subpass
+	std::vector<VkFramebuffer> rttFrameBuffers;
+	std::vector<VulkanImage*> rttColorImages;
+	VulkanImage* rttDepthStencilImage;
 };
 
 // Class quản lý việc tạo và hủy các VkFramebuffer.
@@ -32,6 +37,7 @@ public:
 private:
 	// --- Dữ liệu nội bộ ---
 	FrameBufferHandles m_Handles;
+	uint32_t m_MaxFrameInFlight = 2;
 
 	// --- Tham chiếu Vulkan ---
 	const VulkanHandles& m_VulkanHandles;
@@ -43,4 +49,7 @@ private:
 	void CreateColorResources();
 	void CreateDepthStencilResources();
 	void CreateFrameBuffers();
+
+	void CreateRTTResources();
+	void CreateRTTFrameBuffers();
 };

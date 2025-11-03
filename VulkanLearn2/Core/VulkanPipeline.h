@@ -13,8 +13,24 @@ class VulkanDescriptor;
 struct PipelineHandles
 {
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	VkPipeline graphicsPipeline = VK_NULL_HANDLE;
+	VkPipeline pipeline = VK_NULL_HANDLE;
 };
+
+// Structure Khởi tạo
+struct VulkanPipelineCreateInfo
+{
+	const VulkanHandles* vulkanHandles;
+	const VkRenderPass* renderPass;
+	const SwapchainHandles* swapchainHandles;
+	VkSampleCountFlagBits msaaSamples;
+	std::vector<VulkanDescriptor*>* descriptors;
+
+	std::string vertexShaderFilePath;
+	std::string fragmentShaderFilePath;
+
+	bool useVertexInput = true;
+};
+
 
 // Class quản lý việc tạo ra một Graphics Pipeline hoàn chỉnh.
 // Nó bao gồm việc đọc shader, tạo pipeline layout và cấu hình tất cả các giai đoạn
@@ -22,13 +38,7 @@ struct PipelineHandles
 class VulkanPipeline
 {
 public:
-	VulkanPipeline(
-		const VulkanHandles& vulkanHandles,
-		const RenderPassHandles& renderPassHandles,
-		const SwapchainHandles& swapchainHandles,
-		VkSampleCountFlagBits msaaSamples,
-		std::vector<VulkanDescriptor*>& descriptors
-	);
+	VulkanPipeline(const VulkanPipelineCreateInfo* pipelineInfo);
 	~VulkanPipeline();
 
 	// Lấy các handle nội bộ.
@@ -54,10 +64,11 @@ private:
 
 	// Hàm chính để tạo Graphics Pipeline.
 	void CreateGraphicsPipeline(
-		const RenderPassHandles& renderPassHandles,
-		const SwapchainHandles& swapchainHandles,
+		const VkRenderPass* renderPass,
+		const SwapchainHandles* swapchainHandles,
 		VkSampleCountFlagBits msaaSamples,
 		VkShaderModule vertShaderModule,
-		VkShaderModule fragShaderModule
+		VkShaderModule fragShaderModule,
+		bool useVertexInput
 	);
 };

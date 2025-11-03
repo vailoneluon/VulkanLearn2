@@ -4,28 +4,24 @@
 #include "VulkanSwapchain.h"
 #include "VulkanDescriptor.h"
 
-VulkanPipeline::VulkanPipeline(
-	const VulkanHandles& vulkanHandles,
-	const RenderPassHandles& renderPassHandles,
-	const SwapchainHandles& swapchainHandles,
-	VkSampleCountFlagBits msaaSamples,
-	std::vector<VulkanDescriptor*>& descriptors)
-	: m_VulkanHandles(vulkanHandles)
+VulkanPipeline::VulkanPipeline(const VulkanPipelineCreateInfo* pipelineInfo)
+	: m_VulkanHandles(*pipelineInfo->vulkanHandles)
 {
 	// Tạo các shader module từ file SPIR-V đã được biên dịch.
-	VkShaderModule vertShaderModule = CreateShaderModule("Shaders/vert.spv");
-	VkShaderModule fragShaderModule = CreateShaderModule("Shaders/frag.spv");
+	VkShaderModule vertShaderModule = CreateShaderModule(pipelineInfo->vertexShaderFilePath);
+	VkShaderModule fragShaderModule = CreateShaderModule(pipelineInfo->fragmentShaderFilePath);
 
 	// Tạo Pipeline Layout, định nghĩa các descriptor set và push constant mà pipeline sẽ sử dụng.
-	CreatePipelineLayout(descriptors);
+	CreatePipelineLayout(*pipelineInfo->descriptors);
 
 	// Tạo Graphics Pipeline với tất cả các cấu hình cần thiết.
 	CreateGraphicsPipeline(
-		renderPassHandles,
-		swapchainHandles,
-		msaaSamples,
+		pipelineInfo->renderPass,
+		pipelineInfo->swapchainHandles,
+		pipelineInfo->msaaSamples,
 		vertShaderModule,
-		fragShaderModule
+		fragShaderModule,
+		pipelineInfo->useVertexInput
 	);
 
 	// Sau khi pipeline đã được tạo, các shader module không còn cần thiết và có thể được hủy.
@@ -36,7 +32,7 @@ VulkanPipeline::VulkanPipeline(
 VulkanPipeline::~VulkanPipeline()
 {
 	// Hủy pipeline và layout của nó.
-	vkDestroyPipeline(m_VulkanHandles.device, m_Handles.graphicsPipeline, nullptr);
+	vkDestroyPipeline(m_VulkanHandles.device, m_Handles.pipeline, nullptr);
 	vkDestroyPipelineLayout(m_VulkanHandles.device, m_Handles.pipelineLayout, nullptr);
 }
 
@@ -110,11 +106,12 @@ void VulkanPipeline::CreatePipelineLayout(const std::vector<VulkanDescriptor*>& 
 }
 
 void VulkanPipeline::CreateGraphicsPipeline(
-	const RenderPassHandles& renderPassHandles,
-	const SwapchainHandles& swapchainHandles,
+	const VkRenderPass* renderPass,
+	const SwapchainHandles* swapchainHandles,
 	VkSampleCountFlagBits msaaSamples,
 	VkShaderModule vertShaderModule,
-	VkShaderModule fragShaderModule)
+	VkShaderModule fragShaderModule,
+	bool useVertexInput)
 {
 	// 1. Giai đoạn Shader
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -137,10 +134,21 @@ void VulkanPipeline::CreateGraphicsPipeline(
 
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexBindingDescs.size());
-	vertexInputInfo.pVertexBindingDescriptions = vertexBindingDescs.data();
-	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexAttributeDescs.size());
-	vertexInputInfo.pVertexAttributeDescriptions = vertexAttributeDescs.data();
+
+	if (useVertexInput)
+	{
+		vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexBindingDescs.size());
+		vertexInputInfo.pVertexBindingDescriptions = vertexBindingDescs.data();
+		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexAttributeDescs.size());
+		vertexInputInfo.pVertexAttributeDescriptions = vertexAttributeDescs.data();
+	}
+	else
+	{
+		vertexInputInfo.vertexAttributeDescriptionCount = 0;
+		vertexInputInfo.vertexBindingDescriptionCount = 0;
+		vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+		vertexInputInfo.pVertexBindingDescriptions = nullptr;
+	}
 
 	// 3. Giai đoạn Input Assembly: Mô tả cách các vertex được lắp ráp thành primitive (vd: tam giác).
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -153,14 +161,14 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = (float)swapchainHandles.swapChainExtent.width;
-	viewport.height = (float)swapchainHandles.swapChainExtent.height;
+	viewport.width = (float)swapchainHandles->swapChainExtent.width;
+	viewport.height = (float)swapchainHandles->swapChainExtent.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
-	scissor.extent = swapchainHandles.swapChainExtent;
+	scissor.extent = swapchainHandles->swapChainExtent;
 
 	VkPipelineViewportStateCreateInfo viewportState{};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -223,8 +231,8 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = nullptr; // Không có state động
 	pipelineInfo.layout = m_Handles.pipelineLayout;
-	pipelineInfo.renderPass = renderPassHandles.renderPass;
+	pipelineInfo.renderPass = *renderPass;
 	pipelineInfo.subpass = 0;
 
-	VK_CHECK(vkCreateGraphicsPipelines(m_VulkanHandles.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Handles.graphicsPipeline), "LỖI: Tạo graphics pipeline thất bại!");
+	VK_CHECK(vkCreateGraphicsPipelines(m_VulkanHandles.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Handles.pipeline), "LỖI: Tạo graphics pipeline thất bại!");
 }
