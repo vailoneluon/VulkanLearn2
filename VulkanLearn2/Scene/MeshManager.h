@@ -31,8 +31,8 @@ public:
 
 	// --- Getters ---
 	const MeshManagerHandles& getHandles() const { return m_Handles; };
-	const VkBuffer& getVertexBuffer() const { return m_Handles.vertexBuffer->getHandles().buffer; }
-	const VkBuffer& getIndexBuffer() const { return m_Handles.indexBuffer->getHandles().buffer; }
+	const VkBuffer& getVertexBuffer() const { return m_Handles.vertexBuffer->GetHandles().buffer; }
+	const VkBuffer& getIndexBuffer() const { return m_Handles.indexBuffer->GetHandles().buffer; }
 	
 	// Gộp dữ liệu từ một mảng MeshData vào các vector tổng.
 	// Trả về một vector các đối tượng Mesh chứa thông tin offset và count.

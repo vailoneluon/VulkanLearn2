@@ -31,6 +31,9 @@
 // 3. STB Image
 #include "stb_image.h"
 
+// 4. VMA
+#include "vma/vk_mem_alloc.h"
+
 // === Các file header nội bộ ổn định ===
 #include "Utils/ErrorHelper.h"
 #include "Core/VulkanTypes.h" // Thêm cả VulkanTypes vào PCH

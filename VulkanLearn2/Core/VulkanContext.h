@@ -18,6 +18,7 @@ struct VulkanHandles
 	VkDevice device = VK_NULL_HANDLE;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
+	VmaAllocator allocator = VK_NULL_HANDLE;
 
 	QueueFamilyIndices queueFamilyIndices{};
 	VkQueue graphicQueue = VK_NULL_HANDLE;
@@ -52,6 +53,7 @@ private:
 	void CreateSurface(GLFWwindow* window);
 	void ChoosePhysicalDevice();
 	void CreateLogicalDevice();
+	void CreateVMAAllocator();
 
 	// Kiểm tra xem một physical device có phù hợp với các yêu cầu không.
 	bool isPhysicalDeviceSuitable(VkPhysicalDevice physDevice);

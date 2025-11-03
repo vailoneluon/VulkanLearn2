@@ -125,7 +125,7 @@ void Application::CreateUniformBuffers()
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Tạo buffer
-		m_UniformBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, false);
+		m_UniformBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 		// Tạo descriptor cho buffer
 		BindingElementInfo uniformElementInfo;
@@ -152,9 +152,9 @@ void Application::UpdateDescriptorBindings()
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		VkDescriptorBufferInfo uniformBufferInfo{};
-		uniformBufferInfo.buffer = m_UniformBuffers[i]->getHandles().buffer;
+		uniformBufferInfo.buffer = m_UniformBuffers[i]->GetHandles().buffer;
 		uniformBufferInfo.offset = 0;
-		uniformBufferInfo.range = m_UniformBuffers[i]->getHandles().bufferSize;
+		uniformBufferInfo.range = m_UniformBuffers[i]->GetHandles().bufferSize;
 
 		BufferDescriptorUpdateInfo bufferBindingInfo{};
 		bufferBindingInfo.binding = 0;
