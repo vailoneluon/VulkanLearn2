@@ -72,9 +72,11 @@ private:
 	std::vector<VulkanDescriptor*> m_PipelineDescriptors; // Tất cả descriptor được sử dụng bởi pipeline
 
 	// --- Instance Buffer
-	const uint32_t instanceCount = 10;
+	const uint32_t instanceCount = 3;
 	std::vector<InstanceData> instanceDatas;
-	std::vector<VulkanBuffer*> instanceBuffers;
+	std::vector<VulkanBuffer*> m_InstanceBuffers;
+	std::vector<VulkanBuffer*> m_InstanceSBOBuffers;
+	std::vector<VulkanDescriptor*> m_InstanceSBODescriptor;
 
 	PushConstantData m_PushConstantData; // Dữ liệu cho push constants (ví dụ: ma trận model)
 
@@ -83,6 +85,7 @@ private:
 	// Các hàm hỗ trợ khởi tạo
 	void CreateUniformBuffers();
 	void CreateInstanceBuffers();
+	void CreateInstanceSBOBuffers();
 	void UpdateDescriptorBindings();
 
 	// Cập nhật mỗi frame

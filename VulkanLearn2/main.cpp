@@ -43,6 +43,7 @@ Application::Application()
 	// 3. Tạo uniform buffers, một cái cho mỗi frame-in-flight
 	CreateUniformBuffers();
 	CreateInstanceBuffers();
+	CreateInstanceSBOBuffers();
 
 	// 4. Tạo các manager cho scene và tải object
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
@@ -98,9 +99,14 @@ Application::~Application()
 		delete(uniformBuffer);
 	}
 
-	for (auto& instanceBuffer : instanceBuffers)
+	for (auto& instanceBuffer : m_InstanceBuffers)
 	{
 		delete(instanceBuffer);
+	}
+
+	for (auto& instanceSBOBuffer : m_InstanceSBOBuffers)
+	{
+		delete(instanceSBOBuffer);
 	}
 
 	delete(m_VulkanDescriptorManager);
@@ -156,7 +162,6 @@ void Application::CreateInstanceBuffers()
 	for (int i = 0; i < instanceCount; i++)
 	{
 		// Tính toán một vector dịch chuyển khác nhau cho mỗi instance
-
 		glm::vec3 offsetVector = glm::vec3(0 , 0.0f,i * -1.0f);
 
 		// Tạo ma trận dịch chuyển từ vector đó và gán cho instance hiện tại
@@ -164,7 +169,7 @@ void Application::CreateInstanceBuffers()
 	}
 
 	// Khởi tạo Instance Buffer và truyền giá trị từ Instance Datas
-	instanceBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	m_InstanceBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -176,8 +181,41 @@ void Application::CreateInstanceBuffers()
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		instanceBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, true);
-		instanceBuffers[i]->UploadData(instanceDatas.data(), sizeof(InstanceData) * instanceCount, 0);
+		m_InstanceBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, true);
+		m_InstanceBuffers[i]->UploadData(instanceDatas.data(), sizeof(InstanceData) * instanceCount, 0);
+	}
+}
+
+void Application::CreateInstanceSBOBuffers()
+{
+	m_InstanceSBOBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	m_InstanceSBODescriptor.resize(MAX_FRAMES_IN_FLIGHT);
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.queueFamilyIndexCount = 1;
+	bufferInfo.pQueueFamilyIndices = &m_VulkanContext->getVulkanHandles().queueFamilyIndices.GraphicQueueIndex;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.size = sizeof(InstanceData) * instanceCount;
+	bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		// Khởi tạo Buffer và truyền dữ liệu
+		m_InstanceSBOBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, true);
+		m_InstanceSBOBuffers[i]->UploadData(instanceDatas.data(), sizeof(InstanceData) * instanceCount, 0);
+
+		// Khởi tạo Descriptor cho buffer vừa tạo.
+		BindingElementInfo sboElementInfo{};
+		sboElementInfo.binding = 0;
+		sboElementInfo.descriptorCount = 1;
+		sboElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		sboElementInfo.pImmutableSamplers = nullptr;
+		sboElementInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		std::vector<BindingElementInfo> elementInfos = { sboElementInfo };
+		m_InstanceSBODescriptor[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), elementInfos, 2);
+		m_PipelineDescriptors.push_back(m_InstanceSBODescriptor[i]);
 	}
 }
 
@@ -202,6 +240,23 @@ void Application::UpdateDescriptorBindings()
 		bufferBindingInfo.firstArrayElement = 0;
 
 		m_UniformDescriptors[i]->WriteBufferSets(1, &bufferBindingInfo);
+	}
+
+	// Cập nhật descriptor binding cho Instance UBO Buffer
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		VkDescriptorBufferInfo sboBufferInfo{};
+		sboBufferInfo.buffer = m_InstanceSBOBuffers[i]->getHandles().buffer;
+		sboBufferInfo.offset = 0;
+		sboBufferInfo.range = m_InstanceSBOBuffers[i]->getHandles().bufferSize;
+
+		BufferDescriptorUpdateInfo bufferBindingInfo{};
+		bufferBindingInfo.binding = 0;
+		bufferBindingInfo.bufferInfoCount = 1;
+		bufferBindingInfo.bufferInfos = &sboBufferInfo;
+		bufferBindingInfo.firstArrayElement = 0;
+
+		m_InstanceSBODescriptor[i]->WriteBufferSets(1, &bufferBindingInfo);
 	}
 }
 
@@ -360,7 +415,7 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 	vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_MeshManager->getVertexBuffer(), &offset);
 	
 	// Bind Instance Buffer
-	vkCmdBindVertexBuffers(cmdBuffer, 1, 1, &instanceBuffers[m_CurrentFrame]->getHandles().buffer, &offset);
+	vkCmdBindVertexBuffers(cmdBuffer, 1, 1, &m_InstanceBuffers[m_CurrentFrame]->getHandles().buffer, &offset);
 
 
 	vkCmdBindIndexBuffer(cmdBuffer, m_MeshManager->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
@@ -416,5 +471,12 @@ void Application::BindDescriptorSets(const VkCommandBuffer& cmdBuffer)
 		m_VulkanPipeline->getHandles().pipelineLayout,
 		m_UniformDescriptors[m_CurrentFrame]->getSetIndex() , 1,
 		&m_UniformDescriptors[m_CurrentFrame]->getHandles().descriptorSet,
+		0, nullptr);
+
+	// Bind descriptor set cho instance sbo buffer (Set 2) của frame hiện tại
+	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		m_VulkanPipeline->getHandles().pipelineLayout,
+		m_InstanceSBODescriptor[m_CurrentFrame]->getSetIndex(), 1,
+		&m_InstanceSBODescriptor[m_CurrentFrame]->getHandles().descriptorSet,
 		0, nullptr);
 }
