@@ -9,6 +9,8 @@ echo ==============================
 
 glslc shader.vert -o vert.spv
 glslc shader.frag -o frag.spv
+glslc mainShader.vert -o mainVert.spv
+glslc mainShader.frag -o mainFrag.spv
 
 if %errorlevel% neq 0 (
     echo ❌ Shader compilation failed!

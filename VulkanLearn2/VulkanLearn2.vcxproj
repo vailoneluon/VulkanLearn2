@@ -78,6 +78,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\compile.bat" />
+    <None Include="Shaders\mainShader.frag" />
+    <None Include="Shaders\mainShader.vert" />
     <None Include="Shaders\shader.frag" />
     <None Include="Shaders\shader.vert" />
   </ItemGroup>
