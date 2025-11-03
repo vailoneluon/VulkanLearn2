@@ -7,7 +7,8 @@ struct SwapchainHandles;
 // Struct chứa handle nội bộ của VulkanRenderPass.
 struct RenderPassHandles
 {
-	VkRenderPass renderPass = VK_NULL_HANDLE;
+	VkRenderPass mainRenderPass = VK_NULL_HANDLE;
+	VkRenderPass rttRenderPass = VK_NULL_HANDLE;
 };
 
 // Class quản lý việc tạo và hủy một VkRenderPass.
@@ -28,4 +29,10 @@ private:
 
 	// --- Tham chiếu Vulkan ---
 	const VulkanHandles& m_VulkanHandles;
+	const SwapchainHandles& m_SwapchainHandles;
+	VkSampleCountFlagBits m_msaaSamples;
+
+
+	void CreateRttRenderPass();
+	void CreateMainRenderPass();
 };

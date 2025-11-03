@@ -54,9 +54,6 @@
     <ClCompile Include="Core\VulkanRenderPass.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="Core\VulkanFrameBuffer.cpp">
-      <Filter>Source Files\Core</Filter>
-    </ClCompile>
     <ClCompile Include="Core\VulkanCommandManager.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -102,6 +99,9 @@
     <ClCompile Include="Utils\vma.cpp">
       <Filter>Source Files\Utils</Filter>
     </ClCompile>
+    <ClCompile Include="Core\VulkanFrameBuffer.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Window.h">
@@ -123,9 +123,6 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="Core\VulkanRenderPass.h">
-      <Filter>Header Files\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\VulkanFrameBuffer.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="Core\VulkanCommandManager.h">
@@ -173,6 +170,9 @@
     <ClInclude Include="Scene\TextureManager.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Core\VulkanFrameBuffer.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\shader.frag">
@@ -182,6 +182,12 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="Shaders\compile.bat">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\mainShader.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\mainShader.frag">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

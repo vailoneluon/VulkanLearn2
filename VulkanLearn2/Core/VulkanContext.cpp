@@ -6,6 +6,7 @@ VulkanContext::VulkanContext(GLFWwindow* window, std::vector<const char*> instan
 {
 	// Tuần tự thực hiện các bước khởi tạo Vulkan.
 	CreateInstance(instanceExtensions);
+	CreateDebugMessenger();
 	CreateSurface(window);
 	ChoosePhysicalDevice();
 	CreateLogicalDevice();
@@ -15,6 +16,12 @@ VulkanContext::VulkanContext(GLFWwindow* window, std::vector<const char*> instan
 VulkanContext::~VulkanContext()
 {
 	// Hủy các tài nguyên theo thứ tự ngược lại với lúc tạo.
+	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_Handles.instance, "vkDestroyDebugUtilsMessengerEXT");
+	if (func != nullptr)
+	{
+		func(m_Handles.instance, m_Handles.debugMessenger, nullptr);
+	}
+
 	vmaDestroyAllocator(m_Handles.allocator);
 	vkDestroySurfaceKHR(m_Handles.instance, m_Handles.surface, nullptr);
 	vkDestroyDevice(m_Handles.device, nullptr);
@@ -43,9 +50,64 @@ void VulkanContext::CreateInstance(const std::vector<const char*>& extensions)
 	instanceInfo.enabledLayerCount = 1;
 	instanceInfo.ppEnabledLayerNames = m_ValidationLayers;
 
+	// Thêm cấu hình debug messenger vào pNext của instance create info.
+	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+	PopulateDebugMessengerCreateInfo(debugCreateInfo);
+	instanceInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+
 	VK_CHECK(vkCreateInstance(&instanceInfo, nullptr, &m_Handles.instance), "LỖI: Tạo Vulkan instance thất bại!");
 }
 
+void VulkanContext::CreateDebugMessenger()
+{
+	VkDebugUtilsMessengerCreateInfoEXT createInfo;
+	PopulateDebugMessengerCreateInfo(createInfo);
+
+	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_Handles.instance, "vkCreateDebugUtilsMessengerEXT");
+	if (func != nullptr)
+	{
+		VK_CHECK(func(m_Handles.instance, &createInfo, nullptr, &m_Handles.debugMessenger), "LỖI: Tạo debug messenger thất bại!");
+	}
+	else
+	{
+		throw std::runtime_error("LỖI: Không tìm thấy extension vkCreateDebugUtilsMessengerEXT!");
+	}
+}
+
+void VulkanContext::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+{
+	createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	createInfo.pfnUserCallback = DebugCallback;
+	createInfo.pUserData = nullptr;
+}
+
+VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::DebugCallback(
+	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkDebugUtilsMessageTypeFlagsEXT messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+	void* pUserData)
+{
+	// ANSI escape codes for colors
+	const char* RESET_COLOR = "\033[0m";
+	const char* RED_COLOR = "\033[31m";
+	const char* YELLOW_COLOR = "\033[33m";
+	const char* PINK_COLOR = "\033[38;2;255;105;180m";
+
+
+	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+	{
+		std::cerr << RED_COLOR << "[ERROR]" << PINK_COLOR << " Validation Layer: " << pCallbackData->pMessage << RESET_COLOR << std::endl << std::endl;
+	}
+	else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+	{
+		std::cerr << YELLOW_COLOR << "[WARNING]" << PINK_COLOR << " Validation Layer: " << pCallbackData->pMessage << RESET_COLOR << std::endl << std::endl;
+	}
+
+	return VK_FALSE;
+}
 void VulkanContext::CreateSurface(GLFWwindow* window)
 {
 	// Tạo một surface (bề mặt vẽ) từ cửa sổ GLFW.
@@ -74,8 +136,7 @@ void VulkanContext::ChoosePhysicalDevice()
 
 			VkPhysicalDeviceProperties deviceProperty{};
 			vkGetPhysicalDeviceProperties(m_Handles.physicalDevice, &deviceProperty);
-			std::cout << "GPU được chọn: " << deviceProperty.deviceName << std::endl;
-
+			//std::cout << "GPU được chọn: " << deviceProperty.deviceName << std::endl;
 			break;
 		}
 	}

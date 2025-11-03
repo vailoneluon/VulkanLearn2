@@ -2,16 +2,112 @@
 #include "VulkanRenderPass.h"
 #include "VulkanSwapchain.h"
 
-VulkanRenderPass::VulkanRenderPass(const VulkanHandles& vulkanHandles, const SwapchainHandles& swapchainHandles, VkSampleCountFlagBits msaaSamples):
-	m_VulkanHandles(vulkanHandles)
+VulkanRenderPass::VulkanRenderPass(const VulkanHandles& vulkanHandles, const SwapchainHandles& swapchainHandles, VkSampleCountFlagBits msaaSamples) :
+	m_VulkanHandles(vulkanHandles), m_SwapchainHandles(swapchainHandles), m_msaaSamples(msaaSamples)
+{
+	CreateRttRenderPass();
+	CreateMainRenderPass();
+}
+
+VulkanRenderPass::~VulkanRenderPass()
+{
+	vkDestroyRenderPass(m_VulkanHandles.device, m_Handles.mainRenderPass, nullptr);
+	vkDestroyRenderPass(m_VulkanHandles.device, m_Handles.rttRenderPass, nullptr);
+}
+
+void VulkanRenderPass::CreateRttRenderPass()
+{
+	VkAttachmentDescription colorAttachment{};
+	colorAttachment.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format;
+	colorAttachment.samples = m_msaaSamples;
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentDescription depthStencilAttachment{};
+	depthStencilAttachment.format = VK_FORMAT_D32_SFLOAT_S8_UINT; // Định dạng phổ biến cho depth/stencil
+	depthStencilAttachment.samples = m_msaaSamples;
+	depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; // Không cần lưu lại depth buffer sau khi render
+	depthStencilAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	depthStencilAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthStencilAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthStencilAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentDescription resolveAttachment{};
+	resolveAttachment.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format;
+	resolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	resolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	resolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	resolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	resolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	resolveAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	resolveAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	VkAttachmentReference colorAttachmentRef{};
+	colorAttachmentRef.attachment = 0;
+	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference depthStencilAttachmentRef{};
+	depthStencilAttachmentRef.attachment = 1;
+	depthStencilAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference resolveAttachmentRef{};
+	resolveAttachmentRef.attachment = 2;
+	resolveAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription rttSubpassDesc{};
+	rttSubpassDesc.colorAttachmentCount = 1;
+	rttSubpassDesc.pColorAttachments = &colorAttachmentRef;
+	rttSubpassDesc.pDepthStencilAttachment = &depthStencilAttachmentRef;
+	rttSubpassDesc.pResolveAttachments = &resolveAttachmentRef;
+
+	VkAttachmentDescription attachments[] = { colorAttachment, depthStencilAttachment, resolveAttachment};
+
+	// Dependency External -> Subpass 0
+	VkSubpassDependency dependency{};
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL; // Các hoạt động bên ngoài render pass
+	dependency.dstSubpass = 0; // Subpass đầu tiên của chúng ta
+	dependency.srcAccessMask = 0;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+	// Dependency2 Subpass 0 -> External
+	VkSubpassDependency dependency2{};
+	dependency2.srcSubpass = 0;
+	dependency2.dstSubpass = VK_SUBPASS_EXTERNAL; 
+	dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+	VkSubpassDependency dependencies[] = { dependency, dependency2 };
+
+	VkRenderPassCreateInfo rttInfo{};
+	rttInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	rttInfo.attachmentCount = 3;
+	rttInfo.pAttachments = attachments;
+	rttInfo.dependencyCount = 2;
+	rttInfo.pDependencies = dependencies;
+	rttInfo.subpassCount = 1;
+	rttInfo.pSubpasses = &rttSubpassDesc;
+
+	VK_CHECK(vkCreateRenderPass(m_VulkanHandles.device, &rttInfo, nullptr, &m_Handles.rttRenderPass), "FAILED TO CREATE RTT RENDER PASS");
+}
+
+void VulkanRenderPass::CreateMainRenderPass()
 {
 	// --- Định nghĩa các Attachment ---
 
 	// 1. Color Attachment (cho MSAA)
 	// Đây là attachment chính để vẽ, trước khi được resolve ra swapchain image.
 	VkAttachmentDescription colorAttachment{};
-	colorAttachment.format = swapchainHandles.swapchainSupportDetails.chosenFormat.format; // Định dạng phải khớp với swapchain
-	colorAttachment.samples = msaaSamples; // Số lượng sample cho MSAA
+	colorAttachment.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format; // Định dạng phải khớp với swapchain
+	colorAttachment.samples = m_msaaSamples; // Số lượng sample cho MSAA
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // Xóa nội dung attachment trước khi render
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // Lưu kết quả render
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; // Không quan tâm đến stencil
@@ -22,7 +118,7 @@ VulkanRenderPass::VulkanRenderPass(const VulkanHandles& vulkanHandles, const Swa
 	// 2. Depth/Stencil Attachment
 	VkAttachmentDescription depthStencilAttachment{};
 	depthStencilAttachment.format = VK_FORMAT_D32_SFLOAT_S8_UINT; // Định dạng phổ biến cho depth/stencil
-	depthStencilAttachment.samples = msaaSamples;
+	depthStencilAttachment.samples = m_msaaSamples;
 	depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; // Không cần lưu lại depth buffer sau khi render
 	depthStencilAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -33,7 +129,7 @@ VulkanRenderPass::VulkanRenderPass(const VulkanHandles& vulkanHandles, const Swa
 	// 3. Color Attachment Resolve
 	// Đây là attachment cuối cùng, là một image từ swapchain. Nội dung từ color attachment (MSAA) sẽ được resolve vào đây.
 	VkAttachmentDescription resolveAttachment{};
-	resolveAttachment.format = swapchainHandles.swapchainSupportDetails.chosenFormat.format;
+	resolveAttachment.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format;
 	resolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT; // Resolve target luôn có 1 sample
 	resolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	resolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -69,12 +165,23 @@ VulkanRenderPass::VulkanRenderPass(const VulkanHandles& vulkanHandles, const Swa
 	// --- Định nghĩa Subpass Dependency ---
 	// Dependency đảm bảo các giai đoạn pipeline được thực thi đúng thứ tự.
 	VkSubpassDependency dependency{};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL; // Các hoạt động bên ngoài render pass
-	dependency.dstSubpass = 0; // Subpass đầu tiên của chúng ta
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL; 
+	dependency.dstSubpass = 0; 
 	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	dependency.srcAccessMask = 0;
 	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+	// Depedency Subpass 0 -> External(Presentswapchain)
+	VkSubpassDependency dependency2{};
+	dependency2.srcSubpass = 0;
+	dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
+	dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	dependency2.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	dependency2.dstAccessMask = 0;
+
+	VkSubpassDependency dependencies[] = { dependency, dependency2 };
 
 	// --- Tạo Render Pass ---
 	VkAttachmentDescription attachments[] = { colorAttachment, depthStencilAttachment, resolveAttachment };
@@ -84,13 +191,8 @@ VulkanRenderPass::VulkanRenderPass(const VulkanHandles& vulkanHandles, const Swa
 	renderPassInfo.pAttachments = attachments;
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subpassDesc;
-	renderPassInfo.dependencyCount = 1;
-	renderPassInfo.pDependencies = &dependency;
+	renderPassInfo.dependencyCount = 2;
+	renderPassInfo.pDependencies = dependencies;
 
-	VK_CHECK(vkCreateRenderPass(m_VulkanHandles.device, &renderPassInfo, nullptr, &m_Handles.renderPass), "LỖI: Tạo render pass thất bại!");
-}
-
-VulkanRenderPass::~VulkanRenderPass()
-{
-	vkDestroyRenderPass(m_VulkanHandles.device, m_Handles.renderPass, nullptr);
+	VK_CHECK(vkCreateRenderPass(m_VulkanHandles.device, &renderPassInfo, nullptr, &m_Handles.mainRenderPass), "LỖI: Tạo render pass thất bại!");
 }

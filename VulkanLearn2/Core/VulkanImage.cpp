@@ -128,7 +128,7 @@ void VulkanImage::LoadImageDataFromFile(const char* filePath, bool createMipmaps
 		throw std::runtime_error(std::string("Lỗi: Không thể tải ảnh từ file: ") + filePath);
 	}
 
-	std::cout << "Đã tải ảnh: " << filePath << std::endl;
+	std::cout << "Loaded Image: " << filePath << std::endl;
 
 	m_Handles.textureInfo.pixels = pixels;
 	// Kích thước dữ liệu pixel (width * height * 4 bytes/pixel cho định dạng RGBA).

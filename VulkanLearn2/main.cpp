@@ -5,7 +5,6 @@
 #include "Core/VulkanSwapchain.h"
 #include "Core/VulkanImage.h"
 #include "Core/VulkanRenderPass.h"
-#include "Core/VulkanFrameBuffer.h"
 #include "Core/VulkanCommandManager.h"
 #include "Core/VulkanPipeline.h"
 #include "Core/VulkanSyncManager.h"
@@ -13,6 +12,7 @@
 #include "Core/VulkanDescriptorManager.h"
 #include "Core/VulkanSampler.h"
 #include "Core/VulkanDescriptor.h"
+#include "Core/VulkanFrameBuffer.h"
 
 #include "Utils/DebugTimer.h"
 #include <Scene/RenderObject.h>
@@ -36,12 +36,14 @@ Application::Application()
 	m_VulkanContext = new VulkanContext(m_Window->getGLFWWindow(), m_Window->getInstanceExtensionsRequired());
 	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow());
 	m_VulkanRenderPass = new VulkanRenderPass(m_VulkanContext->getVulkanHandles(), m_VulkanSwapchain->getHandles(), MSAA_SAMPLES);
-	m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanSwapchain->getHandles(), m_VulkanRenderPass->getHandles(), MSAA_SAMPLES);
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
 	
+	CreateFrameBuffers();
+
 	// 3. Tạo uniform buffers, một cái cho mỗi frame-in-flight
 	CreateUniformBuffers();
+	CreateMainDescriptors();
 
 	// 4. Tạo các manager cho scene và tải object
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
@@ -56,18 +58,16 @@ Application::Application()
 
 	// Hoàn tất việc tải texture và lấy descriptor của chúng
 	m_TextureManager->FinalizeSetup();
-	m_PipelineDescriptors.push_back(m_TextureManager->getDescriptor());
+	m_RTTPipelineDescriptors.push_back(m_TextureManager->getDescriptor());
 
 	// 5. Tạo descriptor manager và graphics pipeline
-	m_VulkanDescriptorManager = new VulkanDescriptorManager(m_VulkanContext->getVulkanHandles(), m_PipelineDescriptors);
-	UpdateDescriptorBindings();
+	m_allDescriptors.insert(m_allDescriptors.begin(), m_RTTPipelineDescriptors.begin(), m_RTTPipelineDescriptors.end());
+	m_allDescriptors.insert(m_allDescriptors.begin(), m_MainPipelineDescriptors.begin(), m_MainPipelineDescriptors.end());
+	m_VulkanDescriptorManager = new VulkanDescriptorManager(m_VulkanContext->getVulkanHandles(), m_allDescriptors);
+	UpdateRTTDescriptorBindings();
+	UpdateMainDescriptorBindings();
 
-	m_VulkanPipeline = new VulkanPipeline(
-		m_VulkanContext->getVulkanHandles(),
-		m_VulkanRenderPass->getHandles(),
-		m_VulkanSwapchain->getHandles(),
-		MSAA_SAMPLES,
-		m_PipelineDescriptors);
+	CreatePipelines();
 
 	// 6. Tạo các đối tượng đồng bộ (semaphores, fences)
 	m_VulkanSyncManager = new VulkanSyncManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT, m_VulkanSwapchain->getHandles().swapchainImageCount);
@@ -99,13 +99,143 @@ Application::~Application()
 
 	delete(m_VulkanDescriptorManager);
 	delete(m_VulkanSyncManager);
-	delete(m_VulkanPipeline);
+	delete(m_RTTVulkanPipeline);
+	delete(m_MainVulkanPipeline);
 	delete(m_VulkanCommandManager);
-	delete(m_VulkanFrameBuffer);
+	
+	// Clean FrameBuffer
+	for (auto& frameBuffer : m_Main_FrameBuffers)
+	{
+		delete(frameBuffer);
+	}
+	for (auto& frameBuffer : m_RTT_FrameBuffers)
+	{
+		delete(frameBuffer);
+	}
+
+	delete(m_RTT_ColorImage);
+	delete(m_RTT_DepthStencilImage);
+	delete(m_Main_ColorImage);
+	delete(m_Main_DepthStencilImage);
+
+	for (auto& image : m_SceneImages)
+	{
+		delete(image);
+	}
+
 	delete(m_VulkanRenderPass);
 	delete(m_VulkanSwapchain);
 	delete(m_VulkanContext);
 	delete(m_Window);
+}
+
+void Application::CreateFrameBufferImages()
+{
+	// Image cho RTT FrameBuffer
+		// Color Image
+	VulkanImageCreateInfo RTT_ColorImageInfo{};
+	RTT_ColorImageInfo.width = m_VulkanSwapchain->getHandles().swapChainExtent.width;
+	RTT_ColorImageInfo.height = m_VulkanSwapchain->getHandles().swapChainExtent.height;
+	RTT_ColorImageInfo.mipLevels = 1;
+	RTT_ColorImageInfo.samples = MSAA_SAMPLES;
+	RTT_ColorImageInfo.format = m_VulkanSwapchain->getHandles().swapchainSupportDetails.chosenFormat.format;
+	RTT_ColorImageInfo.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	RTT_ColorImageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	VulkanImageViewCreateInfo RTT_ColorImageViewInfo{};
+	RTT_ColorImageViewInfo.format = m_VulkanSwapchain->getHandles().swapchainSupportDetails.chosenFormat.format;
+	RTT_ColorImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	RTT_ColorImageViewInfo.mipLevels = 1;
+
+	m_RTT_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_ColorImageInfo, RTT_ColorImageViewInfo);
+
+		// Depth Stencil Image
+	VulkanImageCreateInfo RTT_DepthImageInfo{};
+	RTT_DepthImageInfo.width = m_VulkanSwapchain->getHandles().swapChainExtent.width;
+	RTT_DepthImageInfo.height = m_VulkanSwapchain->getHandles().swapChainExtent.height;
+	RTT_DepthImageInfo.mipLevels = 1;
+	RTT_DepthImageInfo.samples = MSAA_SAMPLES;
+	RTT_DepthImageInfo.format = VK_FORMAT_D32_SFLOAT_S8_UINT; // Format phổ biến cho depth/stencil.
+	RTT_DepthImageInfo.imageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	RTT_DepthImageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	VulkanImageViewCreateInfo RTT_DepthImageViewInfo{};
+	RTT_DepthImageViewInfo.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	RTT_DepthImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	RTT_DepthImageViewInfo.mipLevels = 1;
+
+	m_RTT_DepthStencilImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_DepthImageInfo, RTT_DepthImageViewInfo);
+	
+		// m_SceneImages
+	m_SceneImages.resize(MAX_FRAMES_IN_FLIGHT);
+	VulkanImageCreateInfo SceneImageInfo{};
+	SceneImageInfo.width = m_VulkanSwapchain->getHandles().swapChainExtent.width;
+	SceneImageInfo.height = m_VulkanSwapchain->getHandles().swapChainExtent.height;
+	SceneImageInfo.mipLevels = 1;
+	SceneImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	SceneImageInfo.format = m_VulkanSwapchain->getHandles().swapchainSupportDetails.chosenFormat.format;
+	SceneImageInfo.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	SceneImageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	VulkanImageViewCreateInfo SceneImageViewInfo{};
+	SceneImageViewInfo.format = m_VulkanSwapchain->getHandles().swapchainSupportDetails.chosenFormat.format;
+	SceneImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	SceneImageViewInfo.mipLevels = 1;
+
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		m_SceneImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), SceneImageInfo, SceneImageViewInfo);
+	}
+
+	// Image Cho Main Frame Buffer
+	m_Main_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_ColorImageInfo, RTT_ColorImageViewInfo);
+	m_Main_DepthStencilImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_DepthImageInfo, RTT_DepthImageViewInfo);
+}
+
+void Application::CreateFrameBuffers()
+{
+	// Tạo image cho frame Buffer
+	CreateFrameBufferImages();
+
+	// --- Khởi tạo RTT Frame Buffers ---
+	m_RTT_FrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		VkImageView RTT_ImageViews[] = { 
+			m_RTT_ColorImage->GetHandles().imageView, 
+			m_RTT_DepthStencilImage->GetHandles().imageView, 
+			m_SceneImages[i]->GetHandles().imageView 
+		};
+
+		FrameBufferCreateInfo RTT_FrameBufferInfo{};
+		RTT_FrameBufferInfo.frameWidth = m_VulkanSwapchain->getHandles().swapChainExtent.width;
+		RTT_FrameBufferInfo.frameHeigth = m_VulkanSwapchain->getHandles().swapChainExtent.height;
+		RTT_FrameBufferInfo.frameLayer = 1;
+		RTT_FrameBufferInfo.imageCount = 3;
+		RTT_FrameBufferInfo.pVkImageView = RTT_ImageViews;
+
+		m_RTT_FrameBuffers[i] = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanRenderPass->getHandles().rttRenderPass, RTT_FrameBufferInfo);
+	}
+	
+	// --- Khởi tạo MAIN Frame Buffers ---
+	m_Main_FrameBuffers.resize(m_VulkanSwapchain->getHandles().swapchainImageCount);
+	for (int i = 0; i < m_VulkanSwapchain->getHandles().swapchainImageCount; i++)
+	{
+		VkImageView Main_ImageViews[] = {
+			m_Main_ColorImage->GetHandles().imageView,
+			m_Main_DepthStencilImage->GetHandles().imageView,
+			m_VulkanSwapchain->getHandles().swapchainImageViews[i]
+		};
+
+		FrameBufferCreateInfo Main_FrameBufferInfo{};
+		Main_FrameBufferInfo.frameWidth = m_VulkanSwapchain->getHandles().swapChainExtent.width;
+		Main_FrameBufferInfo.frameHeigth = m_VulkanSwapchain->getHandles().swapChainExtent.height;
+		Main_FrameBufferInfo.frameLayer = 1;
+		Main_FrameBufferInfo.imageCount = 3;
+		Main_FrameBufferInfo.pVkImageView = Main_ImageViews;
+
+		m_Main_FrameBuffers[i] = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanRenderPass->getHandles().mainRenderPass, Main_FrameBufferInfo);
+	}
 }
 
 // Tạo uniform buffers cho mỗi frame-in-flight để lưu trữ ma trận camera.
@@ -138,12 +268,54 @@ void Application::CreateUniformBuffers()
 		m_UniformDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), uniformBindings, 1);
 		
 		// Thêm descriptor vào danh sách tất cả descriptor để tạo pipeline
-		m_PipelineDescriptors.push_back(m_UniformDescriptors[i]);
+		m_RTTPipelineDescriptors.push_back(m_UniformDescriptors[i]);
 	}
 }
 
+void Application::CreateMainDescriptors()
+{
+	m_MainPipelineDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
+
+	BindingElementInfo bindingElement{};
+	bindingElement.binding = 0;
+	bindingElement.descriptorCount = 1;
+
+	bindingElement.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindingElement.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	std::vector<BindingElementInfo> bindingElements = {bindingElement};
+
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		m_MainPipelineDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), bindingElements, 0);
+	}
+}
+
+void Application::CreatePipelines()
+{
+	VulkanPipelineCreateInfo rttPipelineInfo{};
+	rttPipelineInfo.descriptors = &m_RTTPipelineDescriptors;
+	rttPipelineInfo.fragmentShaderFilePath = "Shaders/frag.spv";
+	rttPipelineInfo.vertexShaderFilePath = "Shaders/vert.spv";
+	rttPipelineInfo.msaaSamples = MSAA_SAMPLES;
+	rttPipelineInfo.renderPass = &m_VulkanRenderPass->getHandles().rttRenderPass;
+	rttPipelineInfo.swapchainHandles = &m_VulkanSwapchain->getHandles();
+	rttPipelineInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
+
+	m_RTTVulkanPipeline = new VulkanPipeline(&rttPipelineInfo);
+	
+	VulkanPipelineCreateInfo mainPipelineInfo = rttPipelineInfo;
+	mainPipelineInfo.fragmentShaderFilePath = "Shaders/mainFrag.spv";
+	mainPipelineInfo.vertexShaderFilePath = "Shaders/mainVert.spv";
+	mainPipelineInfo.renderPass = &m_VulkanRenderPass->getHandles().mainRenderPass;
+	mainPipelineInfo.descriptors = &m_MainPipelineDescriptors;
+	mainPipelineInfo.useVertexInput = false;
+
+	m_MainVulkanPipeline = new VulkanPipeline(&mainPipelineInfo);
+}
+
 // Cập nhật descriptor sets để trỏ đến đúng tài nguyên buffer/image.
-void Application::UpdateDescriptorBindings()
+void Application::UpdateRTTDescriptorBindings()
 {
 	// Cập nhật descriptor của texture
 	m_TextureManager->UpdateTextureImageDescriptorBinding();
@@ -163,6 +335,26 @@ void Application::UpdateDescriptorBindings()
 		bufferBindingInfo.firstArrayElement = 0;
 
 		m_UniformDescriptors[i]->WriteBufferSets(1, &bufferBindingInfo);
+	}
+}
+
+void Application::UpdateMainDescriptorBindings()
+{
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		//imageInfo.imageView = m_VulkanFrameBuffer->getHandles().rttResolveImages[i]->GetHandles().imageView;
+		imageInfo.imageView = m_SceneImages[i]->GetHandles().imageView;
+		imageInfo.sampler = m_VulkanSampler->getSampler();
+	
+		ImageDescriptorUpdateInfo imageUpdateInfo{};
+		imageUpdateInfo.binding = 0;
+		imageUpdateInfo.firstArrayElement = 0;
+		imageUpdateInfo.imageInfoCount = 1;
+		imageUpdateInfo.imageInfos = &imageInfo;
+
+		m_MainPipelineDescriptors[i]->WriteImageSets(1, &imageUpdateInfo);
 	}
 }
 
@@ -297,6 +489,15 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 	VK_CHECK(vkBeginCommandBuffer(cmdBuffer, &cmdBeginInfo), "FAILED TO BEGIN COMMAND BUFFER");
 
 	// Bắt đầu render pass
+	CmdDrawRTTRenderPass(cmdBuffer);
+	CmdDrawMainRenderPass(cmdBuffer, imageIndex);
+
+	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "FAILED TO END COMMAND BUFFER");
+}
+
+void Application::CmdDrawRTTRenderPass(const VkCommandBuffer& cmdBuffer)
+{
+	// Bắt đầu render pass
 	VkRenderPassBeginInfo renderPassBeginInfo{};
 	VkClearValue clearValues[3];
 	clearValues[0].color = BACKGROUND_COLOR;
@@ -306,15 +507,15 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassBeginInfo.clearValueCount = 3;
 	renderPassBeginInfo.pClearValues = clearValues;
-	renderPassBeginInfo.framebuffer = m_VulkanFrameBuffer->getHandles().frameBuffers[imageIndex];
-	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().renderPass;
+	renderPassBeginInfo.framebuffer = m_RTT_FrameBuffers[m_CurrentFrame]->getFrameBuffer();
+	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().rttRenderPass;
 	renderPassBeginInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
 	renderPassBeginInfo.renderArea.offset = { 0, 0 };
 
 	vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	// Bind graphics pipeline
-	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_VulkanPipeline->getHandles().graphicsPipeline);
+	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_RTTVulkanPipeline->getHandles().pipeline);
 
 	// Bind global vertex buffer và index buffer cho tất cả các mesh
 	VkDeviceSize offset = 0;
@@ -322,19 +523,50 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 	vkCmdBindIndexBuffer(cmdBuffer, m_MeshManager->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
 	// Bind descriptor sets cho shader (textures, uniforms)
-	BindDescriptorSets(cmdBuffer);
-	
+	BindRTTDescriptorSets(cmdBuffer);
+
 	// Gọi lệnh vẽ cho tất cả render object
-	CmdDrawRenderObjects(cmdBuffer);
+	CmdDrawRTTRenderObjects(cmdBuffer);
 
 	// Kết thúc render pass
 	vkCmdEndRenderPass(cmdBuffer);
+}
 
-	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "FAILED TO END COMMAND BUFFER");
+void Application::CmdDrawMainRenderPass(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex)
+{
+	// Bắt đầu render pass
+	VkRenderPassBeginInfo renderPassBeginInfo{};
+	VkClearValue clearValues[3];
+	clearValues[0].color = BACKGROUND_COLOR;
+	clearValues[1].depthStencil = { 1.0f, 0 };
+	clearValues[2].color = BACKGROUND_COLOR; // Dành cho target resolve của MSAA
+
+	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassBeginInfo.clearValueCount = 3;
+	renderPassBeginInfo.pClearValues = clearValues;
+	renderPassBeginInfo.framebuffer = m_Main_FrameBuffers[imageIndex]->getFrameBuffer();
+	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().mainRenderPass;
+	renderPassBeginInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
+	renderPassBeginInfo.renderArea.offset = { 0, 0 };
+
+	vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	
+
+	// Bind graphics pipeline
+	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_MainVulkanPipeline->getHandles().pipeline);
+
+	// Bind descriptor sets cho shader (textures, uniforms)
+	BindMainDescriptorSets(cmdBuffer);
+
+	// Gọi lệnh vẽ 
+	CmdDrawMain(cmdBuffer);
+
+	// Kết thúc render pass
+	vkCmdEndRenderPass(cmdBuffer);
 }
 
 // Gọi lệnh vẽ cho mỗi mesh của mỗi render object.
-void Application::CmdDrawRenderObjects(const VkCommandBuffer& cmdBuffer)
+void Application::CmdDrawRTTRenderObjects(const VkCommandBuffer& cmdBuffer)
 {
 	for (const auto& renderObject : m_RenderObjects)
 	{
@@ -345,7 +577,7 @@ void Application::CmdDrawRenderObjects(const VkCommandBuffer& cmdBuffer)
 			m_PushConstantData.model = renderObject->GetModelMatrix();
 			m_PushConstantData.textureId = mesh->textureId;
 			
-			vkCmdPushConstants(cmdBuffer, m_VulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(m_PushConstantData), &m_PushConstantData);
+			vkCmdPushConstants(cmdBuffer, m_RTTVulkanPipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(m_PushConstantData), &m_PushConstantData);
 			
 			// Vẽ mesh theo index
 			vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
@@ -353,20 +585,34 @@ void Application::CmdDrawRenderObjects(const VkCommandBuffer& cmdBuffer)
 	}
 }
 
+void Application::CmdDrawMain(const VkCommandBuffer& cmdBuffer)
+{
+	vkCmdDraw(cmdBuffer, 6, 1, 0, 0);
+}
+
 // Bind các descriptor set cần thiết vào pipeline.
-void Application::BindDescriptorSets(const VkCommandBuffer& cmdBuffer)
+void Application::BindRTTDescriptorSets(const VkCommandBuffer& cmdBuffer)
 {
 	// Bind descriptor set cho texture images (Set 0)
 	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		m_VulkanPipeline->getHandles().pipelineLayout,
+		m_RTTVulkanPipeline->getHandles().pipelineLayout,
 		m_TextureManager->getDescriptor()->getHandles().setIndex, 1,
 		&m_TextureManager->getDescriptor()->getHandles().descriptorSet,
 		0, nullptr);
 	
 	// Bind descriptor set cho uniform buffer (Set 1) của frame hiện tại
 	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		m_VulkanPipeline->getHandles().pipelineLayout,
+		m_RTTVulkanPipeline->getHandles().pipelineLayout,
 		m_UniformDescriptors[m_CurrentFrame]->getSetIndex() , 1,
 		&m_UniformDescriptors[m_CurrentFrame]->getHandles().descriptorSet,
+		0, nullptr);
+}
+
+void Application::BindMainDescriptorSets(const VkCommandBuffer& cmdBuffer)
+{
+	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		m_MainVulkanPipeline->getHandles().pipelineLayout,
+		m_MainPipelineDescriptors[m_CurrentFrame]->getSetIndex(), 1,
+		&m_MainPipelineDescriptors[m_CurrentFrame]->getHandles().descriptorSet,
 		0, nullptr);
 }

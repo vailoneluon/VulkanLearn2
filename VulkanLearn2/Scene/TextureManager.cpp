@@ -140,7 +140,7 @@ TextureImage* TextureManager::CreateNewTextureImage(const std::string& imageFile
 	// LƯU Ý: Tham số cuối cùng là `false`, nghĩa là mipmap không được tạo.
 	// Đối với texture, điều này thường không tối ưu và có thể gây ra aliasing (hiện tượng răng cưa).
 	// Nên cân nhắc đổi thành `true`.
-	VulkanImage* image = new VulkanImage(m_VulkanHandles, imageFilePath.c_str(), false);
+	VulkanImage* image = new VulkanImage(m_VulkanHandles, imageFilePath.c_str(), true);
 	
 	TextureImage* textureImage = new TextureImage();
 	textureImage->textureImage = image;
