@@ -115,7 +115,7 @@ void TextureManager::UpdateTextureImageDescriptorBinding()
 	}
 
 	// Những Descriptor trống để thành imageview 0 tránh báo lỗi.
-	for (int i = m_Handles.allTextureImageLoaded.size(); i < descImageCount; i++)
+	for (size_t i = m_Handles.allTextureImageLoaded.size(); i < descImageCount; i++)
 	{
 		VkDescriptorImageInfo descImageInfo{};
 		descImageInfo.sampler = m_Sampler;
@@ -129,7 +129,7 @@ void TextureManager::UpdateTextureImageDescriptorBinding()
 	ImageDescriptorUpdateInfo updateInfo{};
 	updateInfo.binding = 0;
 	updateInfo.firstArrayElement = 0;
-	updateInfo.imageInfoCount = descImageInfos.size();
+	updateInfo.imageInfoCount = static_cast<uint32_t>(descImageInfos.size());
 	updateInfo.imageInfos = descImageInfos.data();
 
 	m_Handles.textureImageDescriptor->WriteImageSets(1, &updateInfo);
@@ -144,7 +144,7 @@ TextureImage* TextureManager::CreateNewTextureImage(const std::string& imageFile
 	
 	TextureImage* textureImage = new TextureImage();
 	textureImage->textureImage = image;
-	textureImage->id = m_Handles.allTextureImageLoaded.size(); // ID chính là index trong mảng.
+	textureImage->id = static_cast<uint32_t>(m_Handles.allTextureImageLoaded.size()); // ID chính là index trong mảng.
 	
 	m_Handles.allTextureImageLoaded.push_back(textureImage);
 

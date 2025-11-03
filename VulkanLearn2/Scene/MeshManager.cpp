@@ -41,8 +41,8 @@ std::vector<Mesh*> MeshManager::createMeshFromMeshData(const MeshData* meshData,
 	for (uint32_t i = 0; i < meshCount; i++)
 	{
 		// Ghi lại offset hiện tại trước khi thêm dữ liệu mới.
-		uint32_t vertexIndexOffset = m_Handles.allVertices.size();
-		uint32_t indexIndexOffset = m_Handles.allIndices.size();
+		uint32_t vertexIndexOffset = static_cast<uint32_t>(m_Handles.allVertices.size());
+		uint32_t indexIndexOffset = static_cast<uint32_t>(m_Handles.allIndices.size());
 
 		// Nối dữ liệu vertex và index của mesh hiện tại vào vector tổng.
 		m_Handles.allVertices.insert(m_Handles.allVertices.end(), meshData[i].vertices.begin(), meshData[i].vertices.end());
@@ -56,8 +56,8 @@ std::vector<Mesh*> MeshManager::createMeshFromMeshData(const MeshData* meshData,
 
 		meshRange.firstIndex = indexIndexOffset;
 
-		meshRange.vertexCount = meshData[i].vertices.size();
-		meshRange.indexCount = meshData[i].indices.size();
+		meshRange.vertexCount = static_cast<uint32_t>(meshData[i].vertices.size());
+		meshRange.indexCount = static_cast<uint32_t>(meshData[i].indices.size());
 
 		Mesh* mesh = new Mesh();
 		mesh->meshRange = meshRange;
@@ -97,7 +97,7 @@ void MeshManager::CreateVertexBuffer()
 	// Điều này tiện lợi nhưng không phải là tối ưu nhất về hiệu năng.
 	// Để tối ưu, nên tạo buffer này với cờ VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 	// và sử dụng một staging buffer trung gian để copy dữ liệu từ CPU sang GPU.
-	m_Handles.vertexBuffer = new VulkanBuffer(m_VulkanHandles, m_CommandManager, bufferInfo, true);
+	m_Handles.vertexBuffer = new VulkanBuffer(m_VulkanHandles, m_CommandManager, bufferInfo, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	m_Handles.vertexBuffer->UploadData(m_Handles.allVertices.data(), bufferSize, 0);
 }
@@ -116,7 +116,7 @@ void MeshManager::CreateIndexBuffer()
 
 	// LƯU Ý: Tương tự như Vertex Buffer, Index Buffer cũng nên được đặt trong device-local memory
 	// và được ghi dữ liệu thông qua một staging buffer để đạt hiệu năng cao nhất.
-	m_Handles.indexBuffer = new VulkanBuffer(m_VulkanHandles, m_CommandManager, bufferInfo, true);
+	m_Handles.indexBuffer = new VulkanBuffer(m_VulkanHandles, m_CommandManager, bufferInfo, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	m_Handles.indexBuffer->UploadData(m_Handles.allIndices.data(), bufferSize, 0);
 }

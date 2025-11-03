@@ -9,11 +9,13 @@ VulkanContext::VulkanContext(GLFWwindow* window, std::vector<const char*> instan
 	CreateSurface(window);
 	ChoosePhysicalDevice();
 	CreateLogicalDevice();
+	CreateVMAAllocator();
 }
 
 VulkanContext::~VulkanContext()
 {
 	// Hủy các tài nguyên theo thứ tự ngược lại với lúc tạo.
+	vmaDestroyAllocator(m_Handles.allocator);
 	vkDestroySurfaceKHR(m_Handles.instance, m_Handles.surface, nullptr);
 	vkDestroyDevice(m_Handles.device, nullptr);
 	vkDestroyInstance(m_Handles.instance, nullptr);
@@ -122,6 +124,17 @@ void VulkanContext::CreateLogicalDevice()
 	// Lấy handle của các queue từ logical device.
 	vkGetDeviceQueue(m_Handles.device, m_Handles.queueFamilyIndices.GraphicQueueIndex, 0, &m_Handles.graphicQueue);
 	vkGetDeviceQueue(m_Handles.device, m_Handles.queueFamilyIndices.PresentQueueIndex, 0, &m_Handles.presentQueue);
+}
+
+void VulkanContext::CreateVMAAllocator()
+{
+	VmaAllocatorCreateInfo allocatorInfo{};
+	allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+	allocatorInfo.device = m_Handles.device;
+	allocatorInfo.instance = m_Handles.instance;
+	allocatorInfo.physicalDevice = m_Handles.physicalDevice;
+
+	VK_CHECK(vmaCreateAllocator(&allocatorInfo, &m_Handles.allocator), "FAILED TO CREATE VMA ALLOCATOR");
 }
 
 bool VulkanContext::isPhysicalDeviceSuitable(VkPhysicalDevice physDevice)

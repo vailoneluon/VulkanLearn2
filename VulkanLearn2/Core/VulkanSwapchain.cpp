@@ -102,8 +102,8 @@ void SwapchainSupportDetails::ChoosePresentModeKHR()
 	{
 		if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
 		{
-			chosenPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-			return;
+			/*chosenPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			return;*/
 		}
 	}
 	// Nếu không có, dùng chế độ FIFO (vsync), được đảm bảo luôn có.

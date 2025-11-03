@@ -4,52 +4,76 @@
 // Forward declarations
 class VulkanCommandManager;
 
-// Struct chứa các handle và thông tin của một buffer Vulkan.
+/**
+ * @struct BufferHandles
+ * @brief Chứa các handle và thông tin cần thiết của một Vulkan Buffer.
+ *
+ * Struct này đóng gói các đối tượng Vulkan cốt lõi liên quan đến một buffer,
+ * giúp việc quản lý và truy cập chúng dễ dàng hơn.
+ */
 struct BufferHandles
 {
-	VkBuffer buffer = VK_NULL_HANDLE;
-	VkDeviceMemory bufferMemory = VK_NULL_HANDLE;
-	VkDeviceSize bufferSize = 0;
+	VkBuffer buffer = VK_NULL_HANDLE;			///< Handle của VkBuffer.
+	VmaAllocation allocation = VK_NULL_HANDLE;	///< Handle cấp phát bộ nhớ từ VMA.
+	VkDeviceSize bufferSize = 0;				///< Kích thước của buffer (tính bằng byte).
+	void* pMappedData = nullptr;				///< Con trỏ tới vùng nhớ đã map (nếu có), cho phép ghi dữ liệu trực tiếp từ CPU.
 };
 
-// Class đóng gói một buffer của Vulkan (VkBuffer).
-// Có thể được dùng làm vertex buffer, index buffer, uniform buffer, staging buffer, v.v.
-// Hỗ trợ hai chế độ upload dữ liệu:
-// 1. Direct: Map bộ nhớ và ghi trực tiếp (dành cho buffer host-visible).
-// 2. Staging: Dùng một buffer trung gian để copy dữ liệu sang buffer device-local (tối ưu hiệu năng).
+/**
+ * @class VulkanBuffer
+ * @brief Đóng gói và quản lý một buffer trong Vulkan (VkBuffer) sử dụng thư viện VMA.
+ *
+ * Class này trừu tượng hóa việc tạo, hủy và cập nhật dữ liệu cho các loại buffer khác nhau
+ * như vertex buffer, index buffer, uniform buffer, staging buffer, v.v.
+ * Nó hỗ trợ hai kịch bản cập nhật dữ liệu chính:
+ * 1. Ghi trực tiếp từ CPU (CPU_TO_GPU, CPU_ONLY): Dữ liệu được ghi vào một vùng nhớ được map vĩnh viễn.
+ * 2. Tải lên GPU (GPU_ONLY): Dữ liệu được sao chép thông qua một staging buffer tạm thời.
+ */
 class VulkanBuffer
 {
 public:
-	// isUseStagingBuffer = false: Tạo buffer trên bộ nhớ CPU có thể thấy (host-visible), upload trực tiếp.
-	// isUseStagingBuffer = true: Tạo buffer trên bộ nhớ GPU (device-local), upload qua staging buffer.
-	VulkanBuffer(const VulkanHandles& vulkanHandles, VulkanCommandManager* const vulkanCommandManager, VkBufferCreateInfo& bufferInfo, bool isUseStagingBuffer = false);
+	/**
+	 * @brief Khởi tạo một VulkanBuffer.
+	 * @param vulkanHandles Tham chiếu đến các handle Vulkan chung của ứng dụng.
+	 * @param vulkanCommandManager Con trỏ tới CommandManager để thực hiện các lệnh sao chép.
+	 * @param bufferInfo Struct chứa thông tin để tạo buffer (kích thước, cờ sử dụng, v.v.).
+	 * @param memoryUsage Cách thức sử dụng bộ nhớ (ví dụ: chỉ GPU, CPU sang GPU).
+	 */
+	VulkanBuffer(const VulkanHandles& vulkanHandles, VulkanCommandManager* const vulkanCommandManager, VkBufferCreateInfo& bufferInfo, VmaMemoryUsage memoryUsage);
+
+	/**
+	 * @brief Hủy buffer và giải phóng bộ nhớ đã cấp phát.
+	 */
 	~VulkanBuffer();
 
-	// Lấy các handle của buffer.
-	const BufferHandles& getHandles() const { return m_Handles; }
+	// Cấm sao chép và gán để tránh quản lý tài nguyên sai lầm.
+	VulkanBuffer(const VulkanBuffer&) = delete;
+	VulkanBuffer& operator=(const VulkanBuffer&) = delete;
 
-	// Upload dữ liệu lên buffer. Tự động chọn phương thức upload (direct/staging) dựa trên cấu hình lúc tạo.
-	void UploadData(const void* pSrcData, VkDeviceSize updateSize, VkDeviceSize offset);
+	/**
+	 * @brief Tải dữ liệu từ một con trỏ nguồn lên buffer.
+	 *
+	 * Phương thức này sẽ tự động chọn cách tải dữ liệu phù hợp (ghi trực tiếp hoặc dùng staging buffer)
+	 * dựa trên `VmaMemoryUsage` đã được chỉ định khi tạo buffer.
+	 *
+	 * @param pSrcData Con trỏ tới dữ liệu nguồn cần tải lên.
+	 * @param updateSize Kích thước của dữ liệu cần tải lên (tính bằng byte).
+	 * @param offset Vị trí bắt đầu ghi dữ liệu trong buffer (tính bằng byte).
+	 */
+	void UploadData(const void* pSrcData, VkDeviceSize updateSize, VkDeviceSize offset = 0);
+
+	/**
+	 * @brief Lấy các handle và thông tin của buffer.
+	 * @return Tham chiếu hằng tới struct BufferHandles.
+	 */
+	const BufferHandles& GetHandles() const { return m_Handles; }
 
 private:
-	// --- Tham chiếu Vulkan ---
-	const VulkanHandles& m_VulkanHandles;
-	VulkanCommandManager* const m_CommandManager;
-	
 	// --- Dữ liệu nội bộ ---
-	BufferHandles m_Handles;
-	bool m_IsUseStagingBuffer;
+	BufferHandles m_Handles;			///< Các handle và thông tin của buffer.
+	VmaMemoryUsage m_MemoryUsage;		///< Cách thức sử dụng bộ nhớ đã định nghĩa.
 
-	// --- Hàm helper private ---
-
-	// Hàm chung để tạo buffer và cấp phát bộ nhớ.
-	void CreateBuffer(VkBufferCreateInfo bufferInfo, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& memory);
-
-	// Upload dữ liệu bằng cách map bộ nhớ trực tiếp.
-	void UploadDataViaDirect(const void* pSrcData, VkDeviceMemory& bufferMemory, VkDeviceSize updateSize, VkDeviceSize offset);
-	// Upload dữ liệu bằng cách dùng một staging buffer trung gian.
-	void UploadDataViaStagingBuffer(const void* pSrcData, VkDeviceSize updateSize, VkDeviceSize offset);
-
-	// Tìm kiếm memory type index phù hợp.
-	uint32_t findMemoryTypeIndex(uint32_t memoryTypeBits, VkMemoryPropertyFlags properties);
+	// --- Tham chiếu Vulkan ---
+	const VulkanHandles& m_VulkanHandles;			///< Các handle Vulkan chung.
+	VulkanCommandManager* const m_CommandManager;	///< Con trỏ tới CommandManager.
 };

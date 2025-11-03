@@ -13,7 +13,7 @@ Model::Model(const std::string& modelFilePath, MeshManager* meshManager, Texture
 	// 2. Dùng MeshManager để tạo các đối tượng Mesh từ dữ liệu thô.
 	//    Hàm này sẽ đưa dữ liệu vertex/index vào các buffer chung và trả về các struct Mesh
 	//    chứa thông tin về vị trí và kích thước của dữ liệu đó trong buffer.
-	m_Handles.meshes = meshManager->createMeshFromMeshData(modelData.meshData.data(), modelData.meshData.size());
+	m_Handles.meshes = meshManager->createMeshFromMeshData(modelData.meshData.data(),static_cast<uint32_t>(modelData.meshData.size()));
 
 	// 3. Với mỗi mesh, tải texture tương ứng thông qua TextureManager.
 	for (int i = 0; i < m_Handles.meshes.size(); i++)
