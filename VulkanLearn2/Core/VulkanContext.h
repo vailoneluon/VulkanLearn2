@@ -15,6 +15,7 @@ struct QueueFamilyIndices
 struct VulkanHandles
 {
 	VkInstance instance = VK_NULL_HANDLE;
+	VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
 	VkDevice device = VK_NULL_HANDLE;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -54,6 +55,11 @@ private:
 	void ChoosePhysicalDevice();
 	void CreateLogicalDevice();
 	void CreateVMAAllocator();
+
+	// --- Debug Messenger ---
+	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
+	void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+	void CreateDebugMessenger();
 
 	// Kiểm tra xem một physical device có phù hợp với các yêu cầu không.
 	bool isPhysicalDeviceSuitable(VkPhysicalDevice physDevice);

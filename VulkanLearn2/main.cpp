@@ -36,7 +36,7 @@ Application::Application()
 	m_VulkanContext = new VulkanContext(m_Window->getGLFWWindow(), m_Window->getInstanceExtensionsRequired());
 	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow());
 	m_VulkanRenderPass = new VulkanRenderPass(m_VulkanContext->getVulkanHandles(), m_VulkanSwapchain->getHandles(), MSAA_SAMPLES);
-	m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanSwapchain->getHandles(), m_VulkanRenderPass->getHandles(), MSAA_SAMPLES);
+	m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanSwapchain->getHandles(), m_VulkanRenderPass->getHandles(), MSAA_SAMPLES, MAX_FRAMES_IN_FLIGHT);
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
 	
@@ -214,7 +214,7 @@ void Application::UpdateMainDescriptorBindings()
 	{
 		VkDescriptorImageInfo imageInfo{};
 		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = m_VulkanFrameBuffer->getHandles().rttColorImages[i]->GetHandles().imageView;
+		imageInfo.imageView = m_VulkanFrameBuffer->getHandles().rttResolveImages[i]->GetHandles().imageView;
 		imageInfo.sampler = m_VulkanSampler->getSampler();
 	
 		ImageDescriptorUpdateInfo imageUpdateInfo{};
@@ -359,31 +359,6 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 
 	// Bắt đầu render pass
 	CmdDrawRTTRenderPass(cmdBuffer);
-
-	// transition image layout
-	VkImageMemoryBarrier barrier{};
-	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.image = m_VulkanFrameBuffer->getHandles().rttColorImages[m_CurrentFrame]->GetHandles().image;
-	barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier.subresourceRange.layerCount = 1;
-	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.levelCount = 1;
-	barrier.subresourceRange.baseMipLevel = 0;
-
-	/*vkCmdPipelineBarrier(cmdBuffer,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		0, 
-		0, nullptr, 
-		0, nullptr, 
-		1, &barrier);*/
-
 	CmdDrawMainRenderPass(cmdBuffer, imageIndex);
 
 	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "FAILED TO END COMMAND BUFFER");
@@ -396,10 +371,10 @@ void Application::CmdDrawRTTRenderPass(const VkCommandBuffer& cmdBuffer)
 	VkClearValue clearValues[2];
 	clearValues[0].color = BACKGROUND_COLOR;
 	clearValues[1].depthStencil = { 1.0f, 0 };
-	//clearValues[2].color = BACKGROUND_COLOR; // Dành cho target resolve của MSAA
+	clearValues[2].color = BACKGROUND_COLOR; // Dành cho target resolve của MSAA
 
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.clearValueCount = 2;
+	renderPassBeginInfo.clearValueCount = 3;
 	renderPassBeginInfo.pClearValues = clearValues;
 	renderPassBeginInfo.framebuffer = m_VulkanFrameBuffer->getHandles().rttFrameBuffers[m_CurrentFrame];
 	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().rttRenderPass;
@@ -448,11 +423,6 @@ void Application::CmdDrawMainRenderPass(const VkCommandBuffer& cmdBuffer, uint32
 
 	// Bind graphics pipeline
 	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_MainVulkanPipeline->getHandles().pipeline);
-
-	// Bind global vertex buffer và index buffer cho tất cả các mesh
-	//VkDeviceSize offset = 0;
-	//vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_MeshManager->getVertexBuffer(), &offset);
-	//vkCmdBindIndexBuffer(cmdBuffer, m_MeshManager->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
 	// Bind descriptor sets cho shader (textures, uniforms)
 	BindMainDescriptorSets(cmdBuffer);

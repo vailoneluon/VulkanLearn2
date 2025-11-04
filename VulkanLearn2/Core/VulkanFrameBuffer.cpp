@@ -5,11 +5,12 @@
 #include "VulkanImage.h"
 #include "VulkanRenderPass.h"
 
-VulkanFrameBuffer::VulkanFrameBuffer(const VulkanHandles& vulkanHandles, const SwapchainHandles& swapchainHandles, const RenderPassHandles& renderPassHandles, const VkSampleCountFlagBits samples):
+VulkanFrameBuffer::VulkanFrameBuffer(const VulkanHandles& vulkanHandles, const SwapchainHandles& swapchainHandles, const RenderPassHandles& renderPassHandles, const VkSampleCountFlagBits samples, uint32_t maxFramesInFlight):
 	m_VulkanHandles(vulkanHandles), 
 	m_SwapchainHandles(swapchainHandles), 
 	m_RenderPassHandles(renderPassHandles),
-	m_MsaaSamples(samples)
+	m_MsaaSamples(samples),
+	m_MaxFrameInFlight(maxFramesInFlight)
 {
 	// Tuần tự tạo các tài nguyên cần thiết cho framebuffer.
 	CreateColorResources();
@@ -35,10 +36,11 @@ VulkanFrameBuffer::~VulkanFrameBuffer()
 	delete(m_Handles.colorImage);
 	delete(m_Handles.depthStencilImage);
 	
-	for (auto& rttColorImage : m_Handles.rttColorImages)
+	for (auto& rttResolveImage : m_Handles.rttResolveImages)
 	{
-		delete(rttColorImage);
+		delete(rttResolveImage);
 	}
+	delete(m_Handles.rttColorImage);
 	delete(m_Handles.rttDepthStencilImage);
 
 }
@@ -114,26 +116,43 @@ void VulkanFrameBuffer::CreateFrameBuffers()
 
 void VulkanFrameBuffer::CreateRTTResources()
 {
-	// Tạo RTT Color Image
-	m_Handles.rttColorImages.resize(m_MaxFrameInFlight);
-	VulkanImageCreateInfo imageInfo{};
-	imageInfo.width = m_SwapchainHandles.swapChainExtent.width;
-	imageInfo.height = m_SwapchainHandles.swapChainExtent.height;
-	imageInfo.mipLevels = 1;
-	imageInfo.samples = m_MsaaSamples;
-	imageInfo.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format;
-	imageInfo.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	imageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	// Tạo RTT Resolve Image
+	m_Handles.rttResolveImages.resize(m_MaxFrameInFlight);
+	VulkanImageCreateInfo ResolveImageInfo{};
+	ResolveImageInfo.width = m_SwapchainHandles.swapChainExtent.width;
+	ResolveImageInfo.height = m_SwapchainHandles.swapChainExtent.height;
+	ResolveImageInfo.mipLevels = 1;
+	ResolveImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	ResolveImageInfo.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format;
+	ResolveImageInfo.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	ResolveImageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-	VulkanImageViewCreateInfo imageViewInfo{};
-	imageViewInfo.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format;
-	imageViewInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	imageViewInfo.mipLevels = 1;
+	VulkanImageViewCreateInfo ResolveImageViewInfo{};
+	ResolveImageViewInfo.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format;
+	ResolveImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	ResolveImageViewInfo.mipLevels = 1;
 
 	for (int i = 0; i < m_MaxFrameInFlight; i++)
 	{
-		m_Handles.rttColorImages[i] = new VulkanImage(m_VulkanHandles, imageInfo, imageViewInfo);
+		m_Handles.rttResolveImages[i] = new VulkanImage(m_VulkanHandles, ResolveImageInfo, ResolveImageViewInfo);
 	}
+
+	// Tao Color Image
+	VulkanImageCreateInfo ColorImageInfo{};
+	ColorImageInfo.width = m_SwapchainHandles.swapChainExtent.width;
+	ColorImageInfo.height = m_SwapchainHandles.swapChainExtent.height;
+	ColorImageInfo.mipLevels = 1;
+	ColorImageInfo.samples = m_MsaaSamples;
+	ColorImageInfo.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format;
+	ColorImageInfo.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	ColorImageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	VulkanImageViewCreateInfo ColorImageViewInfo{};
+	ColorImageViewInfo.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format;
+	ColorImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	ColorImageViewInfo.mipLevels = 1;
+
+	m_Handles.rttColorImage = new VulkanImage(m_VulkanHandles, ColorImageInfo, ColorImageViewInfo);
 
 	// Tạo RTT Depth Image
 	VulkanImageCreateInfo DepthImageInfo{};
@@ -161,16 +180,17 @@ void VulkanFrameBuffer::CreateRTTFrameBuffers()
 	for (size_t i = 0; i < m_MaxFrameInFlight; i++)
 	{
 		// Mảng các attachment view, thứ tự phải khớp với thứ tự trong subpass của render pass.
-		// 0:RTT Color (MSAA) -> 1:RTT Depth/Stencil
+		// 0:RTT Color (MSAA) -> 1:RTT Depth/Stencil -> 2: Resolve Image
 		VkImageView attachments[] = {
-			m_Handles.rttColorImages[i]->GetHandles().imageView,
-			m_Handles.rttDepthStencilImage->GetHandles().imageView
+			m_Handles.rttColorImage->GetHandles().imageView,
+			m_Handles.rttDepthStencilImage->GetHandles().imageView,
+			m_Handles.rttResolveImages[i]->GetHandles().imageView
 		};
 
 		VkFramebufferCreateInfo frameBufferInfo{};
 		frameBufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		frameBufferInfo.renderPass = m_RenderPassHandles.rttRenderPass;
-		frameBufferInfo.attachmentCount = 2;
+		frameBufferInfo.attachmentCount = 3;
 		frameBufferInfo.pAttachments = attachments;
 		frameBufferInfo.width = m_SwapchainHandles.swapChainExtent.width;
 		frameBufferInfo.height = m_SwapchainHandles.swapChainExtent.height;

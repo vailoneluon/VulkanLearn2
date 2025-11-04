@@ -18,7 +18,8 @@ struct FrameBufferHandles
 
 	// Attachment cho RTT subpass
 	std::vector<VkFramebuffer> rttFrameBuffers;
-	std::vector<VulkanImage*> rttColorImages;
+	std::vector<VulkanImage*> rttResolveImages;
+	VulkanImage* rttColorImage;
 	VulkanImage* rttDepthStencilImage;
 };
 
@@ -28,7 +29,7 @@ struct FrameBufferHandles
 class VulkanFrameBuffer
 {
 public:
-	VulkanFrameBuffer(const VulkanHandles& vulkanHandles, const SwapchainHandles& swapchainHandles, const RenderPassHandles& renderPassHandles, const VkSampleCountFlagBits samples);
+	VulkanFrameBuffer(const VulkanHandles& vulkanHandles, const SwapchainHandles& swapchainHandles, const RenderPassHandles& renderPassHandles, const VkSampleCountFlagBits samples, uint32_t maxFramesInFlight);
 	~VulkanFrameBuffer();
 
 	// Lấy các handle nội bộ.
@@ -37,7 +38,7 @@ public:
 private:
 	// --- Dữ liệu nội bộ ---
 	FrameBufferHandles m_Handles;
-	uint32_t m_MaxFrameInFlight = 2;
+	uint32_t m_MaxFrameInFlight;
 
 	// --- Tham chiếu Vulkan ---
 	const VulkanHandles& m_VulkanHandles;

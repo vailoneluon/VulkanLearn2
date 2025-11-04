@@ -23,9 +23,9 @@ void VulkanRenderPass::CreateRttRenderPass()
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentDescription depthStencilAttachment{};
 	depthStencilAttachment.format = VK_FORMAT_D32_SFLOAT_S8_UINT; // Định dạng phổ biến cho depth/stencil
@@ -37,6 +37,16 @@ void VulkanRenderPass::CreateRttRenderPass()
 	depthStencilAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	depthStencilAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+	VkAttachmentDescription resolveAttachment{};
+	resolveAttachment.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format;
+	resolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	resolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	resolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	resolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	resolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	resolveAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	resolveAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
 	VkAttachmentReference colorAttachmentRef{};
 	colorAttachmentRef.attachment = 0;
 	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -45,19 +55,24 @@ void VulkanRenderPass::CreateRttRenderPass()
 	depthStencilAttachmentRef.attachment = 1;
 	depthStencilAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+	VkAttachmentReference resolveAttachmentRef{};
+	resolveAttachmentRef.attachment = 2;
+	resolveAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
 	VkSubpassDescription rttSubpassDesc{};
 	rttSubpassDesc.colorAttachmentCount = 1;
 	rttSubpassDesc.pColorAttachments = &colorAttachmentRef;
 	rttSubpassDesc.pDepthStencilAttachment = &depthStencilAttachmentRef;
+	rttSubpassDesc.pResolveAttachments = &resolveAttachmentRef;
 
-	VkAttachmentDescription attachments[] = { colorAttachment, depthStencilAttachment };
+	VkAttachmentDescription attachments[] = { colorAttachment, depthStencilAttachment, resolveAttachment};
 
 	// Dependency External -> Subpass 0
 	VkSubpassDependency dependency{};
 	dependency.srcSubpass = VK_SUBPASS_EXTERNAL; // Các hoạt động bên ngoài render pass
 	dependency.dstSubpass = 0; // Subpass đầu tiên của chúng ta
 	dependency.srcAccessMask = 0;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 
@@ -74,7 +89,7 @@ void VulkanRenderPass::CreateRttRenderPass()
 
 	VkRenderPassCreateInfo rttInfo{};
 	rttInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	rttInfo.attachmentCount = 2;
+	rttInfo.attachmentCount = 3;
 	rttInfo.pAttachments = attachments;
 	rttInfo.dependencyCount = 2;
 	rttInfo.pDependencies = dependencies;

@@ -135,6 +135,7 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
+	// Main pipeline dùng trực tiếp đỉnh trong shader không có vertex Input
 	if (useVertexInput)
 	{
 		vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexBindingDescs.size());
