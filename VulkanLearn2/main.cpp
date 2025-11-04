@@ -377,12 +377,12 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 	barrier.subresourceRange.levelCount = 1;
 	barrier.subresourceRange.baseMipLevel = 0;
 
-	vkCmdPipelineBarrier(cmdBuffer,
+	/*vkCmdPipelineBarrier(cmdBuffer,
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 		0, 
 		0, nullptr, 
 		0, nullptr, 
-		1, &barrier);
+		1, &barrier);*/
 
 	CmdDrawMainRenderPass(cmdBuffer, imageIndex);
 

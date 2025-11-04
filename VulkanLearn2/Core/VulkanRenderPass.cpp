@@ -52,20 +52,32 @@ void VulkanRenderPass::CreateRttRenderPass()
 
 	VkAttachmentDescription attachments[] = { colorAttachment, depthStencilAttachment };
 
+	// Dependency External -> Subpass 0
 	VkSubpassDependency dependency{};
 	dependency.srcSubpass = VK_SUBPASS_EXTERNAL; // Các hoạt động bên ngoài render pass
 	dependency.dstSubpass = 0; // Subpass đầu tiên của chúng ta
 	dependency.srcAccessMask = 0;
 	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+	// Dependency2 Subpass 0 -> External
+	VkSubpassDependency dependency2{};
+	dependency2.srcSubpass = 0;
+	dependency2.dstSubpass = VK_SUBPASS_EXTERNAL; 
+	dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+	VkSubpassDependency dependencies[] = { dependency, dependency2 };
 
 	VkRenderPassCreateInfo rttInfo{};
 	rttInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 	rttInfo.attachmentCount = 2;
 	rttInfo.pAttachments = attachments;
-	rttInfo.dependencyCount = 1;
-	rttInfo.pDependencies = &dependency;
+	rttInfo.dependencyCount = 2;
+	rttInfo.pDependencies = dependencies;
 	rttInfo.subpassCount = 1;
 	rttInfo.pSubpasses = &rttSubpassDesc;
 
@@ -138,12 +150,23 @@ void VulkanRenderPass::CreateMainRenderPass()
 	// --- Định nghĩa Subpass Dependency ---
 	// Dependency đảm bảo các giai đoạn pipeline được thực thi đúng thứ tự.
 	VkSubpassDependency dependency{};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL; // Các hoạt động bên ngoài render pass
-	dependency.dstSubpass = 0; // Subpass đầu tiên của chúng ta
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL; 
+	dependency.dstSubpass = 0; 
 	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	dependency.srcAccessMask = 0;
 	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+	// Depedency Subpass 0 -> External(Presentswapchain)
+	VkSubpassDependency dependency2{};
+	dependency2.srcSubpass = 0;
+	dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
+	dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	dependency2.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	dependency2.dstAccessMask = 0;
+
+	VkSubpassDependency dependencies[] = { dependency, dependency2 };
 
 	// --- Tạo Render Pass ---
 	VkAttachmentDescription attachments[] = { colorAttachment, depthStencilAttachment, resolveAttachment };
@@ -153,8 +176,8 @@ void VulkanRenderPass::CreateMainRenderPass()
 	renderPassInfo.pAttachments = attachments;
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subpassDesc;
-	renderPassInfo.dependencyCount = 1;
-	renderPassInfo.pDependencies = &dependency;
+	renderPassInfo.dependencyCount = 2;
+	renderPassInfo.pDependencies = dependencies;
 
 	VK_CHECK(vkCreateRenderPass(m_VulkanHandles.device, &renderPassInfo, nullptr, &m_Handles.mainRenderPass), "LỖI: Tạo render pass thất bại!");
 }
