@@ -1,14 +1,12 @@
 #pragma once
 
 #include "Core/VulkanContext.h"
-#include "Core/VulkanTypes.h"
 #include "Utils/ModelLoader.h"
 
 // Khai báo sớm (forward declarations) để giảm phụ thuộc header và tăng tốc độ biên dịch.
 class Window;
 class VulkanSwapchain;
 class VulkanRenderPass;
-class VulkanFrameBuffer;
 class VulkanCommandManager;
 class VulkanSampler;
 class VulkanDescriptorManager;
@@ -20,6 +18,7 @@ class VulkanDescriptor;
 class RenderObject;
 class MeshManager;
 class TextureManager;
+class VulkanFrameBuffer;
 
 // Class Application chính, điều phối toàn bộ quá trình render.
 class Application
@@ -49,7 +48,20 @@ private:
 	VulkanContext* m_VulkanContext;
 	VulkanSwapchain* m_VulkanSwapchain;
 	VulkanRenderPass* m_VulkanRenderPass;
-	VulkanFrameBuffer* m_VulkanFrameBuffer;
+
+	// Frame Buffer
+	std::vector<VulkanFrameBuffer*> m_RTT_FrameBuffers;
+	std::vector<VulkanFrameBuffer*> m_Main_FrameBuffers;
+
+	// Vulkan Image For Frame Buffers
+		// - RTT Frame Buffer
+	VulkanImage* m_RTT_ColorImage;
+	VulkanImage* m_RTT_DepthStencilImage;
+	std::vector<VulkanImage*> m_SceneImages;
+		// - Main Frame Buffer
+	VulkanImage* m_Main_ColorImage;
+	VulkanImage* m_Main_DepthStencilImage;
+
 	VulkanPipeline* m_RTTVulkanPipeline;
 	VulkanPipeline* m_MainVulkanPipeline;
 	VulkanSampler* m_VulkanSampler;
@@ -79,6 +91,9 @@ private:
 	// --- Các hàm private ---
 
 	// Các hàm hỗ trợ khởi tạo
+	void CreateFrameBufferImages();
+	void CreateFrameBuffers();
+
 	void CreateUniformBuffers();
 	void CreateMainDescriptors();
 	void CreatePipelines();

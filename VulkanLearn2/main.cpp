@@ -5,7 +5,6 @@
 #include "Core/VulkanSwapchain.h"
 #include "Core/VulkanImage.h"
 #include "Core/VulkanRenderPass.h"
-#include "Core/VulkanFrameBuffer.h"
 #include "Core/VulkanCommandManager.h"
 #include "Core/VulkanPipeline.h"
 #include "Core/VulkanSyncManager.h"
@@ -13,6 +12,7 @@
 #include "Core/VulkanDescriptorManager.h"
 #include "Core/VulkanSampler.h"
 #include "Core/VulkanDescriptor.h"
+#include "Core/VulkanFrameBuffer.h"
 
 #include "Utils/DebugTimer.h"
 #include <Scene/RenderObject.h>
@@ -36,10 +36,11 @@ Application::Application()
 	m_VulkanContext = new VulkanContext(m_Window->getGLFWWindow(), m_Window->getInstanceExtensionsRequired());
 	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow());
 	m_VulkanRenderPass = new VulkanRenderPass(m_VulkanContext->getVulkanHandles(), m_VulkanSwapchain->getHandles(), MSAA_SAMPLES);
-	m_VulkanFrameBuffer = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanSwapchain->getHandles(), m_VulkanRenderPass->getHandles(), MSAA_SAMPLES, MAX_FRAMES_IN_FLIGHT);
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
 	
+	CreateFrameBuffers();
+
 	// 3. Tạo uniform buffers, một cái cho mỗi frame-in-flight
 	CreateUniformBuffers();
 	CreateMainDescriptors();
@@ -101,11 +102,140 @@ Application::~Application()
 	delete(m_RTTVulkanPipeline);
 	delete(m_MainVulkanPipeline);
 	delete(m_VulkanCommandManager);
-	delete(m_VulkanFrameBuffer);
+	
+	// Clean FrameBuffer
+	for (auto& frameBuffer : m_Main_FrameBuffers)
+	{
+		delete(frameBuffer);
+	}
+	for (auto& frameBuffer : m_RTT_FrameBuffers)
+	{
+		delete(frameBuffer);
+	}
+
+	delete(m_RTT_ColorImage);
+	delete(m_RTT_DepthStencilImage);
+	delete(m_Main_ColorImage);
+	delete(m_Main_DepthStencilImage);
+
+	for (auto& image : m_SceneImages)
+	{
+		delete(image);
+	}
+
 	delete(m_VulkanRenderPass);
 	delete(m_VulkanSwapchain);
 	delete(m_VulkanContext);
 	delete(m_Window);
+}
+
+void Application::CreateFrameBufferImages()
+{
+	// Image cho RTT FrameBuffer
+		// Color Image
+	VulkanImageCreateInfo RTT_ColorImageInfo{};
+	RTT_ColorImageInfo.width = m_VulkanSwapchain->getHandles().swapChainExtent.width;
+	RTT_ColorImageInfo.height = m_VulkanSwapchain->getHandles().swapChainExtent.height;
+	RTT_ColorImageInfo.mipLevels = 1;
+	RTT_ColorImageInfo.samples = MSAA_SAMPLES;
+	RTT_ColorImageInfo.format = m_VulkanSwapchain->getHandles().swapchainSupportDetails.chosenFormat.format;
+	RTT_ColorImageInfo.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	RTT_ColorImageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	VulkanImageViewCreateInfo RTT_ColorImageViewInfo{};
+	RTT_ColorImageViewInfo.format = m_VulkanSwapchain->getHandles().swapchainSupportDetails.chosenFormat.format;
+	RTT_ColorImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	RTT_ColorImageViewInfo.mipLevels = 1;
+
+	m_RTT_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_ColorImageInfo, RTT_ColorImageViewInfo);
+
+		// Depth Stencil Image
+	VulkanImageCreateInfo RTT_DepthImageInfo{};
+	RTT_DepthImageInfo.width = m_VulkanSwapchain->getHandles().swapChainExtent.width;
+	RTT_DepthImageInfo.height = m_VulkanSwapchain->getHandles().swapChainExtent.height;
+	RTT_DepthImageInfo.mipLevels = 1;
+	RTT_DepthImageInfo.samples = MSAA_SAMPLES;
+	RTT_DepthImageInfo.format = VK_FORMAT_D32_SFLOAT_S8_UINT; // Format phổ biến cho depth/stencil.
+	RTT_DepthImageInfo.imageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	RTT_DepthImageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	VulkanImageViewCreateInfo RTT_DepthImageViewInfo{};
+	RTT_DepthImageViewInfo.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	RTT_DepthImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	RTT_DepthImageViewInfo.mipLevels = 1;
+
+	m_RTT_DepthStencilImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_DepthImageInfo, RTT_DepthImageViewInfo);
+	
+		// m_SceneImages
+	m_SceneImages.resize(MAX_FRAMES_IN_FLIGHT);
+	VulkanImageCreateInfo SceneImageInfo{};
+	SceneImageInfo.width = m_VulkanSwapchain->getHandles().swapChainExtent.width;
+	SceneImageInfo.height = m_VulkanSwapchain->getHandles().swapChainExtent.height;
+	SceneImageInfo.mipLevels = 1;
+	SceneImageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	SceneImageInfo.format = m_VulkanSwapchain->getHandles().swapchainSupportDetails.chosenFormat.format;
+	SceneImageInfo.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	SceneImageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	VulkanImageViewCreateInfo SceneImageViewInfo{};
+	SceneImageViewInfo.format = m_VulkanSwapchain->getHandles().swapchainSupportDetails.chosenFormat.format;
+	SceneImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	SceneImageViewInfo.mipLevels = 1;
+
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		m_SceneImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), SceneImageInfo, SceneImageViewInfo);
+	}
+
+	// Image Cho Main Frame Buffer
+	m_Main_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_ColorImageInfo, RTT_ColorImageViewInfo);
+	m_Main_DepthStencilImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_DepthImageInfo, RTT_DepthImageViewInfo);
+}
+
+void Application::CreateFrameBuffers()
+{
+	// Tạo image cho frame Buffer
+	CreateFrameBufferImages();
+
+	// --- Khởi tạo RTT Frame Buffers ---
+	m_RTT_FrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		VkImageView RTT_ImageViews[] = { 
+			m_RTT_ColorImage->GetHandles().imageView, 
+			m_RTT_DepthStencilImage->GetHandles().imageView, 
+			m_SceneImages[i]->GetHandles().imageView 
+		};
+
+		FrameBufferCreateInfo RTT_FrameBufferInfo{};
+		RTT_FrameBufferInfo.frameWidth = m_VulkanSwapchain->getHandles().swapChainExtent.width;
+		RTT_FrameBufferInfo.frameHeigth = m_VulkanSwapchain->getHandles().swapChainExtent.height;
+		RTT_FrameBufferInfo.frameLayer = 1;
+		RTT_FrameBufferInfo.imageCount = 3;
+		RTT_FrameBufferInfo.pVkImageView = RTT_ImageViews;
+
+		m_RTT_FrameBuffers[i] = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanRenderPass->getHandles().rttRenderPass, RTT_FrameBufferInfo);
+	}
+	
+	// --- Khởi tạo MAIN Frame Buffers ---
+	m_Main_FrameBuffers.resize(m_VulkanSwapchain->getHandles().swapchainImageCount);
+	for (int i = 0; i < m_VulkanSwapchain->getHandles().swapchainImageCount; i++)
+	{
+		VkImageView Main_ImageViews[] = {
+			m_Main_ColorImage->GetHandles().imageView,
+			m_Main_DepthStencilImage->GetHandles().imageView,
+			m_VulkanSwapchain->getHandles().swapchainImageViews[i]
+		};
+
+		FrameBufferCreateInfo Main_FrameBufferInfo{};
+		Main_FrameBufferInfo.frameWidth = m_VulkanSwapchain->getHandles().swapChainExtent.width;
+		Main_FrameBufferInfo.frameHeigth = m_VulkanSwapchain->getHandles().swapChainExtent.height;
+		Main_FrameBufferInfo.frameLayer = 1;
+		Main_FrameBufferInfo.imageCount = 3;
+		Main_FrameBufferInfo.pVkImageView = Main_ImageViews;
+
+		m_Main_FrameBuffers[i] = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanRenderPass->getHandles().mainRenderPass, Main_FrameBufferInfo);
+	}
 }
 
 // Tạo uniform buffers cho mỗi frame-in-flight để lưu trữ ma trận camera.
@@ -214,7 +344,8 @@ void Application::UpdateMainDescriptorBindings()
 	{
 		VkDescriptorImageInfo imageInfo{};
 		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = m_VulkanFrameBuffer->getHandles().rttResolveImages[i]->GetHandles().imageView;
+		//imageInfo.imageView = m_VulkanFrameBuffer->getHandles().rttResolveImages[i]->GetHandles().imageView;
+		imageInfo.imageView = m_SceneImages[i]->GetHandles().imageView;
 		imageInfo.sampler = m_VulkanSampler->getSampler();
 	
 		ImageDescriptorUpdateInfo imageUpdateInfo{};
@@ -368,7 +499,7 @@ void Application::CmdDrawRTTRenderPass(const VkCommandBuffer& cmdBuffer)
 {
 	// Bắt đầu render pass
 	VkRenderPassBeginInfo renderPassBeginInfo{};
-	VkClearValue clearValues[2];
+	VkClearValue clearValues[3];
 	clearValues[0].color = BACKGROUND_COLOR;
 	clearValues[1].depthStencil = { 1.0f, 0 };
 	clearValues[2].color = BACKGROUND_COLOR; // Dành cho target resolve của MSAA
@@ -376,7 +507,7 @@ void Application::CmdDrawRTTRenderPass(const VkCommandBuffer& cmdBuffer)
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassBeginInfo.clearValueCount = 3;
 	renderPassBeginInfo.pClearValues = clearValues;
-	renderPassBeginInfo.framebuffer = m_VulkanFrameBuffer->getHandles().rttFrameBuffers[m_CurrentFrame];
+	renderPassBeginInfo.framebuffer = m_RTT_FrameBuffers[m_CurrentFrame]->getFrameBuffer();
 	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().rttRenderPass;
 	renderPassBeginInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
 	renderPassBeginInfo.renderArea.offset = { 0, 0 };
@@ -413,7 +544,7 @@ void Application::CmdDrawMainRenderPass(const VkCommandBuffer& cmdBuffer, uint32
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassBeginInfo.clearValueCount = 3;
 	renderPassBeginInfo.pClearValues = clearValues;
-	renderPassBeginInfo.framebuffer = m_VulkanFrameBuffer->getHandles().mainFrameBuffers[imageIndex];
+	renderPassBeginInfo.framebuffer = m_Main_FrameBuffers[imageIndex]->getFrameBuffer();
 	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().mainRenderPass;
 	renderPassBeginInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
 	renderPassBeginInfo.renderArea.offset = { 0, 0 };
