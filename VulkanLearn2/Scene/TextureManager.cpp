@@ -80,28 +80,14 @@ void TextureManager::CreateTextureImageDescriptor()
 	// texture bằng một index (kiểu bindless). Nó hiệu quả hơn việc re-bind descriptor set
 	// nhưng giới hạn tổng số texture là 256.
 	//textureImageElementInfo.descriptorCount = m_Handles.allTextureImageLoaded.size();
-	textureImageElementInfo.descriptorCount = 256;
+	textureImageElementInfo.descriptorCount = DESCRIPTOR_COUNT;
 	textureImageElementInfo.pImmutableSamplers = nullptr;
 	textureImageElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	textureImageElementInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	std::vector<BindingElementInfo> textureBindings{ textureImageElementInfo };
-
-	m_Handles.textureImageDescriptor = new VulkanDescriptor(m_VulkanHandles, textureBindings, 0);
-}
-
-void TextureManager::UpdateTextureImageDescriptorBinding()
-{
-	if (m_Handles.allTextureImageLoaded.empty()) {
-		return;
-	}
-
-	// Tổng số Descriptor Count đã khai báo.
-	uint32_t descImageCount = 256;
-
+	// Tạo Descriptor
 	std::vector<VkDescriptorImageInfo> descImageInfos;
-	//descImageInfos.reserve(m_Handles.allTextureImageLoaded.size());
-	descImageInfos.reserve(descImageCount);
+	descImageInfos.reserve(DESCRIPTOR_COUNT);
 
 	// Chuẩn bị một mảng các VkDescriptorImageInfo, mỗi cái trỏ đến một image view.
 	for (const auto& textureImage : m_Handles.allTextureImageLoaded)
@@ -110,12 +96,12 @@ void TextureManager::UpdateTextureImageDescriptorBinding()
 		descImageInfo.sampler = m_Sampler;
 		descImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		descImageInfo.imageView = textureImage->textureImage->GetHandles().imageView;
-		
+
 		descImageInfos.push_back(descImageInfo);
 	}
 
 	// Những Descriptor trống để thành imageview 0 tránh báo lỗi.
-	for (size_t i = m_Handles.allTextureImageLoaded.size(); i < descImageCount; i++)
+	for (size_t i = m_Handles.allTextureImageLoaded.size(); i < DESCRIPTOR_COUNT; i++)
 	{
 		VkDescriptorImageInfo descImageInfo{};
 		descImageInfo.sampler = m_Sampler;
@@ -125,14 +111,17 @@ void TextureManager::UpdateTextureImageDescriptorBinding()
 		descImageInfos.push_back(descImageInfo);
 	}
 
-	// Chuẩn bị thông tin để cập nhật descriptor set.
 	ImageDescriptorUpdateInfo updateInfo{};
 	updateInfo.binding = 0;
 	updateInfo.firstArrayElement = 0;
-	updateInfo.imageInfoCount = static_cast<uint32_t>(descImageInfos.size());
-	updateInfo.imageInfos = descImageInfos.data();
+	updateInfo.imageInfos = descImageInfos;
 
-	m_Handles.textureImageDescriptor->WriteImageSets(1, &updateInfo);
+	textureImageElementInfo.imageDescriptorUpdateInfoCount = 1;
+	textureImageElementInfo.pImageDescriptorUpdates = &updateInfo;
+
+	std::vector<BindingElementInfo> textureBindings{ textureImageElementInfo };
+
+	m_Handles.textureImageDescriptor = new VulkanDescriptor(m_VulkanHandles, textureBindings, 0);
 }
 
 TextureImage* TextureManager::CreateNewTextureImage(const std::string& imageFilePath)

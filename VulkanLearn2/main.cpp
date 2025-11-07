@@ -67,9 +67,6 @@ Application::Application()
 	m_allDescriptors.insert(m_allDescriptors.end(), m_BrightTextureDescriptors.begin(), m_BrightTextureDescriptors.end());
 	
 	m_VulkanDescriptorManager = new VulkanDescriptorManager(m_VulkanContext->getVulkanHandles(), m_allDescriptors);
-	UpdateRTTDescriptorBindings();
-	UpdateMainDescriptorBindings();
-	UpdateBrightDescriptorBindings();
 
 	CreatePipelines();
 
@@ -310,6 +307,22 @@ void Application::CreateUniformBuffers()
 		uniformElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uniformElementInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		uniformElementInfo.descriptorCount = 1;
+
+		VkDescriptorBufferInfo uniformBufferInfo;
+		uniformBufferInfo.buffer = m_RTT_UniformBuffers[i]->GetHandles().buffer;
+		uniformBufferInfo.offset = 0;
+		uniformBufferInfo.range = m_RTT_UniformBuffers[i]->GetHandles().bufferSize;
+
+		std::vector<VkDescriptorBufferInfo> uniformBufferInfos = { uniformBufferInfo };
+
+		BufferDescriptorUpdateInfo uniformBufferUpdate{};
+		uniformBufferUpdate.binding = 0;
+		uniformBufferUpdate.firstArrayElement = 0;
+		uniformBufferUpdate.bufferInfos = uniformBufferInfos;
+
+		uniformElementInfo.bufferDescriptorUpdateInfoCount = 1;
+		uniformElementInfo.pBufferDescriptorUpdates = &uniformBufferUpdate;
+
 		std::vector<BindingElementInfo> uniformBindings{ uniformElementInfo };
 		m_RTT_UniformDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), uniformBindings, 1);
 		
@@ -323,18 +336,31 @@ void Application::CreateMainDescriptors()
 	m_MainPipelineDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
 	m_MainTextureDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
 
-	// Scene Texture Binding
-	BindingElementInfo bindingElement{};
-	bindingElement.binding = 0;
-	bindingElement.descriptorCount = 1;
-
-	bindingElement.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	bindingElement.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-	std::vector<BindingElementInfo> bindingElements = {bindingElement};
-
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
+		BindingElementInfo bindingElement{};
+		bindingElement.binding = 0;
+		bindingElement.descriptorCount = 1;
+
+		bindingElement.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		bindingElement.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo.imageView = m_BrightImages[i]->GetHandles().imageView;
+		imageInfo.sampler = m_VulkanSampler->getSampler();
+
+		ImageDescriptorUpdateInfo imageUpdateInfo{};
+		imageUpdateInfo.binding = 0;
+		imageUpdateInfo.firstArrayElement = 0;
+		std::vector<VkDescriptorImageInfo> imageInfos{ imageInfo };
+		imageUpdateInfo.imageInfos = imageInfos;
+
+		bindingElement.imageDescriptorUpdateInfoCount = 1;
+		bindingElement.pImageDescriptorUpdates = &imageUpdateInfo;
+
+		std::vector<BindingElementInfo> bindingElements = { bindingElement };
+
 		m_MainTextureDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), bindingElements, 0);
 		m_MainPipelineDescriptors[i] = m_MainTextureDescriptors[i];
 	}
@@ -345,18 +371,34 @@ void Application::CreateBrightDescriptors()
 	m_BrightPipelineDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
 	m_BrightTextureDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
 
-	// Scene Texture Binding
-	BindingElementInfo bindingElement{};
-	bindingElement.binding = 0;
-	bindingElement.descriptorCount = 1;
-
-	bindingElement.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	bindingElement.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-	std::vector<BindingElementInfo> bindingElements = { bindingElement };
+	
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
+		// Scene Texture Binding
+		BindingElementInfo bindingElement{};
+		bindingElement.binding = 0;
+		bindingElement.descriptorCount = 1;
+
+		bindingElement.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		bindingElement.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo.imageView = m_SceneImages[i]->GetHandles().imageView;
+		imageInfo.sampler = m_VulkanSampler->getSampler();
+
+		ImageDescriptorUpdateInfo imageUpdateInfo{};
+		imageUpdateInfo.binding = 0;
+		imageUpdateInfo.firstArrayElement = 0;
+		std::vector<VkDescriptorImageInfo> imageInfos{ imageInfo };
+		imageUpdateInfo.imageInfos = imageInfos;
+
+		bindingElement.imageDescriptorUpdateInfoCount = 1;
+		bindingElement.pImageDescriptorUpdates = &imageUpdateInfo;
+
+		std::vector<BindingElementInfo> bindingElements = { bindingElement };
+
 		m_BrightTextureDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), bindingElements, 0);
 		m_BrightPipelineDescriptors[i] = m_BrightTextureDescriptors[i];
 	}
@@ -398,67 +440,6 @@ void Application::CreatePipelines()
 	m_BrightVulkanPipeline = new VulkanPipeline(&brightPipelineInfo);
 }
 
-// Cập nhật descriptor sets để trỏ đến đúng tài nguyên buffer/image.
-void Application::UpdateRTTDescriptorBindings()
-{
-	// Cập nhật descriptor của texture
-	m_TextureManager->UpdateTextureImageDescriptorBinding();
-
-	// Cập nhật descriptor của uniform buffer cho mỗi frame
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		VkDescriptorBufferInfo uniformBufferInfo{};
-		uniformBufferInfo.buffer = m_RTT_UniformBuffers[i]->GetHandles().buffer;
-		uniformBufferInfo.offset = 0;
-		uniformBufferInfo.range = m_RTT_UniformBuffers[i]->GetHandles().bufferSize;
-
-		BufferDescriptorUpdateInfo bufferBindingInfo{};
-		bufferBindingInfo.binding = 0;
-		bufferBindingInfo.bufferInfoCount = 1;
-		bufferBindingInfo.bufferInfos = &uniformBufferInfo;
-		bufferBindingInfo.firstArrayElement = 0;
-
-		m_RTT_UniformDescriptors[i]->WriteBufferSets(1, &bufferBindingInfo);
-	}
-}
-
-void Application::UpdateMainDescriptorBindings()
-{
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = m_BrightImages[i]->GetHandles().imageView;
-		imageInfo.sampler = m_VulkanSampler->getSampler();
-	
-		ImageDescriptorUpdateInfo imageUpdateInfo{};
-		imageUpdateInfo.binding = 0;
-		imageUpdateInfo.firstArrayElement = 0;
-		imageUpdateInfo.imageInfoCount = 1;
-		imageUpdateInfo.imageInfos = &imageInfo;
-
-		m_MainTextureDescriptors[i]->WriteImageSets(1, &imageUpdateInfo);
-	}
-}
-
-void Application::UpdateBrightDescriptorBindings()
-{
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = m_SceneImages[i]->GetHandles().imageView;
-		imageInfo.sampler = m_VulkanSampler->getSampler();
-
-		ImageDescriptorUpdateInfo imageUpdateInfo{};
-		imageUpdateInfo.binding = 0;
-		imageUpdateInfo.firstArrayElement = 0;
-		imageUpdateInfo.imageInfoCount = 1;
-		imageUpdateInfo.imageInfos = &imageInfo;
-
-		m_BrightTextureDescriptors[i]->WriteImageSets(1, &imageUpdateInfo);
-	}
-}
 
 // Cập nhật Uniform Buffer Object (UBO) với ma trận camera hiện tại.
 void Application::UpdateRTT_Uniforms()

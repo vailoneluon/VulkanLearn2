@@ -112,9 +112,6 @@ private:
 	void CreateBrightDescriptors();
 
 	void CreatePipelines();
-	void UpdateRTTDescriptorBindings();
-	void UpdateMainDescriptorBindings();
-	void UpdateBrightDescriptorBindings();
 
 	// Cập nhật mỗi frame
 	void UpdateRTT_Uniforms();
