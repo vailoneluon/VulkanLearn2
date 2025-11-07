@@ -44,6 +44,7 @@ Application::Application()
 	// 3. Tạo uniform buffers, một cái cho mỗi frame-in-flight
 	CreateUniformBuffers();
 	CreateMainDescriptors();
+	CreateBrightDescriptors();
 
 	// 4. Tạo các manager cho scene và tải object
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
@@ -61,11 +62,14 @@ Application::Application()
 	m_RTTPipelineDescriptors.push_back(m_TextureManager->getDescriptor());
 
 	// 5. Tạo descriptor manager và graphics pipeline
-	m_allDescriptors.insert(m_allDescriptors.begin(), m_RTTPipelineDescriptors.begin(), m_RTTPipelineDescriptors.end());
-	m_allDescriptors.insert(m_allDescriptors.begin(), m_MainPipelineDescriptors.begin(), m_MainPipelineDescriptors.end());
+	m_allDescriptors.insert(m_allDescriptors.end(), m_RTTPipelineDescriptors.begin(), m_RTTPipelineDescriptors.end());
+	m_allDescriptors.insert(m_allDescriptors.end(), m_MainPipelineDescriptors.begin(), m_MainPipelineDescriptors.end());
+	m_allDescriptors.insert(m_allDescriptors.end(), m_BrightTextureDescriptors.begin(), m_BrightTextureDescriptors.end());
+	
 	m_VulkanDescriptorManager = new VulkanDescriptorManager(m_VulkanContext->getVulkanHandles(), m_allDescriptors);
 	UpdateRTTDescriptorBindings();
 	UpdateMainDescriptorBindings();
+	UpdateBrightDescriptorBindings();
 
 	CreatePipelines();
 
@@ -82,28 +86,31 @@ Application::~Application()
 	// Đợi GPU hoàn thành mọi tác vụ trước khi dọn dẹp
 	vkDeviceWaitIdle(m_VulkanContext->getVulkanHandles().device);
 
-	// Thứ tự xóa rất quan trọng. Thường là ngược lại với thứ tự tạo.
-	for (auto& renderObject : m_RenderObjects)
-	{
-		delete(renderObject);
-	}
+	// Thứ tự xóa rất quan trọng. Thường là ngược lại với thứ tự tạo và theo mối quan hệ phụ thuộc.
 
+	// 1. Pipelines
+	delete(m_BrightVulkanPipeline);
+	delete(m_MainVulkanPipeline);
+	delete(m_RTTVulkanPipeline);
+
+	// 2. Managers
+	delete(m_VulkanDescriptorManager);
+	delete(m_VulkanSyncManager);
+	delete(m_VulkanCommandManager);
 	delete(m_MeshManager);
 	delete(m_TextureManager);
-	delete(m_VulkanSampler);
 
-	for (auto& uniformBuffer : m_UniformBuffers)
+	// 3. Buffers
+	for (auto& uniformBuffer : m_RTT_UniformBuffers)
 	{
 		delete(uniformBuffer);
 	}
 
-	delete(m_VulkanDescriptorManager);
-	delete(m_VulkanSyncManager);
-	delete(m_RTTVulkanPipeline);
-	delete(m_MainVulkanPipeline);
-	delete(m_VulkanCommandManager);
-	
-	// Clean FrameBuffer
+	// 4. Framebuffers
+	for (auto& frameBuffer : m_Bright_FrameBuffers)
+	{
+		delete(frameBuffer);
+	}
 	for (auto& frameBuffer : m_Main_FrameBuffers)
 	{
 		delete(frameBuffer);
@@ -113,19 +120,33 @@ Application::~Application()
 		delete(frameBuffer);
 	}
 
-	delete(m_RTT_ColorImage);
-	delete(m_RTT_DepthStencilImage);
-	delete(m_Main_ColorImage);
-	delete(m_Main_DepthStencilImage);
-
+	// 5. Images
+	for (auto& image : m_BrightImages)
+	{
+		delete(image);
+	}
 	for (auto& image : m_SceneImages)
 	{
 		delete(image);
 	}
+	delete(m_Main_DepthStencilImage);
+	delete(m_Main_ColorImage);
+	delete(m_RTT_DepthStencilImage);
+	delete(m_RTT_ColorImage);
 
+	// 6. Scene Objects
+	for (auto& renderObject : m_RenderObjects)
+	{
+		delete(renderObject);
+	}
+
+	// 7. Core Vulkan Objects
+	delete(m_VulkanSampler);
 	delete(m_VulkanRenderPass);
 	delete(m_VulkanSwapchain);
 	delete(m_VulkanContext);
+
+	// 8. Window
 	delete(m_Window);
 }
 
@@ -190,6 +211,13 @@ void Application::CreateFrameBufferImages()
 	// Image Cho Main Frame Buffer
 	m_Main_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_ColorImageInfo, RTT_ColorImageViewInfo);
 	m_Main_DepthStencilImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_DepthImageInfo, RTT_DepthImageViewInfo);
+
+	// Image Cho Bright Frame Buffer
+	m_BrightImages.resize(MAX_FRAMES_IN_FLIGHT);
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		m_BrightImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), SceneImageInfo, SceneImageViewInfo);
+	}
 }
 
 void Application::CreateFrameBuffers()
@@ -236,13 +264,31 @@ void Application::CreateFrameBuffers()
 
 		m_Main_FrameBuffers[i] = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanRenderPass->getHandles().mainRenderPass, Main_FrameBufferInfo);
 	}
+
+	// --- Khởi tạo Bright Frame Buffers ---
+	m_Bright_FrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		VkImageView Bright_ImageViews[] = {
+			m_BrightImages[i]->GetHandles().imageView
+		};
+
+		FrameBufferCreateInfo Bright_FrameBufferInfo{};
+		Bright_FrameBufferInfo.frameWidth = m_VulkanSwapchain->getHandles().swapChainExtent.width;
+		Bright_FrameBufferInfo.frameHeigth = m_VulkanSwapchain->getHandles().swapChainExtent.height;
+		Bright_FrameBufferInfo.frameLayer = 1;
+		Bright_FrameBufferInfo.imageCount = 1;
+		Bright_FrameBufferInfo.pVkImageView = Bright_ImageViews;
+
+		m_Bright_FrameBuffers[i] = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanRenderPass->getHandles().brightRenderPass, Bright_FrameBufferInfo);
+	}
 }
 
 // Tạo uniform buffers cho mỗi frame-in-flight để lưu trữ ma trận camera.
 void Application::CreateUniformBuffers()
 {
-	m_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	m_UniformDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
+	m_RTT_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	m_RTT_UniformDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
 
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -255,7 +301,7 @@ void Application::CreateUniformBuffers()
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Tạo buffer
-		m_UniformBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, VMA_MEMORY_USAGE_CPU_TO_GPU);
+		m_RTT_UniformBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 		// Tạo descriptor cho buffer
 		BindingElementInfo uniformElementInfo;
@@ -265,17 +311,19 @@ void Application::CreateUniformBuffers()
 		uniformElementInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		uniformElementInfo.descriptorCount = 1;
 		std::vector<BindingElementInfo> uniformBindings{ uniformElementInfo };
-		m_UniformDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), uniformBindings, 1);
+		m_RTT_UniformDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), uniformBindings, 1);
 		
 		// Thêm descriptor vào danh sách tất cả descriptor để tạo pipeline
-		m_RTTPipelineDescriptors.push_back(m_UniformDescriptors[i]);
+		m_RTTPipelineDescriptors.push_back(m_RTT_UniformDescriptors[i]);
 	}
 }
 
 void Application::CreateMainDescriptors()
 {
 	m_MainPipelineDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
+	m_MainTextureDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
 
+	// Scene Texture Binding
 	BindingElementInfo bindingElement{};
 	bindingElement.binding = 0;
 	bindingElement.descriptorCount = 1;
@@ -287,16 +335,40 @@ void Application::CreateMainDescriptors()
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_MainPipelineDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), bindingElements, 0);
+		m_MainTextureDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), bindingElements, 0);
+		m_MainPipelineDescriptors[i] = m_MainTextureDescriptors[i];
+	}
+}
+
+void Application::CreateBrightDescriptors()
+{
+	m_BrightPipelineDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
+	m_BrightTextureDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
+
+	// Scene Texture Binding
+	BindingElementInfo bindingElement{};
+	bindingElement.binding = 0;
+	bindingElement.descriptorCount = 1;
+
+	bindingElement.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindingElement.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	std::vector<BindingElementInfo> bindingElements = { bindingElement };
+
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		m_BrightTextureDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), bindingElements, 0);
+		m_BrightPipelineDescriptors[i] = m_BrightTextureDescriptors[i];
 	}
 }
 
 void Application::CreatePipelines()
 {
+	// Create RTT PIPELINE
 	VulkanPipelineCreateInfo rttPipelineInfo{};
 	rttPipelineInfo.descriptors = &m_RTTPipelineDescriptors;
-	rttPipelineInfo.fragmentShaderFilePath = "Shaders/frag.spv";
-	rttPipelineInfo.vertexShaderFilePath = "Shaders/vert.spv";
+	rttPipelineInfo.fragmentShaderFilePath = "Shaders/RTT_Shader.frag.spv";
+	rttPipelineInfo.vertexShaderFilePath = "Shaders/RTT_Shader.vert.spv";
 	rttPipelineInfo.msaaSamples = MSAA_SAMPLES;
 	rttPipelineInfo.renderPass = &m_VulkanRenderPass->getHandles().rttRenderPass;
 	rttPipelineInfo.swapchainHandles = &m_VulkanSwapchain->getHandles();
@@ -304,14 +376,26 @@ void Application::CreatePipelines()
 
 	m_RTTVulkanPipeline = new VulkanPipeline(&rttPipelineInfo);
 	
+	// CREATE MAIN PIPELINE
 	VulkanPipelineCreateInfo mainPipelineInfo = rttPipelineInfo;
-	mainPipelineInfo.fragmentShaderFilePath = "Shaders/mainFrag.spv";
-	mainPipelineInfo.vertexShaderFilePath = "Shaders/mainVert.spv";
+	mainPipelineInfo.fragmentShaderFilePath = "Shaders/Main_Shader.frag.spv";
+	mainPipelineInfo.vertexShaderFilePath = "Shaders/Main_Shader.vert.spv";
 	mainPipelineInfo.renderPass = &m_VulkanRenderPass->getHandles().mainRenderPass;
 	mainPipelineInfo.descriptors = &m_MainPipelineDescriptors;
 	mainPipelineInfo.useVertexInput = false;
 
 	m_MainVulkanPipeline = new VulkanPipeline(&mainPipelineInfo);
+
+	// CREATE BRIGHT PIPELINE
+	VulkanPipelineCreateInfo brightPipelineInfo = rttPipelineInfo;
+	brightPipelineInfo.fragmentShaderFilePath = "Shaders/Main_Shader.frag.spv";
+	brightPipelineInfo.vertexShaderFilePath = "Shaders/Main_Shader.vert.spv";
+	brightPipelineInfo.renderPass = &m_VulkanRenderPass->getHandles().brightRenderPass;
+	brightPipelineInfo.descriptors = &m_BrightPipelineDescriptors;
+	brightPipelineInfo.useVertexInput = false;
+	brightPipelineInfo.msaaSamples = VK_SAMPLE_COUNT_1_BIT; 
+
+	m_BrightVulkanPipeline = new VulkanPipeline(&brightPipelineInfo);
 }
 
 // Cập nhật descriptor sets để trỏ đến đúng tài nguyên buffer/image.
@@ -324,9 +408,9 @@ void Application::UpdateRTTDescriptorBindings()
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		VkDescriptorBufferInfo uniformBufferInfo{};
-		uniformBufferInfo.buffer = m_UniformBuffers[i]->GetHandles().buffer;
+		uniformBufferInfo.buffer = m_RTT_UniformBuffers[i]->GetHandles().buffer;
 		uniformBufferInfo.offset = 0;
-		uniformBufferInfo.range = m_UniformBuffers[i]->GetHandles().bufferSize;
+		uniformBufferInfo.range = m_RTT_UniformBuffers[i]->GetHandles().bufferSize;
 
 		BufferDescriptorUpdateInfo bufferBindingInfo{};
 		bufferBindingInfo.binding = 0;
@@ -334,7 +418,7 @@ void Application::UpdateRTTDescriptorBindings()
 		bufferBindingInfo.bufferInfos = &uniformBufferInfo;
 		bufferBindingInfo.firstArrayElement = 0;
 
-		m_UniformDescriptors[i]->WriteBufferSets(1, &bufferBindingInfo);
+		m_RTT_UniformDescriptors[i]->WriteBufferSets(1, &bufferBindingInfo);
 	}
 }
 
@@ -344,8 +428,7 @@ void Application::UpdateMainDescriptorBindings()
 	{
 		VkDescriptorImageInfo imageInfo{};
 		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		//imageInfo.imageView = m_VulkanFrameBuffer->getHandles().rttResolveImages[i]->GetHandles().imageView;
-		imageInfo.imageView = m_SceneImages[i]->GetHandles().imageView;
+		imageInfo.imageView = m_BrightImages[i]->GetHandles().imageView;
 		imageInfo.sampler = m_VulkanSampler->getSampler();
 	
 		ImageDescriptorUpdateInfo imageUpdateInfo{};
@@ -354,25 +437,44 @@ void Application::UpdateMainDescriptorBindings()
 		imageUpdateInfo.imageInfoCount = 1;
 		imageUpdateInfo.imageInfos = &imageInfo;
 
-		m_MainPipelineDescriptors[i]->WriteImageSets(1, &imageUpdateInfo);
+		m_MainTextureDescriptors[i]->WriteImageSets(1, &imageUpdateInfo);
+	}
+}
+
+void Application::UpdateBrightDescriptorBindings()
+{
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo.imageView = m_SceneImages[i]->GetHandles().imageView;
+		imageInfo.sampler = m_VulkanSampler->getSampler();
+
+		ImageDescriptorUpdateInfo imageUpdateInfo{};
+		imageUpdateInfo.binding = 0;
+		imageUpdateInfo.firstArrayElement = 0;
+		imageUpdateInfo.imageInfoCount = 1;
+		imageUpdateInfo.imageInfos = &imageInfo;
+
+		m_BrightTextureDescriptors[i]->WriteImageSets(1, &imageUpdateInfo);
 	}
 }
 
 // Cập nhật Uniform Buffer Object (UBO) với ma trận camera hiện tại.
-void Application::UpdateUniforms()
+void Application::UpdateRTT_Uniforms()
 {
 	// Thiết lập view camera
-	m_Ubo.view = glm::lookAt(glm::vec3(0.0f, 3.0f, 4.0f), glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	m_RTT_Ubo.view = glm::lookAt(glm::vec3(0.0f, 3.0f, 4.0f), glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	
 	// Thiết lập ma trận projection
-	m_Ubo.proj = glm::perspective(glm::radians(45.0f), m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
+	m_RTT_Ubo.proj = glm::perspective(glm::radians(45.0f), m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
 
 	// GLM được thiết kế cho OpenGL, nơi tọa độ Y của clip coordinates bị đảo ngược.
 	// Cách dễ nhất để sửa lỗi này là lật dấu của hệ số scale trên trục Y trong ma trận projection.
-	m_Ubo.proj[1][1] *= -1;
+	m_RTT_Ubo.proj[1][1] *= -1;
 
 	// Tải dữ liệu UBO lên buffer của GPU cho frame hiện tại
-	m_UniformBuffers[m_CurrentFrame]->UploadData(&m_Ubo, sizeof(m_Ubo), 0);
+	m_RTT_UniformBuffers[m_CurrentFrame]->UploadData(&m_RTT_Ubo, sizeof(m_RTT_Ubo), 0);
 }
 
 // Cập nhật transform (vị trí, xoay, tỷ lệ) của các object trong scene.
@@ -435,7 +537,7 @@ void Application::DrawFrame()
 	vkResetFences(m_VulkanContext->getVulkanHandles().device, 1, &m_VulkanSyncManager->getCurrentFence(m_CurrentFrame));
 
 	// 4. Cập nhật dữ liệu động cho frame hiện tại
-	UpdateUniforms();
+	UpdateRTT_Uniforms();
 	UpdateRenderObjectTransforms();
 
 	// 5. Ghi command buffer để vẽ
@@ -490,6 +592,7 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 
 	// Bắt đầu render pass
 	CmdDrawRTTRenderPass(cmdBuffer);
+	CmdDrawBrightRenderPass(cmdBuffer);
 	CmdDrawMainRenderPass(cmdBuffer, imageIndex);
 
 	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "FAILED TO END COMMAND BUFFER");
@@ -527,6 +630,37 @@ void Application::CmdDrawRTTRenderPass(const VkCommandBuffer& cmdBuffer)
 
 	// Gọi lệnh vẽ cho tất cả render object
 	CmdDrawRTTRenderObjects(cmdBuffer);
+
+	// Kết thúc render pass
+	vkCmdEndRenderPass(cmdBuffer);
+}
+
+void Application::CmdDrawBrightRenderPass(const VkCommandBuffer& cmdBuffer)
+{
+	// Bắt đầu render pass
+	VkRenderPassBeginInfo renderPassBeginInfo{};
+	VkClearValue clearValues[1];
+	clearValues[0].color = BACKGROUND_COLOR;
+
+	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassBeginInfo.clearValueCount = 1;
+	renderPassBeginInfo.pClearValues = clearValues;
+	renderPassBeginInfo.framebuffer = m_Bright_FrameBuffers[m_CurrentFrame]->getFrameBuffer();
+	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().brightRenderPass;
+	renderPassBeginInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
+	renderPassBeginInfo.renderArea.offset = { 0, 0 };
+
+	vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+
+	// Bind graphics pipeline
+	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_BrightVulkanPipeline->getHandles().pipeline);
+
+	// Bind descriptor sets cho shader (textures, uniforms)
+	BindBrightDescriptorSets(cmdBuffer);
+
+	// Gọi lệnh vẽ 
+	CmdDrawBright(cmdBuffer);
 
 	// Kết thúc render pass
 	vkCmdEndRenderPass(cmdBuffer);
@@ -585,6 +719,11 @@ void Application::CmdDrawRTTRenderObjects(const VkCommandBuffer& cmdBuffer)
 	}
 }
 
+void Application::CmdDrawBright(const VkCommandBuffer& cmdBuffer)
+{
+	vkCmdDraw(cmdBuffer, 6, 1, 0, 0);
+}
+
 void Application::CmdDrawMain(const VkCommandBuffer& cmdBuffer)
 {
 	vkCmdDraw(cmdBuffer, 6, 1, 0, 0);
@@ -603,16 +742,33 @@ void Application::BindRTTDescriptorSets(const VkCommandBuffer& cmdBuffer)
 	// Bind descriptor set cho uniform buffer (Set 1) của frame hiện tại
 	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
 		m_RTTVulkanPipeline->getHandles().pipelineLayout,
-		m_UniformDescriptors[m_CurrentFrame]->getSetIndex() , 1,
-		&m_UniformDescriptors[m_CurrentFrame]->getHandles().descriptorSet,
+		m_RTT_UniformDescriptors[m_CurrentFrame]->getSetIndex() , 1,
+		&m_RTT_UniformDescriptors[m_CurrentFrame]->getHandles().descriptorSet,
 		0, nullptr);
 }
 
 void Application::BindMainDescriptorSets(const VkCommandBuffer& cmdBuffer)
 {
-	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		m_MainVulkanPipeline->getHandles().pipelineLayout,
-		m_MainPipelineDescriptors[m_CurrentFrame]->getSetIndex(), 1,
-		&m_MainPipelineDescriptors[m_CurrentFrame]->getHandles().descriptorSet,
-		0, nullptr);
+	// Bind Texture Descriptor (Set 0)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			m_MainVulkanPipeline->getHandles().pipelineLayout,
+			m_MainTextureDescriptors[m_CurrentFrame]->getSetIndex(), 1,
+			&m_MainTextureDescriptors[m_CurrentFrame]->getHandles().descriptorSet,
+			0, nullptr);
+	}
+}
+
+void Application::BindBrightDescriptorSets(const VkCommandBuffer& cmdBuffer)
+{
+	// Bind Texture Descriptor (Set 0)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			m_BrightVulkanPipeline->getHandles().pipelineLayout,
+			m_BrightTextureDescriptors[m_CurrentFrame]->getSetIndex(), 1,
+			&m_BrightTextureDescriptors[m_CurrentFrame]->getHandles().descriptorSet,
+			0, nullptr);
+	}
 }

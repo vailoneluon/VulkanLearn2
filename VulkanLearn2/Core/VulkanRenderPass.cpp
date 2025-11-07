@@ -7,12 +7,14 @@ VulkanRenderPass::VulkanRenderPass(const VulkanHandles& vulkanHandles, const Swa
 {
 	CreateRttRenderPass();
 	CreateMainRenderPass();
+	CreateBrightRenderPass();
 }
 
 VulkanRenderPass::~VulkanRenderPass()
 {
 	vkDestroyRenderPass(m_VulkanHandles.device, m_Handles.mainRenderPass, nullptr);
 	vkDestroyRenderPass(m_VulkanHandles.device, m_Handles.rttRenderPass, nullptr);
+	vkDestroyRenderPass(m_VulkanHandles.device, m_Handles.brightRenderPass, nullptr);
 }
 
 void VulkanRenderPass::CreateRttRenderPass()
@@ -195,4 +197,60 @@ void VulkanRenderPass::CreateMainRenderPass()
 	renderPassInfo.pDependencies = dependencies;
 
 	VK_CHECK(vkCreateRenderPass(m_VulkanHandles.device, &renderPassInfo, nullptr, &m_Handles.mainRenderPass), "LỖI: Tạo render pass thất bại!");
+}
+
+void VulkanRenderPass::CreateBrightRenderPass()
+{
+	VkAttachmentDescription colorAttachment{};
+	colorAttachment.format = m_SwapchainHandles.swapchainSupportDetails.chosenFormat.format; 
+	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT; 
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // Xóa nội dung attachment trước khi render
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // Lưu kết quả render
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; // Không quan tâm đến stencil
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // Layout ban đầu không xác định
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; 
+
+	// --- Định nghĩa các Attachment Reference ---
+	// Các reference này được sử dụng trong subpass để tham chiếu đến các attachment đã định nghĩa ở trên.
+
+	VkAttachmentReference colorAttachmentRef{};
+	colorAttachmentRef.attachment = 0; // Index trong mảng pAttachments
+	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpassDesc{};
+	subpassDesc.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpassDesc.colorAttachmentCount = 1;
+	subpassDesc.pColorAttachments = &colorAttachmentRef;
+
+	VkSubpassDependency dependency{};
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.srcAccessMask = 0;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	
+	VkSubpassDependency dependency2{};
+	dependency2.srcSubpass = 0;
+	dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
+	dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+	VkSubpassDependency dependencies[] = { dependency, dependency2 };
+
+	// --- Tạo Render Pass ---
+	VkAttachmentDescription attachments[] = { colorAttachment};
+	VkRenderPassCreateInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = attachments;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpassDesc;
+	renderPassInfo.dependencyCount = 2;
+	renderPassInfo.pDependencies = dependencies;
+
+	VK_CHECK(vkCreateRenderPass(m_VulkanHandles.device, &renderPassInfo, nullptr, &m_Handles.brightRenderPass), "LỖI: Tạo render pass thất bại!");
 }

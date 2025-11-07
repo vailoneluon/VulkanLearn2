@@ -9,6 +9,7 @@ struct RenderPassHandles
 {
 	VkRenderPass mainRenderPass = VK_NULL_HANDLE;
 	VkRenderPass rttRenderPass = VK_NULL_HANDLE;
+	VkRenderPass brightRenderPass = VK_NULL_HANDLE;
 };
 
 // Class quản lý việc tạo và hủy một VkRenderPass.
@@ -35,4 +36,5 @@ private:
 
 	void CreateRttRenderPass();
 	void CreateMainRenderPass();
+	void CreateBrightRenderPass();
 };

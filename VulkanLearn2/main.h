@@ -52,6 +52,7 @@ private:
 	// Frame Buffer
 	std::vector<VulkanFrameBuffer*> m_RTT_FrameBuffers;
 	std::vector<VulkanFrameBuffer*> m_Main_FrameBuffers;
+	std::vector<VulkanFrameBuffer*> m_Bright_FrameBuffers;
 
 	// Vulkan Image For Frame Buffers
 		// - RTT Frame Buffer
@@ -61,9 +62,12 @@ private:
 		// - Main Frame Buffer
 	VulkanImage* m_Main_ColorImage;
 	VulkanImage* m_Main_DepthStencilImage;
+		// - Bright Pass Frame Buffer
+	std::vector<VulkanImage*> m_BrightImages;	// output của bright renderpass
 
 	VulkanPipeline* m_RTTVulkanPipeline;
 	VulkanPipeline* m_MainVulkanPipeline;
+	VulkanPipeline* m_BrightVulkanPipeline;
 	VulkanSampler* m_VulkanSampler;
 
 	// --- Các trình quản lý Vulkan ---
@@ -79,11 +83,20 @@ private:
 	std::vector<RenderObject*> m_RenderObjects; // Tất cả object cần được render trong scene
 
 	// --- Uniforms, Descriptors và Push Constants ---
-	UniformBufferObject m_Ubo{}; // Uniform Buffer Object (UBO) cho ma trận view/projection
-	std::vector<VulkanBuffer*> m_UniformBuffers; // Một uniform buffer cho mỗi frame đang xử lý
-	std::vector<VulkanDescriptor*> m_UniformDescriptors; // Một descriptor cho mỗi uniform buffer
+	UniformBufferObject m_RTT_Ubo{}; // Uniform Buffer Object (UBO) cho ma trận view/projection
+	std::vector<VulkanBuffer*> m_RTT_UniformBuffers; // Một uniform buffer cho mỗi frame đang xử lý
+
+		// Descriptor Set Cho Frame Buffer
+		// PipelineDescriptor chỉ để truyền vào khởi tạo PipelineLayout
 	std::vector<VulkanDescriptor*> m_RTTPipelineDescriptors; // Tất cả descriptor được sử dụng bởi pipeline
+	std::vector<VulkanDescriptor*> m_RTT_UniformDescriptors; // Một descriptor cho mỗi uniform buffer
+
 	std::vector<VulkanDescriptor*> m_MainPipelineDescriptors;
+	std::vector<VulkanDescriptor*> m_MainTextureDescriptors;
+
+	std::vector<VulkanDescriptor*> m_BrightPipelineDescriptors;
+	std::vector<VulkanDescriptor*> m_BrightTextureDescriptors;
+	
 	std::vector<VulkanDescriptor*> m_allDescriptors;
 
 	PushConstantData m_PushConstantData; // Dữ liệu cho push constants (ví dụ: ma trận model)
@@ -96,12 +109,15 @@ private:
 
 	void CreateUniformBuffers();
 	void CreateMainDescriptors();
+	void CreateBrightDescriptors();
+
 	void CreatePipelines();
 	void UpdateRTTDescriptorBindings();
 	void UpdateMainDescriptorBindings();
+	void UpdateBrightDescriptorBindings();
 
 	// Cập nhật mỗi frame
-	void UpdateUniforms();
+	void UpdateRTT_Uniforms();
 	void UpdateRenderObjectTransforms();
 
 	// Vẽ
@@ -109,11 +125,15 @@ private:
 	void RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex);
 	
 	void CmdDrawRTTRenderPass(const VkCommandBuffer& cmdBuffer);
+	void CmdDrawBrightRenderPass(const VkCommandBuffer& cmdBuffer);
 	void CmdDrawMainRenderPass(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex);
 
+
 	void CmdDrawRTTRenderObjects(const VkCommandBuffer& cmdBuffer);
+	void CmdDrawBright(const VkCommandBuffer& cmdBuffer);
 	void CmdDrawMain(const VkCommandBuffer& cmdBuffer);
 	
 	void BindRTTDescriptorSets(const VkCommandBuffer& cmdBuffer);
 	void BindMainDescriptorSets(const VkCommandBuffer& cmdBuffer);
+	void BindBrightDescriptorSets(const VkCommandBuffer& cmdBuffer);
 };
