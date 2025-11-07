@@ -96,6 +96,15 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::DebugCallback(
 	const char* YELLOW_COLOR = "\033[33m";
 	const char* PINK_COLOR = "\033[38;2;255;105;180m";
 
+	std::string message = pCallbackData->pMessage;
+
+	// Suppress specific Steam-related validation layer messages
+	if (message.find("Failed to open JSON file E:\\Steam\\SteamOverlayVulkanLayer64.json") != std::string::npos ||
+		message.find("Failed to open JSON file E:\\Steam\\SteamFossilizeVulkanLayer64.json") != std::string::npos)
+	{
+		return VK_FALSE; // Suppress these specific messages
+	}
+
 
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 	{
