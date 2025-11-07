@@ -46,9 +46,6 @@ public:
 	// Hoàn tất quá trình thiết lập: tải tất cả texture đã được yêu cầu lên GPU và tạo descriptor.
 	void FinalizeSetup();
 
-	// Cập nhật descriptor set với thông tin của các texture đã được tải.
-	void UpdateTextureImageDescriptorBinding();
-
 private:
 	// --- Tham chiếu đến các đối tượng Vulkan bên ngoài ---
 	const VulkanHandles& m_VulkanHandles;
@@ -57,6 +54,9 @@ private:
 
 	// --- Dữ liệu nội bộ ---
 	TextureManagerHandles m_Handles;
+
+	// Hiện tại chưa sử dụng Bindless Descriptor nên cần 1 số lượng để khởi tạo
+	const uint32_t DESCRIPTOR_COUNT = 256;
 
 	// --- Hàm helper private ---
 	TextureImage* CreateNewTextureImage(const std::string& imageFilePath);
