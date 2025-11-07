@@ -77,11 +77,28 @@
     <ClInclude Include="Utils\DebugTimer.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Shaders\BlueH_Shader.frag">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="Shaders\BLurV_Shader.frag">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="Shaders\Bright_Shader.frag">
+      <FileType>Document</FileType>
+    </None>
     <None Include="Shaders\compile.bat" />
-    <None Include="Shaders\mainShader.frag" />
-    <None Include="Shaders\mainShader.vert" />
-    <None Include="Shaders\shader.frag" />
-    <None Include="Shaders\shader.vert" />
+    <None Include="Shaders\Main_Shader.frag">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="Shaders\Main_Shader.vert">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="Shaders\RTT_Shader.frag">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="Shaders\RTT_Shader.vert">
+      <FileType>Document</FileType>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Images\image.jpg" />

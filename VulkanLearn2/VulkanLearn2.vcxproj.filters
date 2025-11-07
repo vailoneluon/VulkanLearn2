@@ -175,19 +175,28 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shaders\shader.frag">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\shader.vert">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="Shaders\compile.bat">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Shaders\mainShader.vert">
+    <None Include="Shaders\Bright_Shader.frag">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Shaders\mainShader.frag">
+    <None Include="Shaders\BLurV_Shader.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\BlueH_Shader.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\Main_Shader.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\RTT_Shader.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\Main_Shader.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\RTT_Shader.vert">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
