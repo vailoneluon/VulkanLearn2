@@ -46,7 +46,7 @@ private:
 	// --- Cấu hình khởi tạo ---
 	const char* m_ValidationLayers[1] = { "VK_LAYER_KHRONOS_validation" };
 	std::vector<const char*> m_InstanceExtensionsRequired = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
-	std::vector<const char*> m_DeviceExtensionsRequired = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	std::vector<const char*> m_DeviceExtensionsRequired = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME };
 
 
 	// --- Hàm helper private cho việc khởi tạo ---

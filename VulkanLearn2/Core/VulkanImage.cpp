@@ -237,7 +237,7 @@ VulkanBuffer* VulkanImage::UploadTextureData(VulkanCommandManager* cmdManager, V
  * @param levelCount Số lượng mipmap level áp dụng barrier (0 có nghĩa là tất cả các level từ baseMipLevel).
  */
 void VulkanImage::TransitionLayout(
-	VkCommandBuffer& cmdBuffer, VkImage& image, uint32_t totalMipLevels,
+	const VkCommandBuffer& cmdBuffer,const VkImage& image, uint32_t totalMipLevels,
 	VkImageLayout oldLayout, VkImageLayout newLayout,
 	VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage,
 	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
@@ -258,7 +258,7 @@ void VulkanImage::TransitionLayout(
 	// TODO: Cần kiểm tra định dạng có stencil component hay không để thêm VK_IMAGE_ASPECT_STENCIL_BIT.
 	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 	{
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	}
 	else
 	{

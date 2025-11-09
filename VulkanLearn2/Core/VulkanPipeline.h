@@ -5,7 +5,7 @@
 #include <map>
 
 // Forward declarations
-struct RenderPassHandles;
+
 struct SwapchainHandles;
 class VulkanDescriptor;
 
@@ -20,7 +20,6 @@ struct PipelineHandles
 struct VulkanPipelineCreateInfo
 {
 	const VulkanHandles* vulkanHandles;
-	const VkRenderPass* renderPass;
 	const SwapchainHandles* swapchainHandles;
 	VkSampleCountFlagBits msaaSamples;
 	std::vector<VulkanDescriptor*>* descriptors;
@@ -64,7 +63,6 @@ private:
 
 	// Hàm chính để tạo Graphics Pipeline.
 	void CreateGraphicsPipeline(
-		const VkRenderPass* renderPass,
 		const SwapchainHandles* swapchainHandles,
 		VkSampleCountFlagBits msaaSamples,
 		VkShaderModule vertShaderModule,

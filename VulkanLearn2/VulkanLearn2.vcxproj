@@ -24,10 +24,8 @@
     <ClCompile Include="Core\VulkanContext.cpp" />
     <ClCompile Include="Core\VulkanDescriptor.cpp" />
     <ClCompile Include="Core\VulkanDescriptorManager.cpp" />
-    <ClCompile Include="Core\VulkanFrameBuffer.cpp" />
     <ClCompile Include="Core\VulkanImage.cpp" />
     <ClCompile Include="Core\VulkanPipeline.cpp" />
-    <ClCompile Include="Core\VulkanRenderPass.cpp" />
     <ClCompile Include="Core\VulkanSampler.cpp" />
     <ClCompile Include="Core\VulkanSwapchain.cpp" />
     <ClCompile Include="Core\VulkanSyncManager.cpp" />
@@ -37,6 +35,10 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Renderer\BlurPass.cpp" />
+    <ClCompile Include="Renderer\BrightFilterPass.cpp" />
+    <ClCompile Include="Renderer\CompositePass.cpp" />
+    <ClCompile Include="Renderer\GeometryPass.cpp" />
     <ClCompile Include="Scene\MeshManager.cpp" />
     <ClCompile Include="Scene\Model.cpp" />
     <ClCompile Include="Scene\RenderObject.cpp" />
@@ -57,10 +59,8 @@
     <ClInclude Include="Core\VulkanContext.h" />
     <ClInclude Include="Core\VulkanDescriptor.h" />
     <ClInclude Include="Core\VulkanDescriptorManager.h" />
-    <ClInclude Include="Core\VulkanFrameBuffer.h" />
     <ClInclude Include="Core\VulkanImage.h" />
     <ClInclude Include="Core\VulkanPipeline.h" />
-    <ClInclude Include="Core\VulkanRenderPass.h" />
     <ClInclude Include="Core\VulkanSampler.h" />
     <ClInclude Include="Core\VulkanSwapchain.h" />
     <ClInclude Include="Core\VulkanSyncManager.h" />
@@ -68,6 +68,11 @@
     <ClInclude Include="Core\Window.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Renderer\BlurPass.h" />
+    <ClInclude Include="Renderer\BrightFilterPass.h" />
+    <ClInclude Include="Renderer\CompositePass.h" />
+    <ClInclude Include="Renderer\GeometryPass.h" />
+    <ClInclude Include="Renderer\IRenderPass.h" />
     <ClInclude Include="Scene\MeshManager.h" />
     <ClInclude Include="Scene\Model.h" />
     <ClInclude Include="Scene\RenderObject.h" />
@@ -194,7 +199,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>Z:\Vulkan\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\VulkanSDK\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -202,7 +207,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>Z:\Vulkan\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>D:\VulkanSDK\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
