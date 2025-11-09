@@ -4,7 +4,7 @@
 #include "Core/Window.h"
 #include "Core/VulkanSwapchain.h"
 #include "Core/VulkanImage.h"
-#include "Core/VulkanRenderPass.h"
+
 #include "Core/VulkanCommandManager.h"
 #include "Core/VulkanPipeline.h"
 #include "Core/VulkanSyncManager.h"
@@ -12,7 +12,7 @@
 #include "Core/VulkanDescriptorManager.h"
 #include "Core/VulkanSampler.h"
 #include "Core/VulkanDescriptor.h"
-#include "Core/VulkanFrameBuffer.h"
+
 
 #include "Utils/DebugTimer.h"
 #include <Scene/RenderObject.h>
@@ -40,7 +40,7 @@ int main()
 
 /**
  * @brief Constructor: Khởi tạo toàn bộ ứng dụng Vulkan.
- * Thiết lập cửa sổ, context Vulkan, swapchain, render pass, và tất cả các tài nguyên
+ * Thiết lập cửa sổ, context Vulkan, swapchain, các chuỗi pipeline render, và tất cả các tài nguyên
  * cần thiết cho việc render (pipelines, buffers, descriptors, scene objects).
  */
 Application::Application()
@@ -52,13 +52,10 @@ Application::Application()
 	// 2. Khởi tạo các thành phần Vulkan cốt lõi
 	m_VulkanContext = new VulkanContext(m_Window->getGLFWWindow(), m_Window->getInstanceExtensionsRequired());
 	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow());
-	m_VulkanRenderPass = new VulkanRenderPass(m_VulkanContext->getVulkanHandles(), m_VulkanSwapchain->getHandles(), MSAA_SAMPLES);
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
 
-	// --- Giai đoạn 2: Tạo Tài nguyên Framebuffer & Descriptors ---
-	// 3. Tạo Framebuffers (và các Image đi kèm) cho tất cả các render pass
-	CreateFrameBuffers();
+	CreateFrameBufferImages();
 
 	// 4. Tạo uniform buffers và descriptors cho từng frame-in-flight
 	CreateUniformBuffers();		// Cho RTT pass (Camera)
@@ -112,7 +109,7 @@ Application::~Application()
 	// Đợi GPU hoàn thành mọi tác vụ trước khi dọn dẹp
 	vkDeviceWaitIdle(m_VulkanContext->getVulkanHandles().device);
 
-	// 1. Pipelines (Phụ thuộc vào DescriptorManager, RenderPass)
+	// 1. Pipelines (Phụ thuộc vào DescriptorManager)
 	delete(m_BlurVVulkanPipeline);
 	delete(m_BlurHVulkanPipeline);
 	delete(m_BrightVulkanPipeline);
@@ -132,28 +129,6 @@ Application::~Application()
 		delete(uniformBuffer);
 	}
 
-	// 4. Framebuffers (Phụ thuộc vào Images, RenderPass)
-	for (auto& frameBuffer : m_BlurV_FrameBuffers)
-	{
-		delete(frameBuffer);
-	}
-	for (auto& frameBuffer : m_BlurH_FrameBuffers)
-	{
-		delete(frameBuffer);
-	}
-	for (auto& frameBuffer : m_Bright_FrameBuffers)
-	{
-		delete(frameBuffer);
-	}
-	for (auto& frameBuffer : m_Main_FrameBuffers)
-	{
-		delete(frameBuffer);
-	}
-	for (auto& frameBuffer : m_RTT_FrameBuffers)
-	{
-		delete(frameBuffer);
-	}
-
 	// 5. Images (Các attachment của Framebuffer)
 	for (auto& image : m_TempBlurImages)
 	{
@@ -167,10 +142,16 @@ Application::~Application()
 	{
 		delete(image);
 	}
+	for (auto& image : m_RTT_ColorImage)
+	{
+		delete(image);
+	}
+	for (auto& image : m_RTT_DepthStencilImage)
+	{
+		delete(image);
+	}
 	delete(m_Main_DepthStencilImage);
 	delete(m_Main_ColorImage);
-	delete(m_RTT_DepthStencilImage);
-	delete(m_RTT_ColorImage);
 
 	// 6. Scene Objects (Phụ thuộc vào Mesh/Texture Managers)
 	for (auto& renderObject : m_RenderObjects)
@@ -180,7 +161,7 @@ Application::~Application()
 
 	// 7. Core Vulkan Objects (Các thành phần cơ bản)
 	delete(m_VulkanSampler);
-	delete(m_VulkanRenderPass);
+
 	delete(m_VulkanSwapchain);
 	delete(m_VulkanContext); // Context phải được xóa gần cuối
 
@@ -368,27 +349,67 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 // --- 4.1: RTT (Render-to-Texture) Pass ---
 
 /**
- * @brief Ghi lệnh cho RTT render pass (vẽ scene 3D).
+ * @brief Ghi lệnh cho bước render RTT (vẽ scene 3D).
  * Output: m_SceneImages[m_CurrentFrame] (đã resolve MSAA).
  */
 void Application::CmdDrawRTTRenderPass(const VkCommandBuffer& cmdBuffer)
 {
-	// Bắt đầu render pass
-	VkRenderPassBeginInfo renderPassBeginInfo{};
-	VkClearValue clearValues[3];
-	clearValues[0].color = BACKGROUND_COLOR;		 // Clear color cho attachment 0 (MSAA color)
-	clearValues[1].depthStencil = { 1.0f, 0 };	 // Clear color cho attachment 1 (MSAA depth)
-	clearValues[2].color = BACKGROUND_COLOR; // Clear color cho attachment 2 (Resolve target)
+	// Transition Layout trước khi BeginRendering vì không còn Dependency quản lý.
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_RTT_ColorImage[m_CurrentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		0, 0);
 
-	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.clearValueCount = 3;
-	renderPassBeginInfo.pClearValues = clearValues;
-	renderPassBeginInfo.framebuffer = m_RTT_FrameBuffers[m_CurrentFrame]->getFrameBuffer();
-	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().rttRenderPass;
-	renderPassBeginInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
-	renderPassBeginInfo.renderArea.offset = { 0, 0 };
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_RTT_DepthStencilImage[m_CurrentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+		0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+		0, 0);
 
-	vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_SceneImages[m_CurrentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		0, 0);
+
+	VkRenderingAttachmentInfo colorAttachment{};
+	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	colorAttachment.clearValue.color = BACKGROUND_COLOR;
+	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachment.imageView = m_RTT_ColorImage[m_CurrentFrame]->GetHandles().imageView;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	// Resolve Msaa 
+	colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachment.resolveImageView = m_SceneImages[m_CurrentFrame]->GetHandles().imageView;
+	colorAttachment.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
+
+	VkRenderingAttachmentInfo depthStencilAttachment{};
+	depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	depthStencilAttachment.clearValue.depthStencil = {1.0f, 0};
+	depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthStencilAttachment.imageView = m_RTT_DepthStencilImage[m_CurrentFrame]->GetHandles().imageView;
+	depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	
+	// Rendering Info dùng để bắt đầu dynamic rendering - thay thế vkcmdBeginRenderPass
+	VkRenderingInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachments = &colorAttachment;
+	renderingInfo.pDepthAttachment = &depthStencilAttachment;
+	renderingInfo.pStencilAttachment = &depthStencilAttachment;
+	renderingInfo.layerCount = 1;
+	renderingInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
+	renderingInfo.renderArea.offset = { 0, 0 };
+	renderingInfo.viewMask = 0;
+
+	vkCmdBeginRendering(cmdBuffer, &renderingInfo);
+
 
 	// Bind pipeline
 	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_RTTVulkanPipeline->getHandles().pipeline);
@@ -404,7 +425,14 @@ void Application::CmdDrawRTTRenderPass(const VkCommandBuffer& cmdBuffer)
 	// Ghi lệnh vẽ
 	CmdDrawRTTRenderObjects(cmdBuffer);
 
-	vkCmdEndRenderPass(cmdBuffer);
+	vkCmdEndRendering(cmdBuffer);
+
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_SceneImages[m_CurrentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+		0, 0);
 }
 
 /**
@@ -452,31 +480,54 @@ void Application::BindRTTDescriptorSets(const VkCommandBuffer& cmdBuffer)
 // --- 4.2: Bright Filter Pass ---
 
 /**
- * @brief Ghi lệnh cho Bright Filter render pass.
+ * @brief Ghi lệnh cho bước render Bright Filter.
  * Input: m_SceneImages[m_CurrentFrame].
  * Output: m_BrightImages[m_CurrentFrame].
  */
 void Application::CmdDrawBrightRenderPass(const VkCommandBuffer& cmdBuffer)
 {
-	VkRenderPassBeginInfo renderPassBeginInfo{};
-	VkClearValue clearValues[1];
-	clearValues[0].color = BACKGROUND_COLOR; // Clear cho attachment 0 (Bright output)
+	// Transition Layout trước khi BeginRendering vì không còn Dependency quản lý.
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_BrightImages[m_CurrentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		0, 0);
 
-	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.clearValueCount = 1;
-	renderPassBeginInfo.pClearValues = clearValues;
-	renderPassBeginInfo.framebuffer = m_Bright_FrameBuffers[m_CurrentFrame]->getFrameBuffer();
-	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().brightRenderPass;
-	renderPassBeginInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
-	renderPassBeginInfo.renderArea.offset = { 0, 0 };
+	VkRenderingAttachmentInfo colorAttachment{};
+	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	colorAttachment.clearValue.color = BACKGROUND_COLOR;
+	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachment.imageView = m_BrightImages[m_CurrentFrame]->GetHandles().imageView;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-	vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	// Rendering Info dùng để bắt đầu dynamic rendering - thay thế vkcmdBeginRenderPass
+	VkRenderingInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachments = &colorAttachment;
+	renderingInfo.pDepthAttachment = nullptr;
+	renderingInfo.pStencilAttachment = nullptr;
+	renderingInfo.layerCount = 1;
+	renderingInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
+	renderingInfo.renderArea.offset = { 0, 0 };
+	renderingInfo.viewMask = 0;
+
+	vkCmdBeginRendering(cmdBuffer, &renderingInfo);
 
 	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_BrightVulkanPipeline->getHandles().pipeline);
 	BindBrightDescriptorSets(cmdBuffer);
 	CmdDrawBright(cmdBuffer); // Vẽ 1 quad đầy màn hình
 
-	vkCmdEndRenderPass(cmdBuffer);
+	vkCmdEndRendering(cmdBuffer);
+	
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_BrightImages[m_CurrentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+		0, 0);
 }
 
 /**
@@ -484,7 +535,7 @@ void Application::CmdDrawBrightRenderPass(const VkCommandBuffer& cmdBuffer)
  */
 void Application::CmdDrawBright(const VkCommandBuffer& cmdBuffer)
 {
-	vkCmdDraw(cmdBuffer, 6, 1, 0, 0); // 6 đỉnh, không dùng index buffer
+	vkCmdDraw(cmdBuffer, 6, 1, 0, 0); // 6 đỉnh, không dùng index buffer 
 }
 
 /**
@@ -503,31 +554,54 @@ void Application::BindBrightDescriptorSets(const VkCommandBuffer& cmdBuffer)
 // --- 4.3: Blur Horizontal Pass ---
 
 /**
- * @brief Ghi lệnh cho Blur Horizontal render pass.
+ * @brief Ghi lệnh cho bước render Blur Horizontal.
  * Input: m_BrightImages[m_CurrentFrame].
  * Output: m_TempBlurImages[m_CurrentFrame].
  */
 void Application::CmdDrawBlurHRenderPass(const VkCommandBuffer& cmdBuffer)
 {
-	VkRenderPassBeginInfo renderPassBeginInfo{};
-	VkClearValue clearValues[1];
-	clearValues[0].color = BACKGROUND_COLOR; // Clear cho attachment 0 (Blur H output)
+	// Transition Layout trước khi BeginRendering vì không còn Dependency quản lý.
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_TempBlurImages[m_CurrentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		0, 0);
 
-	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.clearValueCount = 1;
-	renderPassBeginInfo.pClearValues = clearValues;
-	renderPassBeginInfo.framebuffer = m_BlurH_FrameBuffers[m_CurrentFrame]->getFrameBuffer();
-	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().blurHRenderPass;
-	renderPassBeginInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
-	renderPassBeginInfo.renderArea.offset = { 0, 0 };
+	VkRenderingAttachmentInfo colorAttachment{};
+	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	colorAttachment.clearValue.color = BACKGROUND_COLOR;
+	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachment.imageView = m_TempBlurImages[m_CurrentFrame]->GetHandles().imageView;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-	vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	// Rendering Info dùng để bắt đầu dynamic rendering - thay thế vkcmdBeginRenderPass
+	VkRenderingInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachments = &colorAttachment;
+	renderingInfo.pDepthAttachment = nullptr;
+	renderingInfo.pStencilAttachment = nullptr;
+	renderingInfo.layerCount = 1;
+	renderingInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
+	renderingInfo.renderArea.offset = { 0, 0 };
+	renderingInfo.viewMask = 0;
+
+	vkCmdBeginRendering(cmdBuffer, &renderingInfo);
 
 	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_BlurHVulkanPipeline->getHandles().pipeline);
 	BindBlurHDescriptorSets(cmdBuffer);
 	CmdDrawBlurH(cmdBuffer); // Vẽ 1 quad đầy màn hình
 
-	vkCmdEndRenderPass(cmdBuffer);
+	vkCmdEndRendering(cmdBuffer);
+
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_TempBlurImages[m_CurrentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+		0, 0);
 }
 
 /**
@@ -554,31 +628,54 @@ void Application::BindBlurHDescriptorSets(const VkCommandBuffer& cmdBuffer)
 // --- 4.4: Blur Vertical Pass ---
 
 /**
- * @brief Ghi lệnh cho Blur Vertical render pass.
+ * @brief Ghi lệnh cho bước render Blur Vertical.
  * Input: m_TempBlurImages[m_CurrentFrame].
  * Output: m_BrightImages[m_CurrentFrame] (ghi đè).
  */
 void Application::CmdDrawBlurVRenderPass(const VkCommandBuffer& cmdBuffer)
 {
-	VkRenderPassBeginInfo renderPassBeginInfo{};
-	VkClearValue clearValues[1];
-	clearValues[0].color = BACKGROUND_COLOR; // Clear cho attachment 0 (Blur V output)
+	// Transition Layout trước khi BeginRendering vì không còn Dependency quản lý.
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_BrightImages[m_CurrentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		0, 0);
 
-	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.clearValueCount = 1;
-	renderPassBeginInfo.pClearValues = clearValues;
-	renderPassBeginInfo.framebuffer = m_BlurV_FrameBuffers[m_CurrentFrame]->getFrameBuffer();
-	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().blurVRenderPass;
-	renderPassBeginInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
-	renderPassBeginInfo.renderArea.offset = { 0, 0 };
+	VkRenderingAttachmentInfo colorAttachment{};
+	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	colorAttachment.clearValue.color = BACKGROUND_COLOR;
+	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachment.imageView = m_BrightImages[m_CurrentFrame]->GetHandles().imageView;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-	vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	// Rendering Info dùng để bắt đầu dynamic rendering - thay thế vkcmdBeginRenderPass
+	VkRenderingInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachments = &colorAttachment;
+	renderingInfo.pDepthAttachment = nullptr;
+	renderingInfo.pStencilAttachment = nullptr;
+	renderingInfo.layerCount = 1;
+	renderingInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
+	renderingInfo.renderArea.offset = { 0, 0 };
+	renderingInfo.viewMask = 0;
+
+	vkCmdBeginRendering(cmdBuffer, &renderingInfo);
 
 	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_BlurVVulkanPipeline->getHandles().pipeline);
 	BindBlurVDescriptorSets(cmdBuffer);
 	CmdDrawBlurV(cmdBuffer); // Vẽ 1 quad đầy màn hình
 
-	vkCmdEndRenderPass(cmdBuffer);
+	vkCmdEndRendering(cmdBuffer);
+
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_BrightImages[m_CurrentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+		0, 0);
 }
 
 /**
@@ -605,33 +702,81 @@ void Application::BindBlurVDescriptorSets(const VkCommandBuffer& cmdBuffer)
 // --- 4.5: Main (Composite) Pass ---
 
 /**
- * @brief Ghi lệnh cho Main render pass (vẽ ra swapchain).
+ * @brief Ghi lệnh cho bước render Main (vẽ ra swapchain).
  * Input: m_SceneImages[m_CurrentFrame] và m_BrightImages[m_CurrentFrame] (đã blur).
  * Output: Swapchain Image [imageIndex].
  */
 void Application::CmdDrawMainRenderPass(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex)
 {
-	VkRenderPassBeginInfo renderPassBeginInfo{};
-	VkClearValue clearValues[3];
-	clearValues[0].color = BACKGROUND_COLOR;		 // Clear color cho attachment 0 (MSAA color)
-	clearValues[1].depthStencil = { 1.0f, 0 };	 // Clear color cho attachment 1 (MSAA depth)
-	clearValues[2].color = BACKGROUND_COLOR; // Clear color cho attachment 2 (Resolve target = Swapchain)
+	// Transition Layout trước khi BeginRendering vì không còn Dependency quản lý.
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_Main_ColorImage->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		0, 0);
 
-	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.clearValueCount = 3;
-	renderPassBeginInfo.pClearValues = clearValues;
-	renderPassBeginInfo.framebuffer = m_Main_FrameBuffers[imageIndex]->getFrameBuffer(); // Dùng framebuffer của swapchain image
-	renderPassBeginInfo.renderPass = m_VulkanRenderPass->getHandles().mainRenderPass;
-	renderPassBeginInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
-	renderPassBeginInfo.renderArea.offset = { 0, 0 };
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_Main_DepthStencilImage->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+		0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+		0, 0);
 
-	vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_VulkanSwapchain->getHandles().swapchainImages[imageIndex], 1,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		0, 0);
+
+	VkRenderingAttachmentInfo colorAttachment{};
+	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	colorAttachment.clearValue.color = BACKGROUND_COLOR;
+	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachment.imageView = m_Main_ColorImage->GetHandles().imageView;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	// Resolve Msaa 
+	colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachment.resolveImageView = m_VulkanSwapchain->getHandles().swapchainImageViews[imageIndex];
+	colorAttachment.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
+
+	VkRenderingAttachmentInfo depthStencilAttachment{};
+	depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	depthStencilAttachment.clearValue.depthStencil = { 1.0f, 0 };
+	depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthStencilAttachment.imageView = m_Main_DepthStencilImage->GetHandles().imageView;
+	depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+	// Rendering Info dùng để bắt đầu dynamic rendering - thay thế vkcmdBeginRenderPass
+	VkRenderingInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachments = &colorAttachment;
+	renderingInfo.pDepthAttachment = &depthStencilAttachment;
+	renderingInfo.pStencilAttachment = &depthStencilAttachment;
+	renderingInfo.layerCount = 1;
+	renderingInfo.renderArea.extent = m_VulkanSwapchain->getHandles().swapChainExtent;
+	renderingInfo.renderArea.offset = { 0, 0 };
+	renderingInfo.viewMask = 0;
+
+	vkCmdBeginRendering(cmdBuffer, &renderingInfo);
 
 	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_MainVulkanPipeline->getHandles().pipeline);
 	BindMainDescriptorSets(cmdBuffer);
 	CmdDrawMain(cmdBuffer); // Vẽ 1 quad đầy màn hình
 
-	vkCmdEndRenderPass(cmdBuffer);
+	vkCmdEndRendering(cmdBuffer);
+
+	VulkanImage::TransitionLayout(
+		cmdBuffer, m_VulkanSwapchain->getHandles().swapchainImages[imageIndex], 1,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0,
+		0, 0);
+	
 }
 
 /**
@@ -659,119 +804,8 @@ void Application::BindMainDescriptorSets(const VkCommandBuffer& cmdBuffer)
 // SECTION 5: APPLICATION CLASS - INITIALIZATION HELPERS
 // =================================================================================================
 
-// --- 5.1: Framebuffers & Images ---
-
 /**
- * @brief Tạo tất cả các Framebuffer Objects (FBOs) cho các render pass.
- * Hàm này cũng gọi CreateFrameBufferImages() để tạo các image attachments trước.
- */
-void Application::CreateFrameBuffers()
-{
-	// 1. Tạo tất cả các VulkanImage cần thiết
-	CreateFrameBufferImages();
-
-	// 2. Khởi tạo RTT Frame Buffers (vẽ scene 3D)
-	// Output: m_SceneImages (đã resolve)
-	m_RTT_FrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		VkImageView RTT_ImageViews[] = {
-			m_RTT_ColorImage->GetHandles().imageView,		 // Attachment 0: Color (MSAA)
-			m_RTT_DepthStencilImage->GetHandles().imageView, // Attachment 1: Depth (MSAA)
-			m_SceneImages[i]->GetHandles().imageView		 // Attachment 2: Resolve Target
-		};
-
-		FrameBufferCreateInfo RTT_FrameBufferInfo{};
-		RTT_FrameBufferInfo.frameWidth = m_VulkanSwapchain->getHandles().swapChainExtent.width;
-		RTT_FrameBufferInfo.frameHeigth = m_VulkanSwapchain->getHandles().swapChainExtent.height;
-		RTT_FrameBufferInfo.frameLayer = 1;
-		RTT_FrameBufferInfo.imageCount = 3;
-		RTT_FrameBufferInfo.pVkImageView = RTT_ImageViews;
-
-		m_RTT_FrameBuffers[i] = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanRenderPass->getHandles().rttRenderPass, RTT_FrameBufferInfo);
-	}
-
-	// 3. Khởi tạo MAIN Frame Buffers (vẽ ra màn hình)
-	// Output: Swapchain Image (đã resolve)
-	m_Main_FrameBuffers.resize(m_VulkanSwapchain->getHandles().swapchainImageCount);
-	for (int i = 0; i < m_VulkanSwapchain->getHandles().swapchainImageCount; i++)
-	{
-		VkImageView Main_ImageViews[] = {
-			m_Main_ColorImage->GetHandles().imageView,		  // Attachment 0: Color (MSAA)
-			m_Main_DepthStencilImage->GetHandles().imageView, // Attachment 1: Depth (MSAA)
-			m_VulkanSwapchain->getHandles().swapchainImageViews[i] // Attachment 2: Resolve Target
-		};
-
-		FrameBufferCreateInfo Main_FrameBufferInfo{};
-		Main_FrameBufferInfo.frameWidth = m_VulkanSwapchain->getHandles().swapChainExtent.width;
-		Main_FrameBufferInfo.frameHeigth = m_VulkanSwapchain->getHandles().swapChainExtent.height;
-		Main_FrameBufferInfo.frameLayer = 1;
-		Main_FrameBufferInfo.imageCount = 3;
-		Main_FrameBufferInfo.pVkImageView = Main_ImageViews;
-
-		m_Main_FrameBuffers[i] = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanRenderPass->getHandles().mainRenderPass, Main_FrameBufferInfo);
-	}
-
-	// 4. Khởi tạo Bright Frame Buffers (lọc sáng)
-	// Output: m_BrightImages
-	m_Bright_FrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		VkImageView Bright_ImageViews[] = {
-			m_BrightImages[i]->GetHandles().imageView // Attachment 0: Bright Output
-		};
-
-		FrameBufferCreateInfo Bright_FrameBufferInfo{};
-		Bright_FrameBufferInfo.frameWidth = m_VulkanSwapchain->getHandles().swapChainExtent.width;
-		Bright_FrameBufferInfo.frameHeigth = m_VulkanSwapchain->getHandles().swapChainExtent.height;
-		Bright_FrameBufferInfo.frameLayer = 1;
-		Bright_FrameBufferInfo.imageCount = 1;
-		Bright_FrameBufferInfo.pVkImageView = Bright_ImageViews;
-
-		m_Bright_FrameBuffers[i] = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanRenderPass->getHandles().brightRenderPass, Bright_FrameBufferInfo);
-	}
-
-	// 5. Khởi tạo H_Blur Frame Buffer (blur ngang)
-	// Output: m_TempBlurImages
-	m_BlurH_FrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		VkImageView BlurH_ImageViews[] = {
-			m_TempBlurImages[i]->GetHandles().imageView // Attachment 0: BlurH Output
-		};
-
-		FrameBufferCreateInfo BlurH_FrameBufferInfo{};
-		BlurH_FrameBufferInfo.frameWidth = m_VulkanSwapchain->getHandles().swapChainExtent.width;
-		BlurH_FrameBufferInfo.frameHeigth = m_VulkanSwapchain->getHandles().swapChainExtent.height;
-		BlurH_FrameBufferInfo.frameLayer = 1;
-		BlurH_FrameBufferInfo.imageCount = 1;
-		BlurH_FrameBufferInfo.pVkImageView = BlurH_ImageViews;
-
-		m_BlurH_FrameBuffers[i] = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanRenderPass->getHandles().blurHRenderPass, BlurH_FrameBufferInfo);
-	}
-
-	// 6. Khởi tạo V_Blur Frame Buffer (blur dọc)
-	// Output: m_BrightImages (ghi đè)
-	m_BlurV_FrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		VkImageView BlurV_ImageViews[] = {
-			m_BrightImages[i]->GetHandles().imageView // Attachment 0: BlurV Output
-		};
-
-		FrameBufferCreateInfo BlurV_FrameBufferInfo{};
-		BlurV_FrameBufferInfo.frameWidth = m_VulkanSwapchain->getHandles().swapChainExtent.width;
-		BlurV_FrameBufferInfo.frameHeigth = m_VulkanSwapchain->getHandles().swapChainExtent.height;
-		BlurV_FrameBufferInfo.frameLayer = 1;
-		BlurV_FrameBufferInfo.imageCount = 1;
-		BlurV_FrameBufferInfo.pVkImageView = BlurV_ImageViews;
-
-		m_BlurV_FrameBuffers[i] = new VulkanFrameBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanRenderPass->getHandles().blurVRenderPass, BlurV_FrameBufferInfo);
-	}
-}
-
-/**
- * @brief Tạo tất cả các VulkanImage sẽ được dùng làm attachment cho Framebuffers.
+ * @brief Tạo tất cả các VulkanImage sẽ được dùng làm attachment cho các bước render.
  */
 void Application::CreateFrameBufferImages()
 {
@@ -794,7 +828,11 @@ void Application::CreateFrameBufferImages()
 	RTT_ColorImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 	RTT_ColorImageViewInfo.mipLevels = 1;
 
-	m_RTT_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_ColorImageInfo, RTT_ColorImageViewInfo);
+	m_RTT_ColorImage.resize(MAX_FRAMES_IN_FLIGHT);
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		m_RTT_ColorImage[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_ColorImageInfo, RTT_ColorImageViewInfo);
+	}
 
 	// 2. RTT Depth/Stencil Image (MSAA)
 	VulkanImageCreateInfo RTT_DepthImageInfo{};
@@ -811,7 +849,11 @@ void Application::CreateFrameBufferImages()
 	RTT_DepthImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	RTT_DepthImageViewInfo.mipLevels = 1;
 
-	m_RTT_DepthStencilImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_DepthImageInfo, RTT_DepthImageViewInfo);
+	m_RTT_DepthStencilImage.resize(MAX_FRAMES_IN_FLIGHT);
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		m_RTT_DepthStencilImage[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_DepthImageInfo, RTT_DepthImageViewInfo);
+	}
 
 	// 3. m_SceneImages (Resolve Target cho RTT, Input cho Post-Processing)
 	m_SceneImages.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1109,7 +1151,6 @@ void Application::CreatePipelines()
 	rttPipelineInfo.fragmentShaderFilePath = "Shaders/RTT_Shader.frag.spv";
 	rttPipelineInfo.vertexShaderFilePath = "Shaders/RTT_Shader.vert.spv";
 	rttPipelineInfo.msaaSamples = MSAA_SAMPLES;
-	rttPipelineInfo.renderPass = &m_VulkanRenderPass->getHandles().rttRenderPass;
 	rttPipelineInfo.swapchainHandles = &m_VulkanSwapchain->getHandles();
 	rttPipelineInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	// rttPipelineInfo.useVertexInput = true; (mặc định)
@@ -1120,7 +1161,6 @@ void Application::CreatePipelines()
 	VulkanPipelineCreateInfo mainPipelineInfo = rttPipelineInfo;
 	mainPipelineInfo.fragmentShaderFilePath = "Shaders/Main_Shader.frag.spv";
 	mainPipelineInfo.vertexShaderFilePath = "Shaders/Main_Shader.vert.spv"; // Vertex shader chung cho quad
-	mainPipelineInfo.renderPass = &m_VulkanRenderPass->getHandles().mainRenderPass;
 	mainPipelineInfo.descriptors = &m_MainPipelineDescriptors; // Dùng Scene + Bloom texture (Set 0)
 	mainPipelineInfo.useVertexInput = false; // Vẽ quad, không cần vertex input
 
@@ -1130,7 +1170,6 @@ void Application::CreatePipelines()
 	VulkanPipelineCreateInfo brightPipelineInfo = rttPipelineInfo;
 	brightPipelineInfo.fragmentShaderFilePath = "Shaders/Bright_Shader.frag.spv";
 	brightPipelineInfo.vertexShaderFilePath = "Shaders/Main_Shader.vert.spv";
-	brightPipelineInfo.renderPass = &m_VulkanRenderPass->getHandles().brightRenderPass;
 	brightPipelineInfo.descriptors = &m_BrightPipelineDescriptors; // Dùng Scene texture (Set 0)
 	brightPipelineInfo.useVertexInput = false;
 	brightPipelineInfo.msaaSamples = VK_SAMPLE_COUNT_1_BIT; // Các pass post-processing không cần MSAA
@@ -1141,7 +1180,6 @@ void Application::CreatePipelines()
 	VulkanPipelineCreateInfo blurHPipelineInfo = rttPipelineInfo;
 	blurHPipelineInfo.fragmentShaderFilePath = "Shaders/BlueH_Shader.frag.spv";
 	blurHPipelineInfo.vertexShaderFilePath = "Shaders/Main_Shader.vert.spv";
-	blurHPipelineInfo.renderPass = &m_VulkanRenderPass->getHandles().blurHRenderPass;
 	blurHPipelineInfo.descriptors = &m_BlurHPipelineDescriptors; // Dùng Bright texture (Set 0)
 	blurHPipelineInfo.useVertexInput = false;
 	blurHPipelineInfo.msaaSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -1152,7 +1190,6 @@ void Application::CreatePipelines()
 	VulkanPipelineCreateInfo blurVPipelineInfo = rttPipelineInfo;
 	blurVPipelineInfo.fragmentShaderFilePath = "Shaders/BLurV_Shader.frag.spv";
 	blurVPipelineInfo.vertexShaderFilePath = "Shaders/Main_Shader.vert.spv";
-	blurVPipelineInfo.renderPass = &m_VulkanRenderPass->getHandles().blurVRenderPass;
 	blurVPipelineInfo.descriptors = &m_BlurVPipelineDescriptors; // Dùng TempBlur texture (Set 0)
 	blurVPipelineInfo.useVertexInput = false;
 	blurVPipelineInfo.msaaSamples = VK_SAMPLE_COUNT_1_BIT;

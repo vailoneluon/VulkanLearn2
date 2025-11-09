@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "VulkanPipeline.h"
-#include "VulkanRenderPass.h"
+
 #include "VulkanSwapchain.h"
 #include "VulkanDescriptor.h"
 
@@ -16,7 +16,6 @@ VulkanPipeline::VulkanPipeline(const VulkanPipelineCreateInfo* pipelineInfo)
 
 	// Tạo Graphics Pipeline với tất cả các cấu hình cần thiết.
 	CreateGraphicsPipeline(
-		pipelineInfo->renderPass,
 		pipelineInfo->swapchainHandles,
 		pipelineInfo->msaaSamples,
 		vertShaderModule,
@@ -106,7 +105,6 @@ void VulkanPipeline::CreatePipelineLayout(const std::vector<VulkanDescriptor*>& 
 }
 
 void VulkanPipeline::CreateGraphicsPipeline(
-	const VkRenderPass* renderPass,
 	const SwapchainHandles* swapchainHandles,
 	VkSampleCountFlagBits msaaSamples,
 	VkShaderModule vertShaderModule,
@@ -218,7 +216,20 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	// 9. Dynamic State: Không sử dụng dynamic state cho viewport và scissor nữa.
 	// pDynamicState được set là nullptr.
 
-	// 10. Tổng hợp và tạo Graphics Pipeline
+	// 10. Cấu hình Dynamic Rendering
+	// Thay vì gắn pipeline vào một VkRenderPass cố định, chúng ta cung cấp thông tin
+	// về định dạng của các attachment mà pipeline này sẽ render tới.
+	VkFormat colorFormat = swapchainHandles->swapchainSupportDetails.chosenFormat.format;
+	VkFormat depthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+
+	VkPipelineRenderingCreateInfo renderingCreatInfo{};
+	renderingCreatInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+	renderingCreatInfo.colorAttachmentCount = 1;
+	renderingCreatInfo.pColorAttachmentFormats = &colorFormat;
+	renderingCreatInfo.depthAttachmentFormat = depthStencilFormat;
+	renderingCreatInfo.stencilAttachmentFormat = depthStencilFormat;
+
+	// 11. Tổng hợp và tạo Graphics Pipeline
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineInfo.stageCount = 2;
@@ -232,8 +243,9 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = nullptr; // Không có state động
 	pipelineInfo.layout = m_Handles.pipelineLayout;
-	pipelineInfo.renderPass = *renderPass;
 	pipelineInfo.subpass = 0;
+	pipelineInfo.renderPass = nullptr;	 // Sử dụng Dynamic Rendering nên không cần.
+	pipelineInfo.pNext = &renderingCreatInfo; // Sử dụng Dynamic Rendering
 
 	VK_CHECK(vkCreateGraphicsPipelines(m_VulkanHandles.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Handles.pipeline), "LỖI: Tạo graphics pipeline thất bại!");
 }

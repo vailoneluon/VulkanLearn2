@@ -5,7 +5,7 @@ layout(location = 0) out vec4 outColor;
 
 layout(set = 0, binding = 0) uniform sampler2D sceneSampler;
 
-const float threshold = 2; 
+const float threshold = 0.8; 
 
 void main() {
     vec4 color = texture(sceneSampler, inUV);

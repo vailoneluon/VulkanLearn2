@@ -148,8 +148,8 @@ public:
 	 * @param levelCount Số lượng mipmap level áp dụng barrier (0 có nghĩa là tất cả các level từ baseMipLevel).
 	 */
 	static void TransitionLayout(
-		VkCommandBuffer& cmdBuffer,
-		VkImage& image,
+		const VkCommandBuffer& cmdBuffer,
+		const VkImage& image,
 		uint32_t totalMipLevels,
 		VkImageLayout oldLayout,
 		VkImageLayout newLayout,

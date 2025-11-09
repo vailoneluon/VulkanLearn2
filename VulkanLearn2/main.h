@@ -7,7 +7,7 @@
 // Giảm thiểu sự phụ thuộc vào các file header và tăng tốc độ biên dịch.
 class Window;
 class VulkanSwapchain;
-class VulkanRenderPass;
+
 class VulkanCommandManager;
 class VulkanSampler;
 class VulkanDescriptorManager;
@@ -19,7 +19,7 @@ class VulkanDescriptor;
 class RenderObject;
 class MeshManager;
 class TextureManager;
-class VulkanFrameBuffer;
+
 
 /**
  * @class Application
@@ -60,7 +60,7 @@ private:
 	// --- Thành phần Vulkan Cốt lõi ---
 	VulkanContext* m_VulkanContext;
 	VulkanSwapchain* m_VulkanSwapchain;
-	VulkanRenderPass* m_VulkanRenderPass;
+
 	VulkanSampler* m_VulkanSampler;
 
 	// --- Quản lý Tài nguyên Vulkan ---
@@ -70,18 +70,14 @@ private:
 	MeshManager* m_MeshManager;
 	TextureManager* m_TextureManager;
 
-	// --- Tài nguyên Render Pass & Framebuffer ---
-	// Framebuffers cho mỗi bước render
-	std::vector<VulkanFrameBuffer*> m_RTT_FrameBuffers;
-	std::vector<VulkanFrameBuffer*> m_Main_FrameBuffers;
-	std::vector<VulkanFrameBuffer*> m_Bright_FrameBuffers;
-	std::vector<VulkanFrameBuffer*> m_BlurH_FrameBuffers;
-	std::vector<VulkanFrameBuffer*> m_BlurV_FrameBuffers;
+	// --- Tài nguyên ảnh cho các bước render (Attachments) ---
 
-	// Images dùng làm attachment cho các Framebuffer
+
+	// Images dùng làm attachment cho các bước render
 	// - RTT Pass (Render-To-Texture)
-	VulkanImage* m_RTT_ColorImage;
-	VulkanImage* m_RTT_DepthStencilImage;
+	//VulkanImage* m_RTT_ColorImage;
+	std::vector<VulkanImage*> m_RTT_ColorImage;
+	std::vector<VulkanImage*> m_RTT_DepthStencilImage;
 	std::vector<VulkanImage*> m_SceneImages; // Kết quả của RTT pass, dùng làm input cho các pass sau
 	// - Main Pass
 	VulkanImage* m_Main_ColorImage;
@@ -131,7 +127,6 @@ private:
 
 	// --- Nhóm hàm khởi tạo ---
 	void CreateFrameBufferImages();
-	void CreateFrameBuffers();
 	void CreateUniformBuffers();
 	void CreateMainDescriptors();
 	void CreateBrightDescriptors();
@@ -147,7 +142,7 @@ private:
 	void DrawFrame();
 	void RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex);
 
-	// Các hàm con cho từng Render Pass
+	// Các hàm con cho từng bước render
 	void CmdDrawRTTRenderPass(const VkCommandBuffer& cmdBuffer);
 	void CmdDrawBrightRenderPass(const VkCommandBuffer& cmdBuffer);
 	void CmdDrawMainRenderPass(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex);

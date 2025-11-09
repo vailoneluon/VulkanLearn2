@@ -51,9 +51,6 @@
     <ClCompile Include="Core\VulkanImage.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="Core\VulkanRenderPass.cpp">
-      <Filter>Source Files\Core</Filter>
-    </ClCompile>
     <ClCompile Include="Core\VulkanCommandManager.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -99,9 +96,6 @@
     <ClCompile Include="Utils\vma.cpp">
       <Filter>Source Files\Utils</Filter>
     </ClCompile>
-    <ClCompile Include="Core\VulkanFrameBuffer.cpp">
-      <Filter>Source Files\Core</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Window.h">
@@ -120,9 +114,6 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="Core\VulkanImage.h">
-      <Filter>Header Files\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\VulkanRenderPass.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="Core\VulkanCommandManager.h">
@@ -169,9 +160,6 @@
     </ClInclude>
     <ClInclude Include="Scene\TextureManager.h">
       <Filter>Header Files\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\VulkanFrameBuffer.h">
-      <Filter>Header Files\Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
