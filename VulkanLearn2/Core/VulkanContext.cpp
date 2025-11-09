@@ -180,6 +180,12 @@ void VulkanContext::CreateLogicalDevice()
 	features.fillModeNonSolid = VK_TRUE; // Cho phép vẽ wireframe
 	features.samplerAnisotropy = VK_TRUE; // Cho phép lọc bất đẳng hướng
 
+	// Feature Cho Dynamic Rendering
+	// Feature không thuộc về physical như trên cần nối chuỗi qua pNext.
+	VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFT{};;
+	dynamicRenderingFT.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+	dynamicRenderingFT.dynamicRendering = true;
+
 	// Thông tin để tạo logical device.
 	VkDeviceCreateInfo deviceInfo{};
 	deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -188,6 +194,7 @@ void VulkanContext::CreateLogicalDevice()
 	deviceInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 	deviceInfo.pQueueCreateInfos = queueCreateInfos.data();
 	deviceInfo.pEnabledFeatures = &features;
+	deviceInfo.pNext = &dynamicRenderingFT;
 
 	VK_CHECK(vkCreateDevice(m_Handles.physicalDevice, &deviceInfo, nullptr, &m_Handles.device), "LỖI: Tạo logical device thất bại!");
 

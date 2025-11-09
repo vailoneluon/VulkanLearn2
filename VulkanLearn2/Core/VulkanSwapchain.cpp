@@ -154,20 +154,18 @@ void VulkanSwapchain::CreateSwapchain()
 
 void VulkanSwapchain::CreateSwapchainImageViews()
 {
-	std::vector<VkImage> swapchainImages;
-
 	// Lấy các handle của VkImage từ swapchain vừa tạo.
 	vkGetSwapchainImagesKHR(m_VulkanHandles.device, m_Handles.swapchain, &m_Handles.swapchainImageCount, nullptr);
-	swapchainImages.resize(m_Handles.swapchainImageCount);
+	m_Handles.swapchainImages.resize(m_Handles.swapchainImageCount);
 	m_Handles.swapchainImageViews.resize(m_Handles.swapchainImageCount);
-	vkGetSwapchainImagesKHR(m_VulkanHandles.device, m_Handles.swapchain, &m_Handles.swapchainImageCount, swapchainImages.data());
+	vkGetSwapchainImagesKHR(m_VulkanHandles.device, m_Handles.swapchain, &m_Handles.swapchainImageCount, m_Handles.swapchainImages.data());
 
 	// Tạo một VkImageView cho mỗi VkImage.
 	for (size_t i = 0; i < m_Handles.swapchainImageCount; i++)
 	{
 		VkImageViewCreateInfo imageViewInfo{};
 		imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		imageViewInfo.image = swapchainImages[i];
+		imageViewInfo.image = m_Handles.swapchainImages[i];
 		imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		imageViewInfo.format = m_Handles.swapchainSupportDetails.chosenFormat.format;
 

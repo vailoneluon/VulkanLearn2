@@ -28,6 +28,7 @@ struct SwapchainHandles
 	VkExtent2D swapChainExtent;
 
 	std::vector<VkImageView> swapchainImageViews;
+	std::vector<VkImage> swapchainImages;
 };
 
 // Class quản lý việc tạo và hủy một VkSwapchainKHR và các VkImageView tương ứng.

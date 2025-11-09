@@ -21,8 +21,12 @@ struct DescriptorManagerHandles
 class VulkanDescriptorManager
 {
 public:
-	VulkanDescriptorManager(const VulkanHandles& vulkanHandles, std::vector<VulkanDescriptor*>& vulkanDescriptors);
+	VulkanDescriptorManager(const VulkanHandles& vulkanHandles);
 	~VulkanDescriptorManager();
+
+	void AddDescriptors(const std::vector<VulkanDescriptor*>& descriptors);
+
+	void Finalize();
 
 	// Lấy các handle nội bộ.
 	const DescriptorManagerHandles& getHandles() const { return m_Handles; }
@@ -34,6 +38,7 @@ private:
 	// --- Dữ liệu nội bộ ---
 	DescriptorManagerHandles m_Handles;
 	// Map lưu tổng số lượng descriptor cần thiết cho mỗi loại.
+
 	std::unordered_map<VkDescriptorType, uint32_t> m_DescriptorCountByType;
 
 	// --- Hàm helper private ---

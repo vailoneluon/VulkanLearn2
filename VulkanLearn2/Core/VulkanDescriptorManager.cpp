@@ -3,15 +3,10 @@
 #include "VulkanDescriptor.h"
 
 
-VulkanDescriptorManager::VulkanDescriptorManager(const VulkanHandles& vulkanHandles, std::vector<VulkanDescriptor*>& vulkanDescriptors) :
+VulkanDescriptorManager::VulkanDescriptorManager(const VulkanHandles& vulkanHandles) :
 	m_VulkanHandles(vulkanHandles)
 {
-	// Sao chép danh sách các descriptor cần quản lý.
-	m_Handles.descriptors = vulkanDescriptors;
-
-	// Thực hiện các bước khởi tạo.
-	CreateDescriptorPool();
-	AllocateDescriptorSets();
+	
 }
 
 VulkanDescriptorManager::~VulkanDescriptorManager()
@@ -26,6 +21,18 @@ VulkanDescriptorManager::~VulkanDescriptorManager()
 	{
 		delete(descriptor);
 	}
+}
+
+void VulkanDescriptorManager::AddDescriptors(const std::vector<VulkanDescriptor*>& descriptors)
+{
+	m_Handles.descriptors.insert(m_Handles.descriptors.end(), descriptors.begin(), descriptors.end());
+}
+
+void VulkanDescriptorManager::Finalize()
+{
+	// Thực hiện các bước khởi tạo.
+	CreateDescriptorPool();
+	AllocateDescriptorSets();
 }
 
 void VulkanDescriptorManager::CreateDescriptorPool()
