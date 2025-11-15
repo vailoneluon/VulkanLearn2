@@ -12,13 +12,14 @@
 #include "Core/VulkanDescriptorManager.h"
 #include "Core/VulkanSampler.h"
 #include "Core/VulkanDescriptor.h"
-
+#include "Renderer/GeometryPass.h"
 
 #include "Utils/DebugTimer.h"
 #include <Scene/RenderObject.h>
 #include "Scene/MeshManager.h"
 #include "Scene/Model.h"
 #include "Scene/TextureManager.h"
+
 
 // =================================================================================================
 // SECTION 1: MAIN ENTRY POINT
@@ -88,6 +89,8 @@ Application::Application()
 	m_allDescriptors.insert(m_allDescriptors.end(), m_BlurVTextureDescriptors.begin(), m_BlurVTextureDescriptors.end());
 
 	m_VulkanDescriptorManager = new VulkanDescriptorManager(m_VulkanContext->getVulkanHandles(), m_allDescriptors);
+
+	CreateRenderPasses(); // Initialize GeometryPass
 
 	// 7. Tạo các graphics pipeline cho từng pass
 	CreatePipelines();
@@ -896,6 +899,27 @@ void Application::CreateFrameBufferImages()
 	{
 		m_TempBlurImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), SceneImageInfo, SceneImageViewInfo);
 	}
+}
+
+void Application::CreateRenderPasses()
+{
+	GeometryPassCreateInfo geometryInfo{};
+	geometryInfo.textureManager = m_TextureManager;
+	geometryInfo.meshManager = m_MeshManager;
+	geometryInfo.uboDescriptors = &m_RTT_UniformDescriptors;
+	geometryInfo.colorImages = &m_RTT_ColorImage;
+	geometryInfo.depthStencilImages = &m_RTT_DepthStencilImage;
+	geometryInfo.outputImage = &m_SceneImages;
+	geometryInfo.BackgroundColor = BACKGROUND_COLOR;
+	geometryInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
+	geometryInfo.renderObjects = &m_RenderObjects;
+	geometryInfo.pushConstantData = &m_PushConstantData;
+	geometryInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
+	geometryInfo.MSAA_SAMPLES = MSAA_SAMPLES;
+	geometryInfo.fragShaderFilePath = "Shaders/RTT_Shader.frag.spv";
+	geometryInfo.vertShaderFilePath = "Shaders/RTT_Shader.vert.spv";
+
+	m_GeometryPass = new GeometryPass(geometryInfo);
 }
 
 // --- 5.2: Buffers & Descriptors ---

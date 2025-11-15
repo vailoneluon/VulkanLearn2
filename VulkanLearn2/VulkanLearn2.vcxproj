@@ -35,6 +35,10 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Renderer\BlurPass.cpp" />
+    <ClCompile Include="Renderer\BrightFilterPass.cpp" />
+    <ClCompile Include="Renderer\CompositePass.cpp" />
+    <ClCompile Include="Renderer\GeometryPass.cpp" />
     <ClCompile Include="Scene\MeshManager.cpp" />
     <ClCompile Include="Scene\Model.cpp" />
     <ClCompile Include="Scene\RenderObject.cpp" />
@@ -64,6 +68,11 @@
     <ClInclude Include="Core\Window.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Renderer\BlurPass.h" />
+    <ClInclude Include="Renderer\BrightFilterPass.h" />
+    <ClInclude Include="Renderer\CompositePass.h" />
+    <ClInclude Include="Renderer\GeometryPass.h" />
+    <ClInclude Include="Renderer\IRenderPass.h" />
     <ClInclude Include="Scene\MeshManager.h" />
     <ClInclude Include="Scene\Model.h" />
     <ClInclude Include="Scene\RenderObject.h" />

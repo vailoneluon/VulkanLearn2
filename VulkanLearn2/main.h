@@ -19,6 +19,7 @@ class VulkanDescriptor;
 class RenderObject;
 class MeshManager;
 class TextureManager;
+class GeometryPass;
 
 
 /**
@@ -123,9 +124,13 @@ private:
 
 	PushConstantData m_PushConstantData; // Struct chứa dữ liệu cho Push Constants (Model Matrix, Texture ID)
 
+
+	GeometryPass* m_GeometryPass;
+
 	// --- Các hàm Private ---
 
 	// --- Nhóm hàm khởi tạo ---
+	void CreateRenderPasses();
 	void CreateFrameBufferImages();
 	void CreateUniformBuffers();
 	void CreateMainDescriptors();
