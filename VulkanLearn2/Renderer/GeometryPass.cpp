@@ -25,70 +25,25 @@ GeometryPass::~GeometryPass()
 	delete(m_Handles.pipeline);
 }
 
-void GeometryPass::Execute(VkCommandBuffer* cmdBuffer, uint32_t imageIndex, uint32_t currentFrame)
-{
-	vkCmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Handles.pipeline->getHandles().pipeline);
-	CmdDrawScene(*cmdBuffer, currentFrame);
-}
-
-void GeometryPass::CreateDescriptor()
-{
-	m_Handles.descriptors.push_back(m_UboDescriptors->at(0));
-	m_Handles.descriptors.push_back(m_TextureDescriptors);
-}
-
-void GeometryPass::CreatePipeline(const GeometryPassCreateInfo& geometryInfo)
-{
-	VulkanPipelineCreateInfo pipelineInfo{};
-	pipelineInfo.descriptors = &m_Handles.descriptors;
-	pipelineInfo.msaaSamples = geometryInfo.MSAA_SAMPLES;
-	pipelineInfo.vulkanHandles = geometryInfo.vulkanHandles;
-	pipelineInfo.useVertexInput = true;
-	pipelineInfo.swapchainHandles = geometryInfo.vulkanSwapchainHandles;
-	pipelineInfo.fragmentShaderFilePath = geometryInfo.fragShaderFilePath;
-	pipelineInfo.vertexShaderFilePath = geometryInfo.vertShaderFilePath;
-
-	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
-}
-
-void GeometryPass::BindDescriptors(VkCommandBuffer* cmdBuffer, uint32_t currentFrame)
-{
-	vkCmdBindDescriptorSets(
-		*cmdBuffer, 
-		VK_PIPELINE_BIND_POINT_GRAPHICS, m_Handles.pipeline->getHandles().pipelineLayout,
-		m_TextureDescriptors->getSetIndex(), 1,
-		&m_TextureDescriptors->getHandles().descriptorSet,
-		0, nullptr
-	);
-
-	vkCmdBindDescriptorSets(
-		*cmdBuffer, 
-		VK_PIPELINE_BIND_POINT_GRAPHICS, m_Handles.pipeline->getHandles().pipelineLayout,
-		(*m_UboDescriptors)[currentFrame]->getSetIndex(), 1,
-		&(*m_UboDescriptors)[currentFrame]->getHandles().descriptorSet,
-		0, nullptr
-	);
-}
-
-void GeometryPass::CmdDrawScene(VkCommandBuffer cmdBuffer, uint32_t currentFrame)
+void GeometryPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex, uint32_t currentFrame)
 {
 	// Transition Layout trước khi BeginRendering vì không còn Dependency quản lý.
 	VulkanImage::TransitionLayout(
-		cmdBuffer, (*m_ColorImages)[currentFrame]->GetHandles().image, 1,
+		*cmdBuffer, (*m_ColorImages)[currentFrame]->GetHandles().image, 1,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 		0, 0);
 
 	VulkanImage::TransitionLayout(
-		cmdBuffer, (*m_DepthStencilImages)[currentFrame]->GetHandles().image, 1,
+		*cmdBuffer, (*m_DepthStencilImages)[currentFrame]->GetHandles().image, 1,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
 		0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
 		0, 0);
 
 	VulkanImage::TransitionLayout(
-		cmdBuffer, (*m_OutputImage)[currentFrame]->GetHandles().image, 1,
+		*cmdBuffer, (*m_OutputImage)[currentFrame]->GetHandles().image, 1,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -126,31 +81,71 @@ void GeometryPass::CmdDrawScene(VkCommandBuffer cmdBuffer, uint32_t currentFrame
 	renderingInfo.renderArea.offset = { 0, 0 };
 	renderingInfo.viewMask = 0;
 
-	vkCmdBeginRendering(cmdBuffer, &renderingInfo);
+	vkCmdBeginRendering(*cmdBuffer, &renderingInfo);
 
 
 	// Bind pipeline
-	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Handles.pipeline->getHandles().pipeline);
+	vkCmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Handles.pipeline->getHandles().pipeline);
 
 	// Bind global vertex/index buffer
 	VkDeviceSize offset = 0;
-	vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_MeshManager->getVertexBuffer(), &offset);
-	vkCmdBindIndexBuffer(cmdBuffer, m_MeshManager->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindVertexBuffers(*cmdBuffer, 0, 1, &m_MeshManager->getVertexBuffer(), &offset);
+	vkCmdBindIndexBuffer(*cmdBuffer, m_MeshManager->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-	BindDescriptors(&cmdBuffer, currentFrame);
+	BindDescriptors(cmdBuffer, currentFrame);
 
 	// Ghi lệnh vẽ
-	DrawSceneObject(cmdBuffer);
+	DrawSceneObject(*cmdBuffer);
 
-	vkCmdEndRendering(cmdBuffer);
+	vkCmdEndRendering(*cmdBuffer);
 
 	VulkanImage::TransitionLayout(
-		cmdBuffer, (*m_OutputImage)[currentFrame]->GetHandles().image, 1,
+		*cmdBuffer, (*m_OutputImage)[currentFrame]->GetHandles().image, 1,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 		0, 0);
 }
+
+void GeometryPass::CreateDescriptor()
+{
+	m_Handles.descriptors.insert(m_Handles.descriptors.end(), m_UboDescriptors->begin(), m_UboDescriptors->end());
+	m_Handles.descriptors.push_back(m_TextureDescriptors);
+}
+
+void GeometryPass::CreatePipeline(const GeometryPassCreateInfo& geometryInfo)
+{
+	VulkanPipelineCreateInfo pipelineInfo{};
+	pipelineInfo.descriptors = &m_Handles.descriptors;
+	pipelineInfo.msaaSamples = geometryInfo.MSAA_SAMPLES;
+	pipelineInfo.vulkanHandles = geometryInfo.vulkanHandles;
+	pipelineInfo.useVertexInput = true;
+	pipelineInfo.swapchainHandles = geometryInfo.vulkanSwapchainHandles;
+	pipelineInfo.fragmentShaderFilePath = geometryInfo.fragShaderFilePath;
+	pipelineInfo.vertexShaderFilePath = geometryInfo.vertShaderFilePath;
+
+	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
+}
+
+void GeometryPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t currentFrame)
+{
+	vkCmdBindDescriptorSets(
+		*cmdBuffer, 
+		VK_PIPELINE_BIND_POINT_GRAPHICS, m_Handles.pipeline->getHandles().pipelineLayout,
+		m_TextureDescriptors->getSetIndex(), 1,
+		&m_TextureDescriptors->getHandles().descriptorSet,
+		0, nullptr
+	);
+
+	vkCmdBindDescriptorSets(
+		*cmdBuffer, 
+		VK_PIPELINE_BIND_POINT_GRAPHICS, m_Handles.pipeline->getHandles().pipelineLayout,
+		(*m_UboDescriptors)[currentFrame]->getSetIndex(), 1,
+		&(*m_UboDescriptors)[currentFrame]->getHandles().descriptorSet,
+		0, nullptr
+	);
+}
+
 
 void GeometryPass::DrawSceneObject(VkCommandBuffer cmdBuffer)
 {
@@ -163,7 +158,7 @@ void GeometryPass::DrawSceneObject(VkCommandBuffer cmdBuffer)
 			m_PushConstantData->model = renderObject->GetModelMatrix();
 			m_PushConstantData->textureId = mesh->textureId;
 
-			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(m_PushConstantData), &m_PushConstantData);
+			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), m_PushConstantData);
 
 			// Vẽ mesh
 			vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);

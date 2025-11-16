@@ -2,6 +2,9 @@
 
 #include "Core/VulkanContext.h"
 #include "Utils/ModelLoader.h"
+#include "Renderer/BrightFilterPass.h"
+#include "Renderer/CompositePass.h"
+#include "Renderer/BlurPass.h"
 
 // --- Khai báo sớm (Forward Declarations) ---
 // Giảm thiểu sự phụ thuộc vào các file header và tăng tốc độ biên dịch.
@@ -88,12 +91,6 @@ private:
 	// - Blur Pass
 	std::vector<VulkanImage*> m_TempBlurImages; // Image tạm thời cho bước blur ngang
 
-	// --- Pipelines ---
-	VulkanPipeline* m_RTTVulkanPipeline;
-	VulkanPipeline* m_MainVulkanPipeline;
-	VulkanPipeline* m_BrightVulkanPipeline;
-	VulkanPipeline* m_BlurHVulkanPipeline;
-	VulkanPipeline* m_BlurVVulkanPipeline;
 
 	// --- Dữ liệu Scene ---
 	RenderObject* m_BunnyGirl;
@@ -105,19 +102,14 @@ private:
 	std::vector<VulkanBuffer*> m_RTT_UniformBuffers; // Uniform buffers cho mỗi frame-in-flight
 
 	// Descriptors cho các pipeline khác nhau
-	std::vector<VulkanDescriptor*> m_RTTPipelineDescriptors;
 	std::vector<VulkanDescriptor*> m_RTT_UniformDescriptors;
 
-	std::vector<VulkanDescriptor*> m_MainPipelineDescriptors;
 	std::vector<VulkanDescriptor*> m_MainTextureDescriptors;
 
-	std::vector<VulkanDescriptor*> m_BrightPipelineDescriptors;
 	std::vector<VulkanDescriptor*> m_BrightTextureDescriptors;
 
-	std::vector<VulkanDescriptor*> m_BlurHPipelineDescriptors;
 	std::vector<VulkanDescriptor*> m_BlurHTextureDescriptors;
 
-	std::vector<VulkanDescriptor*> m_BlurVPipelineDescriptors;
 	std::vector<VulkanDescriptor*> m_BlurVTextureDescriptors;
 
 	std::vector<VulkanDescriptor*> m_allDescriptors; // Tổng hợp tất cả descriptors để quản lý
@@ -126,6 +118,11 @@ private:
 
 
 	GeometryPass* m_GeometryPass;
+	BrightFilterPass* m_BrightFilterPass;
+	CompositePass* m_CompositePass;
+	BlurPass* m_BlurHPass;
+	BlurPass* m_BlurVPass;
+
 
 	// --- Các hàm Private ---
 
@@ -137,7 +134,6 @@ private:
 	void CreateBrightDescriptors();
 	void CreateBlurHDescriptors();
 	void CreateBlurVDescriptors();
-	void CreatePipelines();
 
 	// --- Nhóm hàm cập nhật mỗi frame ---
 	void UpdateRTT_Uniforms();
@@ -147,24 +143,4 @@ private:
 	void DrawFrame();
 	void RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex);
 
-	// Các hàm con cho từng bước render
-	void CmdDrawRTTRenderPass(const VkCommandBuffer& cmdBuffer);
-	void CmdDrawBrightRenderPass(const VkCommandBuffer& cmdBuffer);
-	void CmdDrawMainRenderPass(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex);
-	void CmdDrawBlurHRenderPass(const VkCommandBuffer& cmdBuffer);
-	void CmdDrawBlurVRenderPass(const VkCommandBuffer& cmdBuffer);
-
-	// Các hàm con thực hiện lệnh vẽ
-	void CmdDrawRTTRenderObjects(const VkCommandBuffer& cmdBuffer);
-	void CmdDrawBright(const VkCommandBuffer& cmdBuffer);
-	void CmdDrawMain(const VkCommandBuffer& cmdBuffer);
-	void CmdDrawBlurH(const VkCommandBuffer& cmdBuffer);
-	void CmdDrawBlurV(const VkCommandBuffer& cmdBuffer);
-
-	// Các hàm con thực hiện bind descriptor sets
-	void BindRTTDescriptorSets(const VkCommandBuffer& cmdBuffer);
-	void BindMainDescriptorSets(const VkCommandBuffer& cmdBuffer);
-	void BindBrightDescriptorSets(const VkCommandBuffer& cmdBuffer);
-	void BindBlurHDescriptorSets(const VkCommandBuffer& cmdBuffer);
-	void BindBlurVDescriptorSets(const VkCommandBuffer& cmdBuffer);
 };

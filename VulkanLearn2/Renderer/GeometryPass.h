@@ -44,7 +44,9 @@ public:
 	GeometryPass(const GeometryPassCreateInfo& geometryInfo);
 	~GeometryPass();
 
-	void Execute(VkCommandBuffer* cmdBuffer, uint32_t imageIndex, uint32_t currentFrame) override;
+	const GeometryPassHandles& GetHandles() const { return m_Handles; }
+
+	void Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex, uint32_t currentFrame) override;
 
 private:
 	GeometryPassHandles m_Handles;
@@ -65,7 +67,6 @@ private:
 	void CreateDescriptor();
 	void CreatePipeline(const GeometryPassCreateInfo& geometryInfo);
 
-	void BindDescriptors(VkCommandBuffer* cmdBuffer, uint32_t currentFrame);
-	void CmdDrawScene(VkCommandBuffer cmdBuffer, uint32_t currentFrame);
+	void BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t currentFrame);
 	void DrawSceneObject(VkCommandBuffer cmdBuffer);
 };
