@@ -1,16 +1,16 @@
 #pragma once
 
-#include "Core/VulkanContext.h"
-#include "Utils/ModelLoader.h"
-#include "Renderer/BrightFilterPass.h"
-#include "Renderer/CompositePass.h"
-#include "Renderer/BlurPass.h"
-
 // --- Khai báo sớm (Forward Declarations) ---
 // Giảm thiểu sự phụ thuộc vào các file header và tăng tốc độ biên dịch.
-class Window;
-class VulkanSwapchain;
 
+// Structs
+struct UniformBufferObject;
+struct PushConstantData;
+
+// Classes
+class Window;
+class VulkanContext;
+class VulkanSwapchain;
 class VulkanCommandManager;
 class VulkanSampler;
 class VulkanDescriptorManager;
@@ -23,6 +23,9 @@ class RenderObject;
 class MeshManager;
 class TextureManager;
 class GeometryPass;
+class BrightFilterPass;
+class CompositePass;
+class BlurPass;
 
 
 /**
@@ -48,92 +51,90 @@ public:
 	void Loop();
 
 private:
-	// --- Hằng số & Cấu hình ---
+	// =================================================================================================
+	// SECTION: CẤU HÌNH VÀ TRẠNG THÁI
+	// =================================================================================================
+	
+	// --- Hằng số Cấu hình ---
 	const uint32_t WINDOW_WIDTH = 800;
 	const uint32_t WINDOW_HEIGHT = 600;
 	const VkClearColorValue BACKGROUND_COLOR = { 0.1f, 0.1f, 0.2f, 1.0f };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_4_BIT; // Mức độ khử răng cưa (MSAA)
-	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double buffering)
+	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)
 
 	// --- Trạng thái Ứng dụng ---
-	int m_CurrentFrame = 0; // Index của frame hiện tại đang được xử lý
+	int m_CurrentFrame = 0; // Index của frame hiện tại đang được xử lý (từ 0 đến MAX_FRAMES_IN_FLIGHT - 1)
 
-	// --- Quản lý Cửa sổ ---
+	// =================================================================================================
+	// SECTION: CÁC ĐỐI TƯỢNG QUẢN LÝ CỐT LÕI
+	// =================================================================================================
+
+	// --- Quản lý Cửa sổ & Vulkan Core ---
 	Window* m_Window;
-
-	// --- Thành phần Vulkan Cốt lõi ---
 	VulkanContext* m_VulkanContext;
 	VulkanSwapchain* m_VulkanSwapchain;
-
 	VulkanSampler* m_VulkanSampler;
 
-	// --- Quản lý Tài nguyên Vulkan ---
+	// --- Quản lý Tài nguyên & Đồng bộ hóa ---
 	VulkanCommandManager* m_VulkanCommandManager;
 	VulkanSyncManager* m_VulkanSyncManager;
 	VulkanDescriptorManager* m_VulkanDescriptorManager;
 	MeshManager* m_MeshManager;
 	TextureManager* m_TextureManager;
 
-	// --- Tài nguyên ảnh cho các bước render (Attachments) ---
+	// =================================================================================================
+	// SECTION: TÀI NGUYÊN RENDER (FRAMEBUFFER ATTACHMENTS)
+	// =================================================================================================
+	// Các ảnh (VulkanImage) này đóng vai trò là các attachment (đầu ra) cho các render pass.
+	// Chúng được tạo cho mỗi frame-in-flight để tránh xung đột dữ liệu.
 
+	// --- Geometry Pass (Vẽ scene 3D) ---
+	std::vector<VulkanImage*> m_RTT_ColorImage;			// Attachment màu (MSAA) để vẽ scene 3D.
+	std::vector<VulkanImage*> m_RTT_DepthStencilImage;	// Attachment depth/stencil (MSAA) cho Geometry Pass.
+	std::vector<VulkanImage*> m_SceneImages;			// Kết quả sau khi resolve MSAA từ Geometry Pass. Đây là input cho các bước post-processing.
 
-	// Images dùng làm attachment cho các bước render
-	// - RTT Pass (Render-To-Texture)
-	//VulkanImage* m_RTT_ColorImage;
-	std::vector<VulkanImage*> m_RTT_ColorImage;
-	std::vector<VulkanImage*> m_RTT_DepthStencilImage;
-	std::vector<VulkanImage*> m_SceneImages; // Kết quả của RTT pass, dùng làm input cho các pass sau
-	// - Main Pass
-	VulkanImage* m_Main_ColorImage;
-	VulkanImage* m_Main_DepthStencilImage;
-	// - Bright Pass
-	std::vector<VulkanImage*> m_BrightImages;	// Kết quả của Bright pass, chứa các vùng sáng
-	// - Blur Pass
-	std::vector<VulkanImage*> m_TempBlurImages; // Image tạm thời cho bước blur ngang
+	// --- Composite Pass (Tổng hợp cuối cùng) ---
+	VulkanImage* m_Main_ColorImage;						// Attachment màu (MSAA) cho Composite Pass.
+	VulkanImage* m_Main_DepthStencilImage;				// Attachment depth/stencil (MSAA) cho Composite Pass.
 
+	// --- Post-Processing (Bloom Effect) ---
+	std::vector<VulkanImage*> m_BrightImages;			// Chứa các vùng sáng được lọc từ m_SceneImages. Cũng là output của bước blur dọc.
+	std::vector<VulkanImage*> m_TempBlurImages;			// Image tạm, là output của bước blur ngang và input cho bước blur dọc.
+
+	// =================================================================================================
+	// SECTION: DỮ LIỆU SCENE VÀ SHADER
+	// =================================================================================================
 
 	// --- Dữ liệu Scene ---
 	RenderObject* m_BunnyGirl;
 	RenderObject* m_Swimsuit;
-	std::vector<RenderObject*> m_RenderObjects; // Danh sách các đối tượng cần render
+	std::vector<RenderObject*> m_RenderObjects;			// Danh sách tất cả các đối tượng cần được render trong scene.
 
-	// --- Descriptors & Dữ liệu Shader ---
-	UniformBufferObject m_RTT_Ubo{}; // Struct chứa dữ liệu cho Uniform Buffer (View/Projection Matrix)
-	std::vector<VulkanBuffer*> m_RTT_UniformBuffers; // Uniform buffers cho mỗi frame-in-flight
+	// --- Dữ liệu cho Shader ---
+	UniformBufferObject m_RTT_Ubo{};					// Struct chứa dữ liệu cho Uniform Buffer (ma trận View, Projection).
+	std::vector<VulkanBuffer*> m_RTT_UniformBuffers;	// Các uniform buffer cho camera, một buffer cho mỗi frame-in-flight.
+	PushConstantData m_PushConstantData;				// Struct chứa dữ liệu cho Push Constants (ma trận Model, Texture ID).
 
-	// Descriptors cho các pipeline khác nhau
-	std::vector<VulkanDescriptor*> m_RTT_UniformDescriptors;
+	// =================================================================================================
+	// SECTION: CÁC RENDER PASS
+	// =================================================================================================
+	// Mỗi pass là một bước trong chuỗi render pipeline.
 
-	std::vector<VulkanDescriptor*> m_MainTextureDescriptors;
+	GeometryPass* m_GeometryPass;			// Pass 1: Vẽ các đối tượng 3D vào một texture (render-to-texture).
+	BrightFilterPass* m_BrightFilterPass;	// Pass 2: Lọc ra các vùng có độ sáng cao từ kết quả của Geometry Pass.
+	BlurPass* m_BlurHPass;					// Pass 3: Áp dụng hiệu ứng mờ theo chiều ngang (Horizontal Blur).
+	BlurPass* m_BlurVPass;					// Pass 4: Áp dụng hiệu ứng mờ theo chiều dọc (Vertical Blur).
+	CompositePass* m_CompositePass;			// Pass 5: Tổng hợp kết quả của Geometry Pass và các bước blur để tạo ra ảnh cuối cùng và hiển thị lên màn hình.
 
-	std::vector<VulkanDescriptor*> m_BrightTextureDescriptors;
+	// =================================================================================================
+	// SECTION: CÁC HÀM HELPER
+	// =================================================================================================
 
-	std::vector<VulkanDescriptor*> m_BlurHTextureDescriptors;
-
-	std::vector<VulkanDescriptor*> m_BlurVTextureDescriptors;
-
-	std::vector<VulkanDescriptor*> m_allDescriptors; // Tổng hợp tất cả descriptors để quản lý
-
-	PushConstantData m_PushConstantData; // Struct chứa dữ liệu cho Push Constants (Model Matrix, Texture ID)
-
-
-	GeometryPass* m_GeometryPass;
-	BrightFilterPass* m_BrightFilterPass;
-	CompositePass* m_CompositePass;
-	BlurPass* m_BlurHPass;
-	BlurPass* m_BlurVPass;
-
-
-	// --- Các hàm Private ---
-
+private:
 	// --- Nhóm hàm khởi tạo ---
 	void CreateRenderPasses();
 	void CreateFrameBufferImages();
 	void CreateUniformBuffers();
-	void CreateMainDescriptors();
-	void CreateBrightDescriptors();
-	void CreateBlurHDescriptors();
-	void CreateBlurVDescriptors();
 
 	// --- Nhóm hàm cập nhật mỗi frame ---
 	void UpdateRTT_Uniforms();
@@ -142,5 +143,4 @@ private:
 	// --- Nhóm hàm vẽ và ghi command buffer ---
 	void DrawFrame();
 	void RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex);
-
 };

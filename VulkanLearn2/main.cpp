@@ -2,9 +2,9 @@
 #include "main.h"
 
 #include "Core/Window.h"
+#include "Core/VulkanContext.h"
 #include "Core/VulkanSwapchain.h"
 #include "Core/VulkanImage.h"
-
 #include "Core/VulkanCommandManager.h"
 #include "Core/VulkanPipeline.h"
 #include "Core/VulkanSyncManager.h"
@@ -13,8 +13,11 @@
 #include "Core/VulkanSampler.h"
 #include "Core/VulkanDescriptor.h"
 #include "Renderer/GeometryPass.h"
-
+#include "Renderer/BrightFilterPass.h"
+#include "Renderer/CompositePass.h"
+#include "Renderer/BlurPass.h"
 #include "Utils/DebugTimer.h"
+#include "Utils/ModelLoader.h"
 #include <Scene/RenderObject.h>
 #include "Scene/MeshManager.h"
 #include "Scene/Model.h"
@@ -22,7 +25,7 @@
 
 
 // =================================================================================================
-// SECTION 1: MAIN ENTRY POINT
+// SECTION 1: ĐIỂM VÀO CHÍNH (MAIN ENTRY POINT)
 // =================================================================================================
 
 /**
@@ -36,37 +39,39 @@ int main()
 }
 
 // =================================================================================================
-// SECTION 2: APPLICATION CLASS - PUBLIC INTERFACE (CONSTRUCTOR / DESTRUCTOR / MAIN LOOP)
+// SECTION 2: LỚP APPLICATION - GIAO DIỆN CÔNG KHAI (CONSTRUCTOR / DESTRUCTOR / MAIN LOOP)
 // =================================================================================================
 
 /**
  * @brief Constructor: Khởi tạo toàn bộ ứng dụng Vulkan.
- * Thiết lập cửa sổ, context Vulkan, swapchain, các chuỗi pipeline render, và tất cả các tài nguyên
- * cần thiết cho việc render (pipelines, buffers, descriptors, scene objects).
+ * Tuần tự thực hiện các bước thiết lập cốt lõi:
+ * 1. Tạo cửa sổ và các thành phần Vulkan cơ bản (Context, Swapchain, Sampler...).
+ * 2. Tạo các tài nguyên framebuffer (ảnh attachments) cho các render pass.
+ * 3. Tạo uniform buffers cho dữ liệu shader (ví dụ: camera).
+ * 4. Tải dữ liệu scene (model, texture).
+ * 5. Tạo các render pass (Geometry, Post-processing).
+ * 6. Hoàn tất việc thiết lập descriptors và các đối tượng đồng bộ hóa.
+ * 7. Tải dữ liệu hình học (mesh) lên GPU.
  */
 Application::Application()
 {
-	// --- Giai đoạn 1: Khởi tạo Cửa sổ & Vulkan Core ---
-	// 1. Tạo cửa sổ
+	// --- 1. KHỞI TẠO CÁC THÀNH PHẦN CỐT LÕI ---
 	m_Window = new Window(WINDOW_WIDTH, WINDOW_HEIGHT, "ZOLCOL VULKAN");
-
-	// 2. Khởi tạo các thành phần Vulkan cốt lõi
 	m_VulkanContext = new VulkanContext(m_Window->getGLFWWindow(), m_Window->getInstanceExtensionsRequired());
 	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow());
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
 
+	// --- 2. TẠO TÀI NGUYÊN FRAMEBUFFER (ATTACHMENTS) ---
+	// Tạo các ảnh (VulkanImage) sẽ được dùng làm đầu ra cho các render pass.
 	CreateFrameBufferImages();
 
-	// 4. Tạo uniform buffers và descriptors cho từng frame-in-flight
-	CreateUniformBuffers();		// Cho RTT pass (Camera)
-	CreateMainDescriptors();	// Cho Main pass (Composite)
-	CreateBrightDescriptors();	// Cho Bright pass (Trích xuất vùng sáng)
-	CreateBlurHDescriptors();	// Cho Blur Horizontal pass
-	CreateBlurVDescriptors();	// Cho Blur Vertical pass
+	// --- 3. TẠO TÀI NGUYÊN CHO SHADER ---
+	// Tạo uniform buffers để chứa dữ liệu camera (view, projection).
+	CreateUniformBuffers();
 
-	// --- Giai đoạn 3: Tải Scene & Hoàn tất Thiết lập ---
-	// 5. Tạo các manager cho scene và tải object
+	// --- 4. TẢI DỮ LIỆU SCENE ---
+	// Khởi tạo các manager và tải các model, texture từ file.
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
 	m_TextureManager = new TextureManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler->getSampler());
 
@@ -77,58 +82,63 @@ Application::Application()
 	m_RenderObjects.push_back(m_BunnyGirl);
 	m_RenderObjects.push_back(m_Swimsuit);
 
-	// Hoàn tất việc tải texture (upload lên GPU) và lấy descriptor texture
+	// Hoàn tất việc tải texture: upload dữ liệu ảnh lên GPU và tạo descriptor set cho texture.
 	m_TextureManager->FinalizeSetup();
 
-	CreateRenderPasses(); // Initialize GeometryPass
+	// --- 5. TẠO CÁC RENDER PASS ---
+	// Khởi tạo các đối tượng cho từng bước trong chuỗi render (Geometry, Bright, Blur, Composite).
+	CreateRenderPasses();
 
-	// 6. Tập hợp tất cả descriptor layouts để tạo pipeline layout
-	m_allDescriptors.insert(m_allDescriptors.end(), m_GeometryPass->GetHandles().descriptors.begin(), m_GeometryPass->GetHandles().descriptors.end());
-	m_allDescriptors.insert(m_allDescriptors.end(), m_BrightFilterPass->GetHandles().descriptors.begin(), m_BrightFilterPass->GetHandles().descriptors.end());
-	m_allDescriptors.insert(m_allDescriptors.end(), m_BlurHPass->GetHandles().descriptors.begin(), m_BlurHPass->GetHandles().descriptors.end());
-	m_allDescriptors.insert(m_allDescriptors.end(), m_BlurVPass->GetHandles().descriptors.begin(), m_BlurVPass->GetHandles().descriptors.end());
-	m_allDescriptors.insert(m_allDescriptors.end(), m_CompositePass->GetHandles().descriptors.begin(), m_CompositePass->GetHandles().descriptors.end());
+	// --- 6. HOÀN TẤT DESCRIPTORS VÀ ĐỒNG BỘ HÓA ---
+	// Tổng hợp tất cả các descriptor từ các pass và tạo descriptor pool.
+	m_VulkanDescriptorManager = new VulkanDescriptorManager(m_VulkanContext->getVulkanHandles());
+	m_VulkanDescriptorManager->AddDescriptors(m_GeometryPass->GetHandles().descriptors);
+	m_VulkanDescriptorManager->AddDescriptors(m_BrightFilterPass->GetHandles().descriptors);
+	m_VulkanDescriptorManager->AddDescriptors(m_BlurHPass->GetHandles().descriptors);
+	m_VulkanDescriptorManager->AddDescriptors(m_BlurVPass->GetHandles().descriptors);
+	m_VulkanDescriptorManager->AddDescriptors(m_CompositePass->GetHandles().descriptors);
+	m_VulkanDescriptorManager->Finalize(); // Tạo pool và cấp phát các set.
 
-
-	m_VulkanDescriptorManager = new VulkanDescriptorManager(m_VulkanContext->getVulkanHandles(), m_allDescriptors);
-
-	// 8. Tạo các đối tượng đồng bộ (semaphores, fences)
+	// Tạo các đối tượng đồng bộ (semaphores, fences) để điều phối vòng lặp render.
 	m_VulkanSyncManager = new VulkanSyncManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT, m_VulkanSwapchain->getHandles().swapchainImageCount);
 
-	// 9. Hoàn tất việc tạo buffer cho mesh (upload lên GPU)
+	// --- 7. TẢI DỮ LIỆU LÊN GPU ---
+	// Sau khi tất cả các mesh đã được xử lý, tạo và tải dữ liệu vào vertex/index buffer trên GPU.
 	m_MeshManager->CreateBuffers();
 }
 
 /**
  * @brief Destructor: Dọn dẹp tất cả tài nguyên đã cấp phát.
- * Phải đảm bảo đợi GPU hoàn thành trước khi giải phóng tài nguyên.
- * Thứ tự dọn dẹp rất quan trọng, thường là ngược lại với thứ tự tạo.
+ * Phải đảm bảo đợi GPU hoàn thành mọi tác vụ trước khi giải phóng tài nguyên.
+ * Thứ tự dọn dẹp rất quan trọng, thường là ngược lại với thứ tự tạo để tránh lỗi phụ thuộc.
  */
 Application::~Application()
 {
-	// Đợi GPU hoàn thành mọi tác vụ trước khi dọn dẹp
+	// Đảm bảo GPU đã thực thi xong tất cả các lệnh trước khi bắt đầu hủy tài nguyên.
 	vkDeviceWaitIdle(m_VulkanContext->getVulkanHandles().device);
 
-	// 1. Pipelines (Phụ thuộc vào DescriptorManager)
+	// 1. Giải phóng các Render Pass.
 	delete(m_GeometryPass);
 	delete(m_BrightFilterPass);
 	delete(m_BlurVPass);
 	delete(m_BlurHPass);
 	delete(m_CompositePass);
-	// 2. Managers (Quản lý các tài nguyên Vulkan khác)
+
+	// 2. Giải phóng các Manager.
+	// DescriptorManager phải được hủy trước các tài nguyên mà nó quản lý (như uniform buffers, images).
 	delete(m_VulkanDescriptorManager);
 	delete(m_VulkanSyncManager);
 	delete(m_VulkanCommandManager);
 	delete(m_MeshManager);
 	delete(m_TextureManager);
 
-	// 3. Buffers (Uniform buffers)
+	// 3. Giải phóng Buffers (ví dụ: uniform buffers).
 	for (auto& uniformBuffer : m_RTT_UniformBuffers)
 	{
 		delete(uniformBuffer);
 	}
 
-	// 5. Images (Các attachment của Framebuffer)
+	// 4. Giải phóng Images (các attachment của framebuffer).
 	for (auto& image : m_TempBlurImages)
 	{
 		delete(image);
@@ -152,25 +162,24 @@ Application::~Application()
 	delete(m_Main_DepthStencilImage);
 	delete(m_Main_ColorImage);
 
-	// 6. Scene Objects (Phụ thuộc vào Mesh/Texture Managers)
+	// 5. Giải phóng các đối tượng trong Scene.
 	for (auto& renderObject : m_RenderObjects)
 	{
 		delete(renderObject);
 	}
 
-	// 7. Core Vulkan Objects (Các thành phần cơ bản)
+	// 6. Giải phóng các thành phần Vulkan cốt lõi.
 	delete(m_VulkanSampler);
-
 	delete(m_VulkanSwapchain);
-	delete(m_VulkanContext); // Context phải được xóa gần cuối
+	delete(m_VulkanContext); // Context phải được xóa gần cuối cùng vì nhiều đối tượng khác phụ thuộc vào nó.
 
-	// 8. Window (Xóa cuối cùng)
+	// 7. Giải phóng cửa sổ.
 	delete(m_Window);
 }
 
 /**
  * @brief Vòng lặp chính của ứng dụng.
- * Liên tục xử lý sự kiện cửa sổ và gọi hàm DrawFrame cho đến khi cửa sổ đóng.
+ * Liên tục xử lý sự kiện cửa sổ và gọi hàm DrawFrame cho đến khi cửa sổ nhận được yêu cầu đóng.
  */
 void Application::Loop()
 {
@@ -180,125 +189,133 @@ void Application::Loop()
 		DrawFrame();
 	}
 
-	// Đợi device rảnh rỗi trước khi thoát
+	// Đợi device rảnh rỗi trước khi thoát chương trình.
 	vkDeviceWaitIdle(m_VulkanContext->getVulkanHandles().device);
 }
 
 // =================================================================================================
-// SECTION 3: APPLICATION CLASS - CORE FRAME LOGIC (UPDATE & DRAW)
+// SECTION 3: LỚP APPLICATION - LOGIC TRUNG TÂM (UPDATE & DRAW)
 // =================================================================================================
 
 /**
  * @brief Thực hiện tất cả các hoạt động cần thiết để vẽ một frame.
- * Đây là trái tim của vòng lặp render, điều phối việc đồng bộ,
- * cập nhật dữ liệu, ghi command buffer và trình chiếu.
+ * Đây là trái tim của vòng lặp render, điều phối việc đồng bộ CPU-GPU,
+ * cập nhật dữ liệu, ghi command buffer và trình chiếu kết quả lên màn hình.
  */
 void Application::DrawFrame()
 {
-	// 1. Đợi fence của frame hiện tại được báo hiệu
-	// Đảm bảo rằng frame[m_CurrentFrame] của lần lặp trước đã render xong.
+	// --- 1. ĐỒNG BỘ CPU-GPU: ĐỢI FRAME TRƯỚC HOÀN THÀNH ---
+	// Chờ fence của frame hiện tại, đảm bảo rằng command buffer từ lần lặp trước của frame này đã thực thi xong.
 	vkWaitForFences(m_VulkanContext->getVulkanHandles().device, 1, &m_VulkanSyncManager->getCurrentFence(m_CurrentFrame), VK_TRUE, UINT64_MAX);
 
-	// 2. Lấy image có sẵn tiếp theo từ swapchain
-	uint32_t imageIndex; // Đây là index của swapchain image *sẽ được vẽ lên*.
+	// --- 2. LẤY ẢNH TIẾP THEO TỪ SWAPCHAIN ---
+	// Yêu cầu một ảnh từ swapchain để chuẩn bị vẽ lên.
+	// `imageIndex` là chỉ số của ảnh trong swapchain mà chúng ta sẽ render tới.
+	// `imageAvailableSemaphore` sẽ được báo hiệu khi ảnh này sẵn sàng.
+	uint32_t imageIndex;
 	VkResult result = vkAcquireNextImageKHR(m_VulkanContext->getVulkanHandles().device, m_VulkanSwapchain->getHandles().swapchain, UINT64_MAX,
-		m_VulkanSyncManager->getCurrentImageAvailableSemaphore(m_CurrentFrame), // Báo hiệu semaphore này khi image sẵn sàng
+		m_VulkanSyncManager->getCurrentImageAvailableSemaphore(m_CurrentFrame),
 		VK_NULL_HANDLE, &imageIndex);
 
-	// Xử lý trường hợp swapchain không còn tối ưu (ví dụ: cửa sổ bị resize)
+	// Xử lý trường hợp swapchain không còn tương thích (ví dụ: cửa sổ bị resize).
 	if (result == VK_ERROR_OUT_OF_DATE_KHR)
 	{
-		// TODO: Tạo lại swapchain
+		// TODO: Implement lại swapchain.
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
 	{
-		throw std::runtime_error("FAILED TO ACQUIRE SWAPCHAIN IMAGE");
+		throw std::runtime_error("LỖI: Không thể lấy ảnh từ swapchain!");
 	}
 
-	// 3. Reset fence về trạng thái chưa được báo hiệu (vì chúng ta sắp dùng lại nó)
+	// --- 3. CHUẨN BỊ CHO LẦN SUBMIT MỚI ---
+	// Reset fence về trạng thái "chưa báo hiệu" vì chúng ta sắp submit một command buffer mới và sẽ chờ nó.
 	vkResetFences(m_VulkanContext->getVulkanHandles().device, 1, &m_VulkanSyncManager->getCurrentFence(m_CurrentFrame));
 
-	// 4. Cập nhật dữ liệu động cho frame hiện tại
-	UpdateRTT_Uniforms(); // Cập nhật camera
-	UpdateRenderObjectTransforms(); // Cập nhật vị trí/xoay của model
+	// --- 4. CẬP NHẬT DỮ LIỆU ĐỘNG ---
+	// Cập nhật dữ liệu sẽ thay đổi mỗi frame, ví dụ như ma trận camera, vị trí đối tượng.
+	UpdateRTT_Uniforms();
+	UpdateRenderObjectTransforms();
 
-	// 5. Ghi command buffer để vẽ
+	// --- 5. GHI COMMAND BUFFER ---
+	// Reset và ghi lại command buffer với các lệnh vẽ cho frame hiện tại.
 	vkResetCommandBuffer(m_VulkanCommandManager->getHandles().commandBuffers[m_CurrentFrame], 0);
 	RecordCommandBuffer(m_VulkanCommandManager->getHandles().commandBuffers[m_CurrentFrame], imageIndex);
 
-	// 6. Submit command buffer vào hàng đợi graphics
+	// --- 6. SUBMIT COMMAND BUFFER LÊN HÀNG ĐỢI ---
 	VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &m_VulkanCommandManager->getHandles().commandBuffers[m_CurrentFrame];
 
-	// Đợi semaphore 'image available' trước khi bắt đầu
+	// Chỉ định semaphore để đợi: đợi `imageAvailableSemaphore` trước khi thực thi giai đoạn ghi màu.
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = &m_VulkanSyncManager->getCurrentImageAvailableSemaphore(m_CurrentFrame);
 	submitInfo.pWaitDstStageMask = &waitStage;
 
-	// Báo hiệu semaphore 'render finished' khi hoàn thành
+	// Chỉ định semaphore để báo hiệu: báo hiệu `renderFinishedSemaphore` khi command buffer thực thi xong.
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = &m_VulkanSyncManager->getCurrentRenderFinishedSemaphore(imageIndex);
 
-	// Sử dụng fence để CPU biết khi nào GPU hoàn thành
+	// Submit command buffer lên graphics queue, và báo hiệu `inFlightFence` khi hoàn tất.
 	VK_CHECK(vkQueueSubmit(m_VulkanContext->getVulkanHandles().graphicQueue, 1, &submitInfo, m_VulkanSyncManager->getCurrentFence(m_CurrentFrame)),
-		"FAILED TO SUBMIT COMMAND BUFFER");
+		"LỖI: Submit command buffer thất bại!");
 
-	// 7. Trình chiếu (present) image đã render ra màn hình
+	// --- 7. TRÌNH CHIẾU (PRESENT) ---
+	// Đưa ảnh đã render xong ra màn hình.
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = &m_VulkanSwapchain->getHandles().swapchain;
+	presentInfo.pImageIndices = &imageIndex; // Chỉ định swapchain image nào sẽ được present.
 
-	// Đợi semaphore 'render finished' trước khi trình chiếu
+	// Đợi `renderFinishedSemaphore` trước khi trình chiếu.
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = &m_VulkanSyncManager->getCurrentRenderFinishedSemaphore(imageIndex);
-	presentInfo.pImageIndices = &imageIndex; // Chỉ định swapchain image nào sẽ được present
 
 	result = vkQueuePresentKHR(m_VulkanContext->getVulkanHandles().presentQueue, &presentInfo);
 
+	// Xử lý lỗi nếu swapchain không còn hợp lệ.
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
 	{
-		// TODO: Tạo lại swapchain
+		// TODO: Implement lại swapchain.
 	}
 	else if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("FAILED TO PRESENT SWAPCHAIN IMAGE");
+		throw std::runtime_error("LỖI: Trình chiếu ảnh swapchain thất bại!");
 	}
 
-	// 8. Chuyển sang index của frame tiếp theo
+	// --- 8. CHUYỂN SANG FRAME TIẾP THEO ---
 	m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 /**
  * @brief Cập nhật Uniform Buffer Object (UBO) với ma trận camera hiện tại.
- * Dữ liệu này được sử dụng trong RTT (Scene) render pass.
+ * Dữ liệu này được sử dụng trong Geometry Pass để định vị camera trong không gian 3D.
  */
 void Application::UpdateRTT_Uniforms()
 {
-	// Thiết lập view camera (nhìn từ vị trí (0, 3, 4) vào (0, 2, 0))
+	// Thiết lập ma trận view (camera nhìn từ đâu, nhìn vào đâu).
 	m_RTT_Ubo.view = glm::lookAt(glm::vec3(0.0f, 3.0f, 4.0f), glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-	// Thiết lập ma trận projection (phối cảnh)
+	// Thiết lập ma trận projection (phối cảnh).
 	m_RTT_Ubo.proj = glm::perspective(glm::radians(45.0f), m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
 
-	// Sửa lỗi tọa độ Y của Vulkan (ngược với OpenGL)
+	// Vulkan có hệ tọa độ Y ngược với OpenGL, cần lật lại ma trận projection.
 	m_RTT_Ubo.proj[1][1] *= -1;
 
-	// Tải dữ liệu UBO lên buffer của GPU cho frame hiện tại
+	// Tải dữ liệu UBO mới lên buffer của GPU cho frame hiện tại.
 	m_RTT_UniformBuffers[m_CurrentFrame]->UploadData(&m_RTT_Ubo, sizeof(m_RTT_Ubo), 0);
 }
 
 /**
- * @brief Cập nhật transform (vị trí, xoay, tỷ lệ) của các object trong scene.
- * Sử dụng push constants để gửi ma trận model cho từng object.
+ * @brief Cập nhật transform (vị trí, xoay, tỷ lệ) của các đối tượng trong scene.
+ * Hàm này dùng để tạo animation đơn giản cho các đối tượng.
  */
 void Application::UpdateRenderObjectTransforms()
 {
-	// Animation đơn giản dựa trên thời gian
+	// Animation đơn giản dựa trên thời gian thực.
 	static auto startTime = std::chrono::high_resolution_clock::now();
 	static auto lastTime = std::chrono::high_resolution_clock::now();
 	auto currentTime = std::chrono::high_resolution_clock::now();
@@ -306,6 +323,7 @@ void Application::UpdateRenderObjectTransforms()
 	float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
 	lastTime = currentTime;
 
+	// Cập nhật transform cho các đối tượng.
 	m_BunnyGirl->SetPosition({ 1, 0, 0 });
 	m_BunnyGirl->Rotate(glm::vec3(0, deltaTime * 45.0f, 0));
 	m_BunnyGirl->Scale({ 0.05f, 0.05f, 0.05f });
@@ -316,61 +334,51 @@ void Application::UpdateRenderObjectTransforms()
 }
 
 // =================================================================================================
-// SECTION 4: APPLICATION CLASS - DRAWING & COMMAND BUFFER RECORDING
+// SECTION 4: LỚP APPLICATION - GHI COMMAND BUFFER
 // =================================================================================================
 
 /**
  * @brief Ghi lại tất cả các lệnh render vào một command buffer.
- * Đây là chuỗi render (post-processing pipeline):
- * 1. RTT Pass: Render scene 3D vào một texture (m_SceneImages).
+ * Đây là chuỗi render (post-processing pipeline) cho hiệu ứng bloom:
+ * 1. Geometry Pass: Render scene 3D vào một texture (m_SceneImages).
  * 2. Bright Pass: Lọc ra các vùng sáng từ scene texture (-> m_BrightImages).
  * 3. BlurH Pass: Làm mờ ngang vùng sáng (-> m_TempBlurImages).
  * 4. BlurV Pass: Làm mờ dọc kết quả (-> m_BrightImages, ghi đè).
- * 5. Main Pass: Tổng hợp (composite) scene texture gốc và texture đã làm mờ (bloom)
- * lên swapchain image để hiển thị.
+ * 5. Composite Pass: Tổng hợp scene texture gốc và texture đã làm mờ (bloom)
+ *    lên swapchain image để hiển thị.
  */
 void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex)
 {
 	VkCommandBufferBeginInfo cmdBeginInfo{};
 	cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	VK_CHECK(vkBeginCommandBuffer(cmdBuffer, &cmdBeginInfo), "FAILED TO BEGIN COMMAND BUFFER");
+	VK_CHECK(vkBeginCommandBuffer(cmdBuffer, &cmdBeginInfo), "LỖI: Bắt đầu ghi command buffer thất bại!");
 
-	// Chuỗi các render pass
+	// Thực thi tuần tự các render pass.
 	m_GeometryPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BrightFilterPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BlurHPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BlurVPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_CompositePass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 
-	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "FAILED TO END COMMAND BUFFER");
+	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "LỖI: Kết thúc ghi command buffer thất bại!");
 }
 
 
-// --- 4.3: Blur Horizontal Pass ---
-
-/**
- * @brief Ghi lệnh cho bước render Blur Horizontal.
- * Input: m_BrightImages[m_CurrentFrame].
- * Output: m_TempBlurImages[m_CurrentFrame].
- */
-
-// --- 4.4: Blur Vertical Pass ---
-
-
 // =================================================================================================
-// SECTION 5: APPLICATION CLASS - INITIALIZATION HELPERS
+// SECTION 5: LỚP APPLICATION - CÁC HÀM HELPER KHỞI TẠO
 // =================================================================================================
 
 /**
  * @brief Tạo tất cả các VulkanImage sẽ được dùng làm attachment cho các bước render.
+ * Các image này là các framebuffer trung gian cho chuỗi post-processing.
  */
 void Application::CreateFrameBufferImages()
 {
 	VkExtent2D swapchainExtent = m_VulkanSwapchain->getHandles().swapChainExtent;
 	VkFormat swapchainFormat = m_VulkanSwapchain->getHandles().swapchainSupportDetails.chosenFormat.format;
 
-	// --- Images cho RTT Pass (Vẽ scene 3D) ---
-	// 1. RTT Color Image (MSAA)
+	// --- Images cho Geometry Pass (Vẽ scene 3D) ---
+	// 1. Color Image (MSAA): Nơi scene 3D được vẽ với khử răng cưa.
 	VulkanImageCreateInfo RTT_ColorImageInfo{};
 	RTT_ColorImageInfo.width = swapchainExtent.width;
 	RTT_ColorImageInfo.height = swapchainExtent.height;
@@ -391,7 +399,7 @@ void Application::CreateFrameBufferImages()
 		m_RTT_ColorImage[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_ColorImageInfo, RTT_ColorImageViewInfo);
 	}
 
-	// 2. RTT Depth/Stencil Image (MSAA)
+	// 2. Depth/Stencil Image (MSAA): Buffer chiều sâu cho Geometry Pass.
 	VulkanImageCreateInfo RTT_DepthImageInfo{};
 	RTT_DepthImageInfo.width = swapchainExtent.width;
 	RTT_DepthImageInfo.height = swapchainExtent.height;
@@ -412,7 +420,7 @@ void Application::CreateFrameBufferImages()
 		m_RTT_DepthStencilImage[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_DepthImageInfo, RTT_DepthImageViewInfo);
 	}
 
-	// 3. m_SceneImages (Resolve Target cho RTT, Input cho Post-Processing)
+	// 3. Scene Image (Non-MSAA): Kết quả sau khi resolve MSAA. Đây là input cho các bước post-processing.
 	m_SceneImages.resize(MAX_FRAMES_IN_FLIGHT);
 	VulkanImageCreateInfo SceneImageInfo{};
 	SceneImageInfo.width = swapchainExtent.width;
@@ -433,21 +441,21 @@ void Application::CreateFrameBufferImages()
 		m_SceneImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), SceneImageInfo, SceneImageViewInfo);
 	}
 
-	// --- Images cho Main Pass (Vẽ ra Swapchain) ---
-	// 4. Main Color Image (MSAA)
+	// --- Images cho Composite Pass (Vẽ ra Swapchain) ---
+	// 4. Main Color Image (MSAA): Attachment màu cho pass cuối cùng.
 	m_Main_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_ColorImageInfo, RTT_ColorImageViewInfo);
-	// 5. Main Depth/Stencil Image (MSAA)
+	// 5. Main Depth/Stencil Image (MSAA): Buffer chiều sâu cho pass cuối cùng.
 	m_Main_DepthStencilImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_DepthImageInfo, RTT_DepthImageViewInfo);
 
 	// --- Images cho Post-Processing (Bloom) ---
-	// 6. m_BrightImages (Output của Bright, Output của BlurV, Input của BlurH, Input của Main)
+	// 6. Bright Images: Output của BrightFilterPass và BlurVPass.
 	m_BrightImages.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		m_BrightImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), SceneImageInfo, SceneImageViewInfo);
 	}
 
-	// 7. m_TempBlurImages (Output của BlurH, Input của BlurV)
+	// 7. Temp Blur Images: Output của BlurHPass và input của BlurVPass.
 	m_TempBlurImages.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
@@ -455,12 +463,17 @@ void Application::CreateFrameBufferImages()
 	}
 }
 
+/**
+ * @brief Tạo các đối tượng render pass.
+ * Mỗi pass đóng gói một pipeline và logic để thực thi một bước render cụ thể.
+ */
 void Application::CreateRenderPasses()
 {
+	// --- 1. Geometry Pass ---
+	// Vẽ scene 3D vào một framebuffer trung gian (RTT).
 	GeometryPassCreateInfo geometryInfo{};
 	geometryInfo.textureManager = m_TextureManager;
 	geometryInfo.meshManager = m_MeshManager;
-	geometryInfo.uboDescriptors = &m_RTT_UniformDescriptors;
 	geometryInfo.colorImages = &m_RTT_ColorImage;
 	geometryInfo.depthStencilImages = &m_RTT_DepthStencilImage;
 	geometryInfo.outputImage = &m_SceneImages;
@@ -472,73 +485,77 @@ void Application::CreateRenderPasses()
 	geometryInfo.MSAA_SAMPLES = MSAA_SAMPLES;
 	geometryInfo.fragShaderFilePath = "Shaders/RTT_Shader.frag.spv";
 	geometryInfo.vertShaderFilePath = "Shaders/RTT_Shader.vert.spv";
-
+	geometryInfo.uniformBuffers = &m_RTT_UniformBuffers;
 	m_GeometryPass = new GeometryPass(geometryInfo);
 
+	// --- 2. Bright Filter Pass ---
+	// Lọc ra các vùng sáng từ ảnh scene để chuẩn bị cho hiệu ứng bloom.
 	BrightFilterPassCreateInfo brightFilterInfo{};
 	brightFilterInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	brightFilterInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
-	brightFilterInfo.MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Post-processing passes don't need MSAA
+	brightFilterInfo.MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Post-processing không cần MSAA.
 	brightFilterInfo.MAX_FRAMES_IN_FLIGHT = MAX_FRAMES_IN_FLIGHT;
-	brightFilterInfo.textureDescriptors = &m_BrightTextureDescriptors;
 	brightFilterInfo.fragShaderFilePath = "Shaders/Bright_Shader.frag.spv";
-	brightFilterInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv";
+	brightFilterInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv"; // Dùng chung vertex shader vẽ quad.
 	brightFilterInfo.BackgroundColor = BACKGROUND_COLOR;
 	brightFilterInfo.outputImage = &m_BrightImages;
-
+	brightFilterInfo.inputTextures = &m_SceneImages;
+	brightFilterInfo.vulkanSampler = m_VulkanSampler;
 	m_BrightFilterPass = new BrightFilterPass(brightFilterInfo);
 
+	// --- 3. Horizontal Blur Pass ---
+	// Làm mờ ảnh chứa các vùng sáng theo chiều ngang.
 	BlurPassCreateInfo blurHInfo{};
 	blurHInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	blurHInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
 	blurHInfo.MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT;
-	blurHInfo.inputTextureDescriptors = &m_BlurHTextureDescriptors;
 	blurHInfo.fragShaderFilePath = "Shaders/BlurH_Shader.frag.spv";
 	blurHInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv";
 	blurHInfo.BackgroundColor = BACKGROUND_COLOR;
-	blurHInfo.outputImages = &m_TempBlurImages;
-
+	blurHInfo.outputImages = &m_TempBlurImages; // Ghi kết quả vào ảnh tạm.
+	blurHInfo.inputTextures = &m_BrightImages; // Input là ảnh các vùng sáng.
+	blurHInfo.vulkanSampler = m_VulkanSampler;
 	m_BlurHPass = new BlurPass(blurHInfo);
 
+	// --- 4. Vertical Blur Pass ---
+	// Làm mờ ảnh đã được làm mờ ngang theo chiều dọc.
 	BlurPassCreateInfo blurVInfo{};
 	blurVInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	blurVInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
 	blurVInfo.MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT;
-	blurVInfo.inputTextureDescriptors = &m_BlurVTextureDescriptors;
 	blurVInfo.fragShaderFilePath = "Shaders/BlurV_Shader.frag.spv";
 	blurVInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv";
 	blurVInfo.BackgroundColor = BACKGROUND_COLOR;
-	blurVInfo.outputImages = &m_BrightImages;
-
+	blurVInfo.outputImages = &m_BrightImages; // Ghi đè kết quả vào ảnh chứa vùng sáng.
+	blurVInfo.inputTextures = &m_TempBlurImages; // Input là ảnh đã blur ngang.
+	blurVInfo.vulkanSampler = m_VulkanSampler;
 	m_BlurVPass = new BlurPass(blurVInfo);
 
+	// --- 5. Composite Pass ---
+	// Tổng hợp ảnh scene gốc và ảnh bloom cuối cùng, sau đó resolve ra swapchain image.
 	CompositePassCreateInfo compositeInfo{};
 	compositeInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	compositeInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
-	compositeInfo.MSAA_SAMPLES = MSAA_SAMPLES; // Main pass uses MSAA for resolve
-	compositeInfo.textureDescriptors = &m_MainTextureDescriptors;
+	compositeInfo.MSAA_SAMPLES = MSAA_SAMPLES; // Pass này vẽ ra attachment MSAA để resolve.
 	compositeInfo.fragShaderFilePath = "Shaders/Main_Shader.frag.spv";
 	compositeInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv";
 	compositeInfo.BackgroundColor = BACKGROUND_COLOR;
 	compositeInfo.mainColorImage = m_Main_ColorImage;
 	compositeInfo.mainDepthStencilImage = m_Main_DepthStencilImage;
-
+	compositeInfo.inputTextures0 = &m_SceneImages; // Input 1: Ảnh scene gốc.
+	compositeInfo.inputTextures1 = &m_BrightImages; // Input 2: Ảnh bloom đã xử lý.
+	compositeInfo.vulkanSampler = m_VulkanSampler;
 	m_CompositePass = new CompositePass(compositeInfo);
-
-
 }
 
-// --- 5.2: Buffers & Descriptors ---
-
 /**
- * @brief Tạo uniform buffers (UBO) cho RTT pass.
+ * @brief Tạo uniform buffers (UBO) cho Geometry pass.
  * Các buffer này chứa ma trận View-Projection (camera).
- * Tạo một UBO cho mỗi frame-in-flight.
+ * Tạo một UBO cho mỗi frame-in-flight để tránh xung đột dữ liệu khi CPU cập nhật và GPU đang đọc.
  */
 void Application::CreateUniformBuffers()
 {
 	m_RTT_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	m_RTT_UniformDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
 
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -550,211 +567,8 @@ void Application::CreateUniformBuffers()
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		// 1. Tạo buffer (với VMA_MEMORY_USAGE_CPU_TO_GPU để có thể map/unmap)
+		// Tạo buffer với VMA_MEMORY_USAGE_CPU_TO_GPU để CPU có thể ghi dữ liệu trực tiếp.
 		m_RTT_UniformBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-		// 2. Định nghĩa thông tin binding cho UBO
-		BindingElementInfo uniformElementInfo;
-		uniformElementInfo.binding = 0; // layout(binding = 0)
-		uniformElementInfo.pImmutableSamplers = nullptr;
-		uniformElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uniformElementInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // Dùng trong Vertex Shader
-		uniformElementInfo.descriptorCount = 1;
-
-		VkDescriptorBufferInfo uniformBufferInfo;
-		uniformBufferInfo.buffer = m_RTT_UniformBuffers[i]->GetHandles().buffer;
-		uniformBufferInfo.offset = 0;
-		uniformBufferInfo.range = m_RTT_UniformBuffers[i]->GetHandles().bufferSize;
-
-		std::vector<VkDescriptorBufferInfo> uniformBufferInfos = { uniformBufferInfo };
-
-		BufferDescriptorUpdateInfo uniformBufferUpdate{};
-		uniformBufferUpdate.binding = 0;
-		uniformBufferUpdate.firstArrayElement = 0;
-		uniformBufferUpdate.bufferInfos = uniformBufferInfos;
-
-		uniformElementInfo.bufferDescriptorUpdateInfoCount = 1;
-		uniformElementInfo.pBufferDescriptorUpdates = &uniformBufferUpdate;
-
-		// 3. Tạo descriptor (set)
-		std::vector<BindingElementInfo> uniformBindings{ uniformElementInfo };
-		m_RTT_UniformDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), uniformBindings, 1); // Set 1
-
-		// 4. Thêm descriptor vào danh sách để tạo pipeline layout
 	}
 }
 
-/**
- * @brief Tạo descriptors cho Main (composite) pass.
- * Descriptor set này chứa 2 texture:
- * Binding 0: m_SceneImages (Scene gốc)
- * Binding 1: m_BrightImages (Đã blur, hiệu ứng bloom)
- */
-void Application::CreateMainDescriptors()
-{
-	m_MainTextureDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
-
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		// --- Binding 0: Scene Texture ---
-		BindingElementInfo bindingElement{};
-		bindingElement.binding = 0;
-		bindingElement.descriptorCount = 1;
-		bindingElement.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		bindingElement.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = m_SceneImages[i]->GetHandles().imageView;
-		imageInfo.sampler = m_VulkanSampler->getSampler();
-
-		ImageDescriptorUpdateInfo imageUpdateInfo{};
-		imageUpdateInfo.binding = 0;
-		imageUpdateInfo.firstArrayElement = 0;
-		std::vector<VkDescriptorImageInfo> imageInfos{ imageInfo };
-		imageUpdateInfo.imageInfos = imageInfos;
-
-		bindingElement.imageDescriptorUpdateInfoCount = 1;
-		bindingElement.pImageDescriptorUpdates = &imageUpdateInfo;
-
-
-		// --- Binding 1: Bright (Bloom) Texture ---
-		BindingElementInfo bindingElement2{};
-		bindingElement2.binding = 1;
-		bindingElement2.descriptorCount = 1;
-		bindingElement2.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		bindingElement2.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-		VkDescriptorImageInfo imageInfo2{};
-		imageInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo2.imageView = m_BrightImages[i]->GetHandles().imageView;
-		imageInfo2.sampler = m_VulkanSampler->getSampler();
-
-		ImageDescriptorUpdateInfo imageUpdateInfo2{};
-		imageUpdateInfo2.binding = 1;
-		imageUpdateInfo2.firstArrayElement = 0;
-		std::vector<VkDescriptorImageInfo> imageInfos2{ imageInfo2 };
-		imageUpdateInfo2.imageInfos = imageInfos2;
-
-		bindingElement2.imageDescriptorUpdateInfoCount = 1;
-		bindingElement2.pImageDescriptorUpdates = &imageUpdateInfo2;
-
-		// Tạo descriptor
-		std::vector<BindingElementInfo> bindingElements = { bindingElement ,bindingElement2 };
-		m_MainTextureDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), bindingElements, 0); // Set 0
-	}
-}
-
-/**
- * @brief Tạo descriptors cho Bright pass.
- * Descriptor set này chứa 1 texture:
- * Binding 0: m_SceneImages (Input)
- */
-void Application::CreateBrightDescriptors()
-{
-	m_BrightTextureDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
-
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		// --- Binding 0: Scene Texture ---
-		BindingElementInfo bindingElement{};
-		bindingElement.binding = 0;
-		bindingElement.descriptorCount = 1;
-		bindingElement.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		bindingElement.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = m_SceneImages[i]->GetHandles().imageView;
-		imageInfo.sampler = m_VulkanSampler->getSampler();
-
-		ImageDescriptorUpdateInfo imageUpdateInfo{};
-		imageUpdateInfo.binding = 0;
-		imageUpdateInfo.firstArrayElement = 0;
-		std::vector<VkDescriptorImageInfo> imageInfos{ imageInfo };
-		imageUpdateInfo.imageInfos = imageInfos;
-
-		bindingElement.imageDescriptorUpdateInfoCount = 1;
-		bindingElement.pImageDescriptorUpdates = &imageUpdateInfo;
-
-		std::vector<BindingElementInfo> bindingElements = { bindingElement };
-
-		m_BrightTextureDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), bindingElements, 0); // Set 0
-	}
-}
-
-/**
- * @brief Tạo descriptors cho Blur Horizontal pass.
- * Descriptor set này chứa 1 texture:
- * Binding 0: m_BrightImages (Input, output từ Bright pass)
- */
-void Application::CreateBlurHDescriptors()
-{
-	m_BlurHTextureDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
-
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		// --- Binding 0: Bright Texture ---
-		BindingElementInfo bindingElement{};
-		bindingElement.binding = 0;
-		bindingElement.descriptorCount = 1;
-		bindingElement.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		bindingElement.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = m_BrightImages[i]->GetHandles().imageView;
-		imageInfo.sampler = m_VulkanSampler->getSampler();
-
-		ImageDescriptorUpdateInfo imageUpdateInfo{};
-		imageUpdateInfo.binding = 0;
-		imageUpdateInfo.firstArrayElement = 0;
-		std::vector<VkDescriptorImageInfo> imageInfos = { imageInfo };
-		imageUpdateInfo.imageInfos = imageInfos;
-
-		bindingElement.imageDescriptorUpdateInfoCount = 1;
-		bindingElement.pImageDescriptorUpdates = &imageUpdateInfo;
-
-		std::vector<BindingElementInfo> bindingElements = { bindingElement };
-
-		m_BlurHTextureDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), bindingElements, 0); // Set 0
-	}
-}
-
-/**
- * @brief Tạo descriptors cho Blur Vertical pass.
- * Descriptor set này chứa 1 texture:
- * Binding 0: m_TempBlurImages (Input, output từ BlurH pass)
- */
-void Application::CreateBlurVDescriptors()
-{
-	m_BlurVTextureDescriptors.resize(MAX_FRAMES_IN_FLIGHT);
-
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		// --- Binding 0: Temp (H-Blurred) Texture ---
-		BindingElementInfo bindingElement{};
-		bindingElement.binding = 0;
-		bindingElement.descriptorCount = 1;
-		bindingElement.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		bindingElement.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = m_TempBlurImages[i]->GetHandles().imageView;
-		imageInfo.sampler = m_VulkanSampler->getSampler();
-
-		ImageDescriptorUpdateInfo imageUpdateInfo{};
-		imageUpdateInfo.binding = 0;
-		imageUpdateInfo.firstArrayElement = 0;
-		std::vector<VkDescriptorImageInfo> imageInfos = { imageInfo };
-		imageUpdateInfo.imageInfos = imageInfos;
-
-		bindingElement.imageDescriptorUpdateInfoCount = 1;
-		bindingElement.pImageDescriptorUpdates = &imageUpdateInfo;
-
-		std::vector<BindingElementInfo> bindingElements = { bindingElement };
-
-		m_BlurVTextureDescriptors[i] = new VulkanDescriptor(m_VulkanContext->getVulkanHandles(), bindingElements, 0); // Set 0
-	}
-}
