@@ -24,7 +24,7 @@ struct MeshRange
 struct Mesh
 {
 	MeshRange meshRange;
-	uint32_t textureId;
+	uint32_t materialIndex;
 };
 
 // Struct chứa dữ liệu nội bộ của một Model.
@@ -33,14 +33,16 @@ struct ModelHandles
 	std::vector<Mesh*> meshes;
 };
 
+class MaterialManager;
+
 // Class Model đại diện cho một đối tượng 3D có thể render, bao gồm một hoặc nhiều mesh.
-// Class này chịu trách nhiệm điều phối việc tải dữ liệu model từ file
+// Class này chịu trách nhiệm điều phối việc điều phối việc tải dữ liệu model từ file
 // và tạo ra các đối tượng Mesh tương ứng.
 class Model
 {
 public:
 	// Constructor tải model từ file và tạo các mesh thông qua các manager.
-	Model(const std::string& modelFilePath, MeshManager* meshManager, TextureManager* textureManager);
+	Model(const std::string& modelFilePath, MeshManager* meshManager, MaterialManager* materialManager);
 	
 	// Destructor, chịu trách nhiệm giải phóng các đối tượng Mesh mà nó sở hữu.
 	~Model();

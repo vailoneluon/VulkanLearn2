@@ -12,6 +12,7 @@ class VulkanBuffer;
 class TextureManager;
 class MeshManager;
 class RenderObject;
+class MaterialManager;
 
 /**
  * @struct GeometryPassCreateInfo
@@ -27,6 +28,7 @@ struct GeometryPassCreateInfo
 	// --- Dữ liệu Scene ---
 	const TextureManager* textureManager;
 	const MeshManager* meshManager;
+	MaterialManager* materialManager;
 	const std::vector<RenderObject*>* renderObjects;
 	const std::vector<VulkanBuffer*>* uniformBuffers; // UBO chứa ma trận camera.
 
@@ -77,6 +79,7 @@ private:
 
 	// --- Tham chiếu đến các tài nguyên bên ngoài ---
 	const MeshManager* m_MeshManager;
+	MaterialManager* m_MaterialManager;
 	const VulkanHandles* m_VulkanHandles;
 	PushConstantData* m_PushConstantData;
 	const std::vector<RenderObject*>* m_RenderObjects;

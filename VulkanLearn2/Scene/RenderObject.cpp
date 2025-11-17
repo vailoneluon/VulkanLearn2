@@ -1,12 +1,12 @@
 #include "pch.h"
 #include "RenderObject.h"
 #include "Model.h"
-#include "TextureManager.h"
+#include "MaterialManager.h"
 
-RenderObject::RenderObject(const std::string& modelFilePath, MeshManager* meshManager, TextureManager* textureManager)
+RenderObject::RenderObject(const std::string& modelFilePath, MeshManager* meshManager, MaterialManager* materialManager)
 {
 	// RenderObject sở hữu một đối tượng Model, được tạo ra khi RenderObject được tạo.
-	m_Handles.model = new Model(modelFilePath, meshManager, textureManager);
+	m_Handles.model = new Model(modelFilePath, meshManager, materialManager);
 }
 
 RenderObject::~RenderObject()

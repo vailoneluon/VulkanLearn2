@@ -1,146 +1,146 @@
 #include "pch.h"
 #include "ModelLoader.h"
 #include "Core/VulkanContext.h" // Include để có định nghĩa đầy đủ của struct Vertex
+#include "Scene/MeshManager.h"
+#include "Scene/Model.h"
 #include <stdexcept>
 
-// --- Các hàm helper xử lý dữ liệu Assimp --- 
-// Được đặt trong anonymous namespace để giới hạn phạm vi truy cập chỉ trong file này.
-namespace {
-
-	// Duyệt qua cây node của scene Assimp một cách đệ quy.
-	void ProcessNode(aiNode* node, const aiScene* scene, ModelData& modelData);
-
-	// Xử lý một mesh đơn lẻ trong scene Assimp để trích xuất dữ liệu.
-	MeshData ProcessMesh(aiMesh* mesh, const aiScene* scene);
-
-	// Tiện ích để lấy tên file từ một đường dẫn đầy đủ.
-	std::string GetFileNameFromPath(const std::string& fullPath);
-
-} // anonymous namespace
-
-
-// --- Triển khai các hàm của ModelLoader ---
-
-ModelData ModelLoader::LoadModelFromFile(const std::string& filePath)
+ModelLoader::ModelLoader(MeshManager* meshManager, MaterialManager* materialManager)
+	: m_MeshManager(meshManager), m_MaterialManager(materialManager)
 {
-	ModelData modelData;
+}
+
+std::vector<Mesh*> ModelLoader::LoadModelFromFile(const std::string& filePath)
+{
+	std::vector<Mesh*> meshes;
 	Assimp::Importer importer;
 
 	// Các cờ xử lý hậu kỳ của Assimp.
-	// Yêu cầu Assimp thực hiện các bước chuẩn hóa dữ liệu sau khi tải.
-	unsigned int flags = 
+	unsigned int flags =
 		aiProcess_Triangulate |
 		aiProcess_JoinIdenticalVertices |
 		aiProcess_GenSmoothNormals |
-		//aiProcess_FlipUVs |
 		aiProcess_CalcTangentSpace;
 
-	// LƯU Ý: Đoạn code này kiểm tra nếu file là .assbin (định dạng nhị phân của Assimp)
-	// thì sẽ bỏ qua tất cả các cờ xử lý hậu kỳ. Điều này giả định rằng file .assbin
-	// đã được xử lý trước đó.
 	if (filePath.size() > 7 && filePath.substr(filePath.size() - 7) == ".assbin")
 	{
 		flags = 0;
 	}
 
-	// Đọc file model.
 	const aiScene* scene = importer.ReadFile(filePath, flags);
 
-	// Kiểm tra lỗi.
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{
 		throw std::runtime_error("LỖI ASSIMP: " + std::string(importer.GetErrorString()));
 	}
 
-	// Bắt đầu xử lý từ node gốc của scene.
-	ProcessNode(scene->mRootNode, scene, modelData);
+	ProcessNode(scene->mRootNode, scene, meshes);
 
-	return modelData;
+	return meshes;
 }
 
-
-// --- Định nghĩa các hàm helper trong anonymous namespace ---
-namespace {
-
-	void ProcessNode(aiNode* node, const aiScene* scene, ModelData& modelData)
+void ModelLoader::ProcessNode(aiNode* node, const aiScene* scene, std::vector<Mesh*>& outMeshes)
+{
+	// Xử lý tất cả các mesh trong node hiện tại.
+	for (unsigned int i = 0; i < node->mNumMeshes; i++)
 	{
-		// Xử lý tất cả các mesh trong node hiện tại.
-		for (unsigned int i = 0; i < node->mNumMeshes; i++)
-		{
-			aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-			modelData.meshData.push_back(ProcessMesh(mesh, scene));
-		}
+		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+		outMeshes.push_back(ProcessMesh(mesh, scene));
+	}
 
-		// Duyệt đệ quy qua tất cả các node con.
-		for (unsigned int i = 0; i < node->mNumChildren; i++)
+	// Duyệt đệ quy qua tất cả các node con.
+	for (unsigned int i = 0; i < node->mNumChildren; i++)
+	{
+		ProcessNode(node->mChildren[i], scene, outMeshes);
+	}
+}
+
+Mesh* ModelLoader::ProcessMesh(aiMesh* mesh, const aiScene* scene)
+{
+	MeshData currentMeshData;
+
+	// Trích xuất dữ liệu đỉnh (vị trí, pháp tuyến, UV).
+	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+	{
+		Vertex vertex;
+		vertex.pos = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
+		if (mesh->HasNormals())
 		{
-			ProcessNode(node->mChildren[i], scene, modelData);
+			vertex.normal = { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z };
+		}
+		if (mesh->mTextureCoords[0])
+		{
+			vertex.uv = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
+		}
+		currentMeshData.vertices.push_back(vertex);
+	}
+
+	// Trích xuất dữ liệu chỉ số (index).
+	for (unsigned int i = 0; i < mesh->mNumFaces; i++)
+	{
+		aiFace face = mesh->mFaces[i];
+		for (unsigned int j = 0; j < face.mNumIndices; j++)
+		{
+			currentMeshData.indices.push_back(face.mIndices[j]);
 		}
 	}
 
-	MeshData ProcessMesh(aiMesh* mesh, const aiScene* scene)
+	// 1. Dùng MeshManager để tạo đối tượng Mesh từ MeshData.
+	//    Hàm này sẽ gộp vertex/index data vào buffer chung và trả về một Mesh*
+	//    với thông tin MeshRange đã được điền.
+	std::vector<Mesh*> createdMeshes = m_MeshManager->createMeshFromMeshData(&currentMeshData, 1);
+	Mesh* newMesh = createdMeshes[0];
+
+	// 2. Trích xuất thông tin material từ Assimp.
+	aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+	MaterialRawData materialRawData;
+	if (material)
 	{
-		MeshData currentMeshData;
-
-		// Trích xuất dữ liệu đỉnh (vị trí, pháp tuyến, UV).
-		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+		aiString texPath;
+		if (material->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS)
 		{
-			Vertex vertex;
-
-			vertex.pos = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
-
-			if (mesh->HasNormals())
+			std::string fileName = GetFileNameFromPath(texPath.C_Str());
+			if (!fileName.empty())
 			{
-				vertex.normal = { mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z };
-			}
-
-			// Assimp hỗ trợ nhiều bộ UV, ở đây ta chỉ lấy bộ đầu tiên (kênh 0).
-			if (mesh->mTextureCoords[0])
-			{
-				vertex.uv = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
-			}
-
-			currentMeshData.vertices.push_back(vertex);
-		}
-
-		// Trích xuất dữ liệu chỉ số (index).
-		for (unsigned int i = 0; i < mesh->mNumFaces; i++)
-		{
-			aiFace face = mesh->mFaces[i];
-			for (unsigned int j = 0; j < face.mNumIndices; j++)
-			{
-				currentMeshData.indices.push_back(face.mIndices[j]);
+				materialRawData.diffuseMapFileName = TEXTURE_PATH_PREFIX + fileName;
 			}
 		}
-
-		// Trích xuất đường dẫn file texture từ material.
-		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-		if (material)
+		if (material->GetTexture(aiTextureType_NORMALS, 0, &texPath) == AI_SUCCESS)
 		{
-			aiString texPath;
-			// Chỉ lấy texture khuếch tán (diffuse) đầu tiên.
-			if (material->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS)
+			std::string fileName = GetFileNameFromPath(texPath.C_Str());
+			if (!fileName.empty())
 			{
-				currentMeshData.textureFilePath = GetFileNameFromPath(texPath.C_Str());
+				materialRawData.normalMapFileName = TEXTURE_PATH_PREFIX + fileName;
 			}
 		}
-
-		return currentMeshData;
-	}
-
-	std::string GetFileNameFromPath(const std::string& fullPath)
-	{
-		// Tìm vị trí dấu gạch chéo cuối cùng.
-		size_t lastSlash = fullPath.find_last_of("/\\");
-
-		if (lastSlash == std::string::npos)
+		if (material->GetTexture(aiTextureType_SPECULAR, 0, &texPath) == AI_SUCCESS)
 		{
-			return fullPath; // Không có dấu gạch chéo, trả về toàn bộ chuỗi.
-		}
-		else
-		{
-			return fullPath.substr(lastSlash + 1); // Trả về chuỗi con sau dấu gạch chéo.
+			std::string fileName = GetFileNameFromPath(texPath.C_Str());
+			if (!fileName.empty())
+			{
+				materialRawData.specularMapFileName = TEXTURE_PATH_PREFIX + fileName;
+			}
 		}
 	}
 
-} // anonymous namespace
+	// 3. Dùng MaterialManager để load material và lấy về index.
+	uint32_t materialIndex = m_MaterialManager->LoadMaterial(materialRawData);
+	
+	// 4. Gán material index cho Mesh vừa tạo.
+	newMesh->materialIndex = materialIndex;
+
+	return newMesh;
+}
+
+std::string ModelLoader::GetFileNameFromPath(const std::string& fullPath)
+{
+	size_t lastSlash = fullPath.find_last_of("/\\");
+	if (lastSlash == std::string::npos)
+	{
+		return fullPath;
+	}
+	else
+	{
+		return fullPath.substr(lastSlash + 1);
+	}
+}

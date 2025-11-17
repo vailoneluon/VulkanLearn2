@@ -3,43 +3,49 @@
 #include <string>
 #include <vector>
 
-// LƯU Ý: Các include của Assimp được đặt ở đây để file .cpp có thể sử dụng,
-// nhưng chúng làm cho header này phụ thuộc vào thư viện Assimp.
-// Một thiết kế tốt hơn có thể là dùng forward declaration cho các kiểu của Assimp
-// và chỉ include trong file .cpp (PIMPL idiom).
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include "Scene/MaterialManager.h"
 
-// Forward-declare struct Vertex để tránh include file VulkanContext.h không cần thiết.
+// Forward declarations
 struct Vertex;
+struct Mesh;
+class MeshManager;
+class MaterialManager;
 
 // Struct chứa dữ liệu thô của một mesh (đỉnh, chỉ số, và đường dẫn texture).
 struct MeshData
 {
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
-	std::string textureFilePath;
-};
-
-// Struct chứa dữ liệu của toàn bộ model, bao gồm một hoặc nhiều MeshData.
-struct ModelData
-{
-	std::vector<MeshData> meshData;
+	MaterialRawData materialRawData;
 };
 
 // Class tiện ích để tải dữ liệu model từ file bằng thư viện Assimp.
-// Class này không có trạng thái, hoạt động như một namespace chứa hàm.
 class ModelLoader
 {
 public:
-	ModelLoader() = default;
+	ModelLoader(MeshManager* meshManager, MaterialManager* materialManager);
 	~ModelLoader() = default;
 
 	// Hàm chính để tải model từ file.
-	// Trả về một struct ModelData chứa tất cả dữ liệu đã được xử lý.
-	ModelData LoadModelFromFile(const std::string& filePath);
+	// Trả về một vector các con trỏ tới Mesh đã được tạo và quản lý bởi MeshManager.
+	std::vector<Mesh*> LoadModelFromFile(const std::string& filePath);
 
 private:
-	// Class này không có biến thành viên.
+	MeshManager* m_MeshManager;
+	MaterialManager* m_MaterialManager;
+
+	// Duyệt qua cây node của scene Assimp một cách đệ quy.
+	void ProcessNode(aiNode* node, const aiScene* scene, std::vector<Mesh*>& outMeshes);
+	
+	// Xử lý một mesh đơn lẻ trong scene Assimp để trích xuất dữ liệu,
+	// tạo Mesh và Material, và trả về con trỏ tới Mesh đã tạo.
+	Mesh* ProcessMesh(aiMesh* mesh, const aiScene* scene);
+
+	// Tiện ích để lấy tên file từ một đường dẫn đầy đủ.
+	std::string GetFileNameFromPath(const std::string& fullPath);
+
+	const std::string TEXTURE_PATH_PREFIX = "Resources/Textures/";
 };

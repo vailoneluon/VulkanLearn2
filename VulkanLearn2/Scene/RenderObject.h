@@ -25,12 +25,13 @@ struct RenderObjectHandles
 	Model* model = nullptr;
 };
 
+class MaterialManager;
+
 // Class đại diện cho một đối tượng có thể được vẽ trong scene.
-// Nó bao gồm một Model (dữ liệu hình học) và một Transform (vị trí trong không gian).
 class RenderObject
 {
 public:
-	RenderObject(const std::string& modelFilePath, MeshManager* meshManager, TextureManager* textureManager);
+	RenderObject(const std::string& modelFilePath, MeshManager* meshManager, MaterialManager* materialManager);
 	~RenderObject();
 
 	// --- Thao tác với Transform ---

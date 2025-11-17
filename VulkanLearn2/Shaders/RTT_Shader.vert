@@ -1,11 +1,11 @@
 #version 450
 
 layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec3 color;
+layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inTexCoord;
 
 layout(location = 0) out vec2 fragTexCoord;
-layout(location = 1) flat out uint textureId;
+layout(location = 1) flat out uint fragMaterialId;
 
 layout(set = 1, binding = 0) uniform UniformBufferObject {
     mat4 view;
@@ -14,11 +14,11 @@ layout(set = 1, binding = 0) uniform UniformBufferObject {
 
 layout(push_constant) uniform PushConstantData {
     mat4 model;
-    uint textureId;
+    uint materialId;
 } pc;
 
 void main() {
     gl_Position = ubo.proj * ubo.view * pc.model * vec4(inPosition, 1.0);
     fragTexCoord = inTexCoord;
-    textureId = pc.textureId;
+    fragMaterialId = pc.materialId;
 }
