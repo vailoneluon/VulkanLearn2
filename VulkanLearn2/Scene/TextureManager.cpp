@@ -10,7 +10,10 @@ TextureManager::TextureManager(const VulkanHandles& vulkanHandles, VulkanCommand
 	m_CommandManager(commandManager), 
 	m_Sampler(sampler)
 {
-	// Constructor chỉ khởi tạo các tham chiếu, không làm gì thêm.
+	// Load Các Default Image.
+	m_DefaultDiffuseIndex = LoadTextureImage("Resources/DefaultTextures/default_diffuse.png");
+	m_DefaultNormalIndex = LoadTextureImage("Resources/DefaultTextures/default_normal.png");
+	m_DefaultSpecularIndex = LoadTextureImage("Resources/DefaultTextures/default_specular.png");
 }
 
 TextureManager::~TextureManager()
@@ -25,7 +28,7 @@ TextureManager::~TextureManager()
 
 uint32_t TextureManager::LoadTextureImage(const std::string& imageFilePath)
 {
-	// Kiểm tra xem texture đã được yêu cầu tải trước đó chưa bằng cách tìm trong map.
+	// Kiểm tra xem texture đã được yêu cầu tải trước đó chưa bằng cách tìm trong map. 
 	if (m_Handles.filePathList.find(imageFilePath) == m_Handles.filePathList.end())
 	{
 		// Nếu chưa, tạo một đối tượng TextureImage mới và lưu vào map.

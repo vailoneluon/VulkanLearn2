@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "MaterialManager.h"
 
 #include "Core\VulkanCommandManager.h"
@@ -21,21 +21,82 @@ MaterialManager::~MaterialManager()
 
 uint32_t MaterialManager::LoadMaterial(const MaterialRawData& materialRawData)
 {
+	// Khởi tạo cấu trúc dữ liệu cho vật liệu mới.
 	MaterialData material{};
-	if (materialRawData.diffuseMapFileName != "")
+
+	// --- Xử lý Diffuse Map ---
+	// Kiểm tra nếu đường dẫn file diffuse map rỗng (nghĩa là model không cung cấp diffuse map).
+	if (materialRawData.diffuseMapFileName == "")
 	{
-		material.diffuseMapIndex = m_TextureManager->LoadTextureImage(materialRawData.diffuseMapFileName);
+		// Gán trực tiếp chỉ số của diffuse map mặc định.
+		material.diffuseMapIndex = m_TextureManager->m_DefaultDiffuseIndex;
 	}
-	if (materialRawData.normalMapFileName != "")
+	else
 	{
-		material.normalMapIndex = m_TextureManager->LoadTextureImage(materialRawData.normalMapFileName);
-	}
-	if (materialRawData.specularMapFileName != "")
-	{
-		material.specularMapIndex = m_TextureManager->LoadTextureImage(materialRawData.specularMapFileName);
+		// Nếu có đường dẫn, thử tải diffuse map.
+		try 
+		{
+			material.diffuseMapIndex = m_TextureManager->LoadTextureImage(materialRawData.diffuseMapFileName);
+		}
+		catch (const std::runtime_error& e)
+		{
+			// Nếu quá trình tải diffuse map gặp lỗi (ví dụ: file không tồn tại hoặc hỏng),
+			// ghi lại lỗi và gán chỉ số của diffuse map mặc định để chương trình tiếp tục.
+			Log::Warning(e.what());
+			material.diffuseMapIndex = m_TextureManager->m_DefaultDiffuseIndex;
+		}
 	}
 
+	// --- Xử lý Normal Map ---
+	// Kiểm tra nếu đường dẫn file normal map rỗng.
+	if (materialRawData.normalMapFileName == "")
+	{
+		// Gán trực tiếp chỉ số của normal map mặc định.
+		// LƯU Ý: Trong logic hiện tại, nếu đường dẫn rỗng, hàm LoadTextureImage vẫn được gọi với chuỗi rỗng.
+		// Hàm LoadTextureImage sẽ xử lý chuỗi rỗng và trả về chỉ số mặc định.
+		material.normalMapIndex = m_TextureManager->m_DefaultNormalIndex;
+	}
+	else
+	{
+		// Nếu có đường dẫn, thử tải normal map.
+		try
+		{
+			material.normalMapIndex = m_TextureManager->LoadTextureImage(materialRawData.normalMapFileName);
+		}
+		catch (const std::runtime_error& e)
+		{
+			// Nếu quá trình tải normal map gặp lỗi, ghi lại lỗi và gán chỉ số của normal map mặc định.
+			Log::Warning(e.what());
+			material.normalMapIndex = m_TextureManager->m_DefaultNormalIndex;
+		}
+	}
+
+	// --- Xử lý Specular Map ---
+	// Kiểm tra nếu đường dẫn file specular map rỗng.
+	if (materialRawData.specularMapFileName == "")
+	{
+		// Gán trực tiếp chỉ số của specular map mặc định.
+		material.specularMapIndex = m_TextureManager->m_DefaultSpecularIndex;
+	}
+	else
+	{
+		// Nếu có đường dẫn, thử tải specular map.
+		try
+		{
+			material.specularMapIndex = m_TextureManager->LoadTextureImage(materialRawData.specularMapFileName);
+
+		}
+		catch (const std::runtime_error& e)
+		{
+			// Nếu quá trình tải specular map gặp lỗi, ghi lại lỗi và gán chỉ số của specular map mặc định.
+			Log::Warning(e.what());
+			material.specularMapIndex = m_TextureManager->m_DefaultSpecularIndex;
+		}
+	}
+
+	// Thêm vật liệu đã cấu hình vào danh sách tất cả các vật liệu được quản lý.
 	m_Handles.allMaterials.push_back(material);
+	// Trả về chỉ số của vật liệu vừa được thêm vào.
 	return m_Handles.allMaterials.size() - 1;
 }
 

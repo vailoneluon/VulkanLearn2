@@ -80,6 +80,7 @@
     <ClInclude Include="Scene\RenderObject.h" />
     <ClInclude Include="Scene\TextureManager.h" />
     <ClInclude Include="Utils\ErrorHelper.h" />
+    <ClInclude Include="Utils\Log.h" />
     <ClInclude Include="Utils\ModelLoader.h" />
     <ClInclude Include="Utils\DebugTimer.h" />
   </ItemGroup>

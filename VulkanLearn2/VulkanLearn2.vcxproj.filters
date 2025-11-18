@@ -200,6 +200,9 @@
     <ClInclude Include="Scene\MaterialManager.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Utils\Log.h">
+      <Filter>Header Files\Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\compile.bat">

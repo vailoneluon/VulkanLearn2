@@ -39,6 +39,11 @@ public:
 	// Lấy ra descriptor set chứa mảng các texture.
 	VulkanDescriptor* getDescriptor() const { return m_Handles.textureImageDescriptor; };
 
+	// --- Texture ID của các texture mặc định sử dụng khi mesh không có hoặc load lỗi.
+	uint32_t m_DefaultDiffuseIndex;
+	uint32_t m_DefaultNormalIndex;
+	uint32_t m_DefaultSpecularIndex;
+
 	// Yêu cầu tải một texture từ đường dẫn file.
 	// Trả về ID của texture, có thể dùng trong shader.
 	uint32_t LoadTextureImage(const std::string& imageFilePath);
@@ -54,6 +59,8 @@ private:
 
 	// --- Dữ liệu nội bộ ---
 	TextureManagerHandles m_Handles;
+
+	
 
 	// Hiện tại chưa sử dụng Bindless Descriptor nên cần 1 số lượng để khởi tạo
 	const uint32_t DESCRIPTOR_COUNT = 256;

@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
 
 
 
@@ -35,6 +36,7 @@
 #include "vma/vk_mem_alloc.h"
 
 // === Các file header nội bộ ổn định ===
+#include "Utils/Log.h"
 #include "Utils/ErrorHelper.h"
 #include "Core/VulkanTypes.h" // Thêm cả VulkanTypes vào PCH
 

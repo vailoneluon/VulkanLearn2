@@ -118,17 +118,24 @@ void VulkanImage::CreateImageView(const VulkanImageViewCreateInfo& imageViewCI)
  */
 void VulkanImage::LoadImageDataFromFile(const char* filePath, bool createMipmaps)
 {
+	// Kiểm tra file có tồn tại không.
+	if (!std::filesystem::exists(filePath))
+	{
+		throw std::runtime_error("Error: Image file not found: " + std::string(filePath));
+	}
+
 	// Đặt cờ để lật ảnh theo chiều dọc vì Vulkan có hệ tọa độ Y ngược với nhiều API khác (ví dụ: OpenGL).
 	stbi_set_flip_vertically_on_load(true);
 	// Tải dữ liệu pixel từ file sử dụng thư viện stb_image.
 	stbi_uc* pixels = stbi_load(filePath, &m_Handles.textureInfo.width, &m_Handles.textureInfo.height, &m_Handles.textureInfo.channels, STBI_rgb_alpha);
 
+	// Kiểm tra việc đọc file có thành công không.
 	if (!pixels)
 	{
-		throw std::runtime_error(std::string("Lỗi: Không thể tải ảnh từ file: ") + filePath);
+		throw std::runtime_error("Error: Failed to load image data from file: " + std::string(filePath) + ". File may be corrupt or in an unsupported format.");
 	}
 
-	std::cout << "Loaded Image: " << filePath << std::endl;
+	//std::cout << "Loaded Image: " << filePath << std::endl;
 
 	m_Handles.textureInfo.pixels = pixels;
 	// Kích thước dữ liệu pixel (width * height * 4 bytes/pixel cho định dạng RGBA).
