@@ -22,6 +22,7 @@
 #include "Scene/MeshManager.h"
 #include "Scene/Model.h"
 #include "Scene/TextureManager.h"
+#include "Scene/MaterialManager.h"
 
 
 // =================================================================================================
@@ -74,15 +75,18 @@ Application::Application()
 	// Khởi tạo các manager và tải các model, texture từ file.
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
 	m_TextureManager = new TextureManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler->getSampler());
+	m_MaterialManager = new MaterialManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_TextureManager);
 
-	m_BunnyGirl = new RenderObject("Resources/bunnyGirl.assbin", m_MeshManager, m_TextureManager);
-	m_Swimsuit = new RenderObject("Resources/swimSuit.assbin", m_MeshManager, m_TextureManager);
+	m_BunnyGirl = new RenderObject("Resources/bunnyGirl.assbin", m_MeshManager, m_MaterialManager);
+	m_Swimsuit = new RenderObject("Resources/swimSuit.assbin", m_MeshManager, m_MaterialManager);
 	m_BunnyGirl->SetRotation({ -90, 0, 0 });
 
 	m_RenderObjects.push_back(m_BunnyGirl);
 	m_RenderObjects.push_back(m_Swimsuit);
+	
 
 	// Hoàn tất việc tải texture: upload dữ liệu ảnh lên GPU và tạo descriptor set cho texture.
+	m_MaterialManager->Finalize();
 	m_TextureManager->FinalizeSetup();
 
 	// --- 5. TẠO CÁC RENDER PASS ---
@@ -105,6 +109,7 @@ Application::Application()
 	// --- 7. TẢI DỮ LIỆU LÊN GPU ---
 	// Sau khi tất cả các mesh đã được xử lý, tạo và tải dữ liệu vào vertex/index buffer trên GPU.
 	m_MeshManager->CreateBuffers();
+
 }
 
 /**
@@ -131,6 +136,7 @@ Application::~Application()
 	delete(m_VulkanCommandManager);
 	delete(m_MeshManager);
 	delete(m_TextureManager);
+	delete(m_MaterialManager);
 
 	// 3. Giải phóng Buffers (ví dụ: uniform buffers).
 	for (auto& uniformBuffer : m_RTT_UniformBuffers)
@@ -474,6 +480,7 @@ void Application::CreateRenderPasses()
 	GeometryPassCreateInfo geometryInfo{};
 	geometryInfo.textureManager = m_TextureManager;
 	geometryInfo.meshManager = m_MeshManager;
+	geometryInfo.materialManager = m_MaterialManager;
 	geometryInfo.colorImages = &m_RTT_ColorImage;
 	geometryInfo.depthStencilImages = &m_RTT_DepthStencilImage;
 	geometryInfo.outputImage = &m_SceneImages;

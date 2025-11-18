@@ -10,10 +10,13 @@
 #include "Scene/MeshManager.h"
 #include "Scene/RenderObject.h"
 #include "Core/VulkanImage.h"
+#include "Scene\MaterialManager.h"
+
 
 GeometryPass::GeometryPass(const GeometryPassCreateInfo& geometryInfo) :
 	m_TextureDescriptors(geometryInfo.textureManager->getDescriptor()),
 	m_MeshManager(geometryInfo.meshManager),
+	m_MaterialManager(geometryInfo.materialManager),
 	m_ColorImages(geometryInfo.colorImages),
 	m_DepthStencilImages(geometryInfo.depthStencilImages),
 	m_OutputImage(geometryInfo.outputImage),
@@ -161,6 +164,9 @@ void GeometryPass::CreateDescriptor(const std::vector<VulkanBuffer*>& uniformBuf
 		m_UboDescriptors[i] = new VulkanDescriptor(*m_VulkanHandles, uniformBindings, 1); // Set 1
 		m_Handles.descriptors.push_back(m_UboDescriptors[i]);
 	}
+
+	// Set 2: SBO Chứa thông tin Material
+	m_Handles.descriptors.push_back(m_MaterialManager->GetDescriptor());
 }
 
 /**
@@ -203,6 +209,15 @@ void GeometryPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t cu
 		&m_UboDescriptors[currentFrame]->getHandles().descriptorSet,
 		0, nullptr
 	);
+
+	// Bind Set 2: SBO chứa thông tin Material.
+	vkCmdBindDescriptorSets(
+		*cmdBuffer,
+		VK_PIPELINE_BIND_POINT_GRAPHICS, m_Handles.pipeline->getHandles().pipelineLayout,
+		m_MaterialManager->GetDescriptor()->getSetIndex(), 1,
+		&m_MaterialManager->GetDescriptor()->getHandles().descriptorSet,
+		0, nullptr
+	);
 }
 
 /**
@@ -220,7 +235,7 @@ void GeometryPass::DrawSceneObject(VkCommandBuffer cmdBuffer)
 			// Gửi dữ liệu cho từng lần vẽ (per-draw data) như ma trận model và ID texture.
 			// Đây là cách hiệu quả để gửi một lượng nhỏ dữ liệu thay đổi thường xuyên.
 			m_PushConstantData->model = renderObject->GetModelMatrix();
-			m_PushConstantData->textureId = mesh->textureId;
+			m_PushConstantData->materialIndex = mesh->materialIndex;
 
 			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), m_PushConstantData);
 

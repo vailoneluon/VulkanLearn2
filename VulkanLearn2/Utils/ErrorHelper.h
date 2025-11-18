@@ -18,7 +18,7 @@ public:
 	VulkanError(const std::string& msg, const char* file, int line)
 		: std::runtime_error(FormatMessage(msg, file, line))
 	{
-		std::cerr << what() << std::endl;
+		Log::Error(what());
 #ifdef _DEBUG
 		DEBUG_BREAK(); // Break ngay khi throw (debug mode)
 #endif

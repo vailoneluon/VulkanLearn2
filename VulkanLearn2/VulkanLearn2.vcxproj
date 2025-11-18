@@ -39,6 +39,7 @@
     <ClCompile Include="Renderer\BrightFilterPass.cpp" />
     <ClCompile Include="Renderer\CompositePass.cpp" />
     <ClCompile Include="Renderer\GeometryPass.cpp" />
+    <ClCompile Include="Scene\MaterialManager.cpp" />
     <ClCompile Include="Scene\MeshManager.cpp" />
     <ClCompile Include="Scene\Model.cpp" />
     <ClCompile Include="Scene\RenderObject.cpp" />
@@ -73,11 +74,13 @@
     <ClInclude Include="Renderer\CompositePass.h" />
     <ClInclude Include="Renderer\GeometryPass.h" />
     <ClInclude Include="Renderer\IRenderPass.h" />
+    <ClInclude Include="Scene\MaterialManager.h" />
     <ClInclude Include="Scene\MeshManager.h" />
     <ClInclude Include="Scene\Model.h" />
     <ClInclude Include="Scene\RenderObject.h" />
     <ClInclude Include="Scene\TextureManager.h" />
     <ClInclude Include="Utils\ErrorHelper.h" />
+    <ClInclude Include="Utils\Log.h" />
     <ClInclude Include="Utils\ModelLoader.h" />
     <ClInclude Include="Utils\DebugTimer.h" />
   </ItemGroup>

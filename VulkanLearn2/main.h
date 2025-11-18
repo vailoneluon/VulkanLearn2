@@ -6,6 +6,7 @@
 // Structs
 struct UniformBufferObject;
 struct PushConstantData;
+class MaterialManager;
 
 // Classes
 class Window;
@@ -81,6 +82,7 @@ private:
 	VulkanDescriptorManager* m_VulkanDescriptorManager;
 	MeshManager* m_MeshManager;
 	TextureManager* m_TextureManager;
+	MaterialManager* m_MaterialManager;
 
 	// =================================================================================================
 	// SECTION: TÀI NGUYÊN RENDER (FRAMEBUFFER ATTACHMENTS)
