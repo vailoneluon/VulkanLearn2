@@ -153,15 +153,19 @@ Application::~Application()
 	{
 		delete(image);
 	}
-	for (auto& image : m_SceneImages)
+	for (auto& image : m_Geometry_DepthStencilImage)
 	{
 		delete(image);
 	}
-	for (auto& image : m_RTT_ColorImage)
+	for (auto& image : m_Geometry_AlbedoImages)
 	{
 		delete(image);
 	}
-	for (auto& image : m_RTT_DepthStencilImage)
+	for (auto& image : m_Geometry_NormalImages)
+	{
+		delete(image);
+	}
+	for (auto& image : m_Geometry_PositionImages)
 	{
 		delete(image);
 	}
@@ -378,94 +382,150 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
  * @brief Tạo tất cả các VulkanImage sẽ được dùng làm attachment cho các bước render.
  * Các image này là các framebuffer trung gian cho chuỗi post-processing.
  */
+/**
+ * @brief Tạo tất cả các VulkanImage sẽ được dùng làm attachment cho các render pass.
+ * Hàm này thiết lập các framebuffer trung gian cho G-Buffer, pass chính và các bước hậu xử lý.
+ */
 void Application::CreateFrameBufferImages()
 {
 	VkExtent2D swapchainExtent = m_VulkanSwapchain->getHandles().swapChainExtent;
 	VkFormat swapchainFormat = m_VulkanSwapchain->getHandles().swapchainSupportDetails.chosenFormat.format;
 
-	// --- Images cho Geometry Pass (Vẽ scene 3D) ---
-	// 1. Color Image (MSAA): Nơi scene 3D được vẽ với khử răng cưa.
-	VulkanImageCreateInfo RTT_ColorImageInfo{};
-	RTT_ColorImageInfo.width = swapchainExtent.width;
-	RTT_ColorImageInfo.height = swapchainExtent.height;
-	RTT_ColorImageInfo.mipLevels = 1;
-	RTT_ColorImageInfo.samples = MSAA_SAMPLES;
-	RTT_ColorImageInfo.format = swapchainFormat;
-	RTT_ColorImageInfo.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	RTT_ColorImageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	// =================================================================================================
+	// I. TÀI NGUYÊN G-BUFFER (KHÔNG-MSAA)
+	// =================================================================================================
+	// Các attachment này được sử dụng trong GeometryPass để lưu trữ dữ liệu bề mặt.
+	// Chúng không sử dụng MSAA để tiết kiệm bộ nhớ và vì việc resolve dữ liệu vị trí/pháp tuyến không có ý nghĩa.
+	// Chúng cần cờ USAGE_SAMPLED_BIT để có thể được đọc trong Lighting Pass.
 
-	VulkanImageViewCreateInfo RTT_ColorImageViewInfo{};
-	RTT_ColorImageViewInfo.format = swapchainFormat;
-	RTT_ColorImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	RTT_ColorImageViewInfo.mipLevels = 1;
+	// --- 1. G-Buffer: Albedo (Màu khuếch tán) ---
+	// Lưu màu sắc cơ bản của vật thể, sử dụng định dạng của swapchain.
+	VulkanImageCreateInfo gbufferAlbedoCI{};
+	gbufferAlbedoCI.width = swapchainExtent.width;
+	gbufferAlbedoCI.height = swapchainExtent.height;
+	gbufferAlbedoCI.mipLevels = 1;
+	gbufferAlbedoCI.samples = MSAA_SAMPLES;
+	gbufferAlbedoCI.format = swapchainFormat;
+	gbufferAlbedoCI.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	gbufferAlbedoCI.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-	m_RTT_ColorImage.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	VulkanImageViewCreateInfo gbufferAlbedoCVI{};
+	gbufferAlbedoCVI.format = swapchainFormat;
+	gbufferAlbedoCVI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	gbufferAlbedoCVI.mipLevels = 1;
+
+	// --- 2. G-Buffer: Normal & Position (Pháp tuyến & Vị trí) ---
+	// Sử dụng định dạng float 16-bit (R16G16B16A16) để có độ chính xác cao cho dữ liệu world-space.
+	VulkanImageCreateInfo gbufferHiPrecisionCI{};
+	gbufferHiPrecisionCI.width = swapchainExtent.width;
+	gbufferHiPrecisionCI.height = swapchainExtent.height;
+	gbufferHiPrecisionCI.mipLevels = 1;
+	gbufferHiPrecisionCI.samples = MSAA_SAMPLES;
+	gbufferHiPrecisionCI.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+	gbufferHiPrecisionCI.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	gbufferHiPrecisionCI.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	VulkanImageViewCreateInfo gbufferHiPrecisionCVI{};
+	gbufferHiPrecisionCVI.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+	gbufferHiPrecisionCVI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	gbufferHiPrecisionCVI.mipLevels = 1;
+
+	// --- 3. G-Buffer: Depth/Stencil (Độ sâu) ---
+	// Depth buffer không-MSAA dành riêng cho Geometry Pass.
+	VulkanImageCreateInfo gbufferDepthCI{};
+	gbufferDepthCI.width = swapchainExtent.width;
+	gbufferDepthCI.height = swapchainExtent.height;
+	gbufferDepthCI.mipLevels = 1;
+	gbufferDepthCI.samples = MSAA_SAMPLES;
+	gbufferDepthCI.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	gbufferDepthCI.imageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	gbufferDepthCI.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	VulkanImageViewCreateInfo gbufferDepthCVI{};
+	gbufferDepthCVI.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	gbufferDepthCVI.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	gbufferDepthCVI.mipLevels = 1;
+
+	// Cấp phát bộ nhớ cho các vector chứa G-Buffer images
+	m_Geometry_AlbedoImages.resize(MAX_FRAMES_IN_FLIGHT);
+	m_Geometry_NormalImages.resize(MAX_FRAMES_IN_FLIGHT);
+	m_Geometry_PositionImages.resize(MAX_FRAMES_IN_FLIGHT);
+	m_Geometry_DepthStencilImage.resize(MAX_FRAMES_IN_FLIGHT);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_RTT_ColorImage[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_ColorImageInfo, RTT_ColorImageViewInfo);
+		m_Geometry_AlbedoImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), gbufferAlbedoCI, gbufferAlbedoCVI);
+		m_Geometry_NormalImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), gbufferHiPrecisionCI, gbufferHiPrecisionCVI);
+		m_Geometry_PositionImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), gbufferHiPrecisionCI, gbufferHiPrecisionCVI);
+		m_Geometry_DepthStencilImage[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), gbufferDepthCI, gbufferDepthCVI);
 	}
 
-	// 2. Depth/Stencil Image (MSAA): Buffer chiều sâu cho Geometry Pass.
-	VulkanImageCreateInfo RTT_DepthImageInfo{};
-	RTT_DepthImageInfo.width = swapchainExtent.width;
-	RTT_DepthImageInfo.height = swapchainExtent.height;
-	RTT_DepthImageInfo.mipLevels = 1;
-	RTT_DepthImageInfo.samples = MSAA_SAMPLES;
-	RTT_DepthImageInfo.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
-	RTT_DepthImageInfo.imageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	RTT_DepthImageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	// =================================================================================================
+	// II. TÀI NGUYÊN CHO PASS CHÍNH (CÓ-MSAA)
+	// =================================================================================================
+	// Các attachment này sẽ được sử dụng trong Lighting Pass (hoặc Composite Pass hiện tại)
+	// để thực hiện tính toán ánh sáng và khử răng cưa.
 
-	VulkanImageViewCreateInfo RTT_DepthImageViewInfo{};
-	RTT_DepthImageViewInfo.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
-	RTT_DepthImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	RTT_DepthImageViewInfo.mipLevels = 1;
+	// --- 4. Main Pass: Color (MSAA) ---
+	VulkanImageCreateInfo mainColorMSAA_CI{};
+	mainColorMSAA_CI.width = swapchainExtent.width;
+	mainColorMSAA_CI.height = swapchainExtent.height;
+	mainColorMSAA_CI.mipLevels = 1;
+	mainColorMSAA_CI.samples = MSAA_SAMPLES;
+	mainColorMSAA_CI.format = swapchainFormat;
+	mainColorMSAA_CI.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	mainColorMSAA_CI.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-	m_RTT_DepthStencilImage.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		m_RTT_DepthStencilImage[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_DepthImageInfo, RTT_DepthImageViewInfo);
-	}
+	VulkanImageViewCreateInfo mainColorMSAA_CVI{};
+	mainColorMSAA_CVI.format = swapchainFormat;
+	mainColorMSAA_CVI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	mainColorMSAA_CVI.mipLevels = 1;
 
-	// 3. Scene Image (Non-MSAA): Kết quả sau khi resolve MSAA. Đây là input cho các bước post-processing.
-	m_SceneImages.resize(MAX_FRAMES_IN_FLIGHT);
-	VulkanImageCreateInfo SceneImageInfo{};
-	SceneImageInfo.width = swapchainExtent.width;
-	SceneImageInfo.height = swapchainExtent.height;
-	SceneImageInfo.mipLevels = 1;
-	SceneImageInfo.samples = VK_SAMPLE_COUNT_1_BIT; // Không MSAA
-	SceneImageInfo.format = swapchainFormat;
-	SceneImageInfo.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // Dùng làm attachment và sampler
-	SceneImageInfo.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	m_Main_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), mainColorMSAA_CI, mainColorMSAA_CVI);
 
-	VulkanImageViewCreateInfo SceneImageViewInfo{};
-	SceneImageViewInfo.format = swapchainFormat;
-	SceneImageViewInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	SceneImageViewInfo.mipLevels = 1;
+	// --- 5. Main Pass: Depth/Stencil (MSAA) ---
+	VulkanImageCreateInfo mainDepthMSAA_CI{};
+	mainDepthMSAA_CI.width = swapchainExtent.width;
+	mainDepthMSAA_CI.height = swapchainExtent.height;
+	mainDepthMSAA_CI.mipLevels = 1;
+	mainDepthMSAA_CI.samples = MSAA_SAMPLES;
+	mainDepthMSAA_CI.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	mainDepthMSAA_CI.imageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	mainDepthMSAA_CI.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		m_SceneImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), SceneImageInfo, SceneImageViewInfo);
-	}
+	VulkanImageViewCreateInfo mainDepthMSAA_CVI{};
+	mainDepthMSAA_CVI.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	mainDepthMSAA_CVI.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	mainDepthMSAA_CVI.mipLevels = 1;
 
-	// --- Images cho Composite Pass (Vẽ ra Swapchain) ---
-	// 4. Main Color Image (MSAA): Attachment màu cho pass cuối cùng.
-	m_Main_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_ColorImageInfo, RTT_ColorImageViewInfo);
-	// 5. Main Depth/Stencil Image (MSAA): Buffer chiều sâu cho pass cuối cùng.
-	m_Main_DepthStencilImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), RTT_DepthImageInfo, RTT_DepthImageViewInfo);
+	m_Main_DepthStencilImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), mainDepthMSAA_CI, mainDepthMSAA_CVI);
 
-	// --- Images cho Post-Processing (Bloom) ---
-	// 6. Bright Images: Output của BrightFilterPass và BlurVPass.
+	// =================================================================================================
+	// III. TÀI NGUYÊN HẬU XỬ LÝ (POST-PROCESSING, KHÔNG-MSAA)
+	// =================================================================================================
+	
+	// --- 6. Post-Processing: Ảnh trung gian (Non-MSAA) ---
+	// Dùng cho hiệu ứng bloom (Bright Filter, Blur).
+	VulkanImageCreateInfo postProcessingCI{};
+	postProcessingCI.width = swapchainExtent.width;
+	postProcessingCI.height = swapchainExtent.height;
+	postProcessingCI.mipLevels = 1;
+	postProcessingCI.samples = VK_SAMPLE_COUNT_1_BIT;
+	postProcessingCI.format = swapchainFormat;
+	postProcessingCI.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	postProcessingCI.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	VulkanImageViewCreateInfo postProcessingCVI{};
+	postProcessingCVI.format = swapchainFormat;
+	postProcessingCVI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+	postProcessingCVI.mipLevels = 1;
+
 	m_BrightImages.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		m_BrightImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), SceneImageInfo, SceneImageViewInfo);
-	}
-
-	// 7. Temp Blur Images: Output của BlurHPass và input của BlurVPass.
 	m_TempBlurImages.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_TempBlurImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), SceneImageInfo, SceneImageViewInfo);
+		m_BrightImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
+		m_TempBlurImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
 	}
 }
 
@@ -478,12 +538,13 @@ void Application::CreateRenderPasses()
 	// --- 1. Geometry Pass ---
 	// Vẽ scene 3D vào một framebuffer trung gian (RTT).
 	GeometryPassCreateInfo geometryInfo{};
+	geometryInfo.albedoImages = &m_Geometry_AlbedoImages;
+	geometryInfo.normalImages = &m_Geometry_NormalImages;
+	geometryInfo.positionImages = &m_Geometry_PositionImages;
 	geometryInfo.textureManager = m_TextureManager;
 	geometryInfo.meshManager = m_MeshManager;
 	geometryInfo.materialManager = m_MaterialManager;
-	geometryInfo.colorImages = &m_RTT_ColorImage;
-	geometryInfo.depthStencilImages = &m_RTT_DepthStencilImage;
-	geometryInfo.outputImage = &m_SceneImages;
+	geometryInfo.depthStencilImages = &m_Geometry_DepthStencilImage;
 	geometryInfo.BackgroundColor = BACKGROUND_COLOR;
 	geometryInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
 	geometryInfo.renderObjects = &m_RenderObjects;
@@ -506,7 +567,7 @@ void Application::CreateRenderPasses()
 	brightFilterInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv"; // Dùng chung vertex shader vẽ quad.
 	brightFilterInfo.BackgroundColor = BACKGROUND_COLOR;
 	brightFilterInfo.outputImage = &m_BrightImages;
-	brightFilterInfo.inputTextures = &m_SceneImages;
+	brightFilterInfo.inputTextures = &m_Geometry_AlbedoImages;
 	brightFilterInfo.vulkanSampler = m_VulkanSampler;
 	m_BrightFilterPass = new BrightFilterPass(brightFilterInfo);
 
@@ -549,7 +610,7 @@ void Application::CreateRenderPasses()
 	compositeInfo.BackgroundColor = BACKGROUND_COLOR;
 	compositeInfo.mainColorImage = m_Main_ColorImage;
 	compositeInfo.mainDepthStencilImage = m_Main_DepthStencilImage;
-	compositeInfo.inputTextures0 = &m_SceneImages; // Input 1: Ảnh scene gốc.
+	compositeInfo.inputTextures0 = &m_Geometry_AlbedoImages; // Input 1: Ảnh scene gốc.
 	compositeInfo.inputTextures1 = &m_BrightImages; // Input 2: Ảnh bloom đã xử lý.
 	compositeInfo.vulkanSampler = m_VulkanSampler;
 	m_CompositePass = new CompositePass(compositeInfo);

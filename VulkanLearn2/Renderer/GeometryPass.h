@@ -38,9 +38,12 @@ struct GeometryPassCreateInfo
 
 	// --- Attachments & Đầu ra ---
 	VkClearColorValue BackgroundColor;
-	const std::vector<VulkanImage*>* colorImages;        // Attachment màu (MSAA) để vẽ.
-	const std::vector<VulkanImage*>* depthStencilImages; // Attachment depth/stencil (MSAA).
-	const std::vector<VulkanImage*>* outputImage;        // Ảnh đầu ra (đã resolve) để dùng trong post-processing.
+	const std::vector<VulkanImage*>* depthStencilImages;
+	const std::vector<VulkanImage*>* albedoImages;		
+	const std::vector<VulkanImage*>* normalImages;
+	const std::vector<VulkanImage*>* positionImages;
+	
+	
 
 	// --- Dữ liệu Shader ---
 	PushConstantData* pushConstantData;
@@ -89,9 +92,11 @@ private:
 	// --- Tài nguyên dành riêng cho pass ---
 	VulkanDescriptor* m_TextureDescriptors;				// Descriptor cho mảng texture (Set 0).
 	std::vector<VulkanDescriptor*> m_UboDescriptors;	// Descriptors cho UBO camera (Set 1), một cho mỗi frame.
-	const std::vector<VulkanImage*>* m_ColorImages;
 	const std::vector<VulkanImage*>* m_DepthStencilImages;
-	const std::vector<VulkanImage*>* m_OutputImage;
+	const std::vector<VulkanImage*>* m_AlbedoImages;
+	const std::vector<VulkanImage*>* m_NormalImages;
+	const std::vector<VulkanImage*>* m_PositionImages;
+
 
 	// --- Hàm khởi tạo ---
 	void CreateDescriptor(const std::vector<VulkanBuffer*>& uniformBuffers);

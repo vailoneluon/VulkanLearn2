@@ -60,7 +60,7 @@ private:
 	const uint32_t WINDOW_WIDTH = 800;
 	const uint32_t WINDOW_HEIGHT = 600;
 	const VkClearColorValue BACKGROUND_COLOR = { 0.1f, 0.1f, 0.2f, 1.0f };
-	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_4_BIT; // Mức độ khử răng cưa (MSAA)
+	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
 	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)
 
 	// --- Trạng thái Ứng dụng ---
@@ -91,9 +91,12 @@ private:
 	// Chúng được tạo cho mỗi frame-in-flight để tránh xung đột dữ liệu.
 
 	// --- Geometry Pass (Vẽ scene 3D) ---
-	std::vector<VulkanImage*> m_RTT_ColorImage;			// Attachment màu (MSAA) để vẽ scene 3D.
-	std::vector<VulkanImage*> m_RTT_DepthStencilImage;	// Attachment depth/stencil (MSAA) cho Geometry Pass.
-	std::vector<VulkanImage*> m_SceneImages;			// Kết quả sau khi resolve MSAA từ Geometry Pass. Đây là input cho các bước post-processing.
+	std::vector<VulkanImage*> m_Geometry_DepthStencilImage;	// Attachment depth/stencil (MSAA) cho Geometry Pass.
+
+	std::vector<VulkanImage*> m_Geometry_PositionImages;
+	std::vector<VulkanImage*> m_Geometry_AlbedoImages;
+	std::vector<VulkanImage*> m_Geometry_NormalImages;
+
 
 	// --- Composite Pass (Tổng hợp cuối cùng) ---
 	VulkanImage* m_Main_ColorImage;						// Attachment màu (MSAA) cho Composite Pass.

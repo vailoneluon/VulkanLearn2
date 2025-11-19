@@ -20,6 +20,7 @@ VulkanPipeline::VulkanPipeline(const VulkanPipelineCreateInfo* pipelineInfo)
 		pipelineInfo->msaaSamples,
 		vertShaderModule,
 		fragShaderModule,
+		pipelineInfo->renderingColorAttachments,
 		pipelineInfo->useVertexInput
 	);
 
@@ -109,6 +110,7 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	VkSampleCountFlagBits msaaSamples,
 	VkShaderModule vertShaderModule,
 	VkShaderModule fragShaderModule,
+	std::vector<VkFormat>* renderingColorAttachments,
 	bool useVertexInput)
 {
 	// 1. Giai đoạn Shader
@@ -207,11 +209,13 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	colorBlendAttachment.blendEnable = VK_FALSE;
 
+	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(renderingColorAttachments->size(), colorBlendAttachment);
+
 	VkPipelineColorBlendStateCreateInfo colorBlending{};
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	colorBlending.logicOpEnable = VK_FALSE;
-	colorBlending.attachmentCount = 1;
-	colorBlending.pAttachments = &colorBlendAttachment;
+	colorBlending.attachmentCount = colorBlendAttachments.size();
+	colorBlending.pAttachments = colorBlendAttachments.data();
 
 	// 9. Dynamic State: Không sử dụng dynamic state cho viewport và scissor nữa.
 	// pDynamicState được set là nullptr.
@@ -219,13 +223,12 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	// 10. Cấu hình Dynamic Rendering
 	// Thay vì gắn pipeline vào một VkRenderPass cố định, chúng ta cung cấp thông tin
 	// về định dạng của các attachment mà pipeline này sẽ render tới.
-	VkFormat colorFormat = swapchainHandles->swapchainSupportDetails.chosenFormat.format;
 	VkFormat depthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
 	VkPipelineRenderingCreateInfo renderingCreatInfo{};
 	renderingCreatInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-	renderingCreatInfo.colorAttachmentCount = 1;
-	renderingCreatInfo.pColorAttachmentFormats = &colorFormat;
+	renderingCreatInfo.colorAttachmentCount = renderingColorAttachments->size();
+	renderingCreatInfo.pColorAttachmentFormats = renderingColorAttachments->data();
 	renderingCreatInfo.depthAttachmentFormat = depthStencilFormat;
 	renderingCreatInfo.stencilAttachmentFormat = depthStencilFormat;
 
