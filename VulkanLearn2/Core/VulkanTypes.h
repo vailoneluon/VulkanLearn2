@@ -5,6 +5,7 @@ struct Vertex
 	glm::vec3 pos;
 	glm::vec3 normal;
 	glm::vec2 uv;
+	glm::vec3 tangent;
 
 	static std::array<VkVertexInputBindingDescription, 1> GetBindingDesc()
 	{
@@ -16,13 +17,13 @@ struct Vertex
 		return bindingDesc;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDesc()
+	static std::array<VkVertexInputAttributeDescription, 4> GetAttributeDesc()
 	{
-		std::array<VkVertexInputAttributeDescription, 3> attributeDescs{};
+		std::array<VkVertexInputAttributeDescription, 4> attributeDescs{};
 
 		attributeDescs[0].binding = 0;
 		attributeDescs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescs[0].location = 0;
+		attributeDescs[0].location = 0; 
 		attributeDescs[0].offset = offsetof(Vertex, pos);
 
 		attributeDescs[1].binding = 0;
@@ -34,6 +35,11 @@ struct Vertex
 		attributeDescs[2].format = VK_FORMAT_R32G32_SFLOAT;
 		attributeDescs[2].location = 2;
 		attributeDescs[2].offset = offsetof(Vertex, uv);
+
+		attributeDescs[3].binding = 0;
+		attributeDescs[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescs[3].location = 3;
+		attributeDescs[3].offset = offsetof(Vertex, tangent);
 
 		return attributeDescs;
 	}

@@ -3,11 +3,13 @@
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inTexCoord;
+layout(location = 3) in vec3 inTangent;
 
 layout(location = 0) out vec2 fragTexCoord;
 layout(location = 1) flat out uint fragMaterialId;
 layout(location = 2) out vec3 fragWorldPos;
 layout(location = 3) out vec3 fragWorldNormal;
+layout(location = 4) out vec3 fragTangent;
 
 layout(set = 1, binding = 0) uniform UniformBufferObject {
     mat4 view;
@@ -24,8 +26,9 @@ void main() {
     fragTexCoord = inTexCoord;
     fragMaterialId = pc.materialId;
 
-    // Calculate and pass world position and normal
+    // Calculate and pass world position, normal, and tangent
     fragWorldPos = (pc.model * vec4(inPosition, 1.0)).xyz;
-    // Correctly transform normal to world space
-    fragWorldNormal = normalize(transpose(inverse(mat3(pc.model))) * inNormal);
+    mat3 normalMatrix = transpose(inverse(mat3(pc.model)));
+    fragWorldNormal = normalize(normalMatrix * inNormal);
+    fragTangent = normalize(normalMatrix * inTangent);
 }

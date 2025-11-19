@@ -72,6 +72,10 @@ Mesh* ModelLoader::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		{
 			vertex.uv = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
 		}
+		if (mesh->HasTangentsAndBitangents())
+		{
+			vertex.tangent = { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z };
+		}
 		currentMeshData.vertices.push_back(vertex);
 	}
 

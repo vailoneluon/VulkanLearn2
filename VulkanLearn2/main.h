@@ -27,6 +27,7 @@ class GeometryPass;
 class BrightFilterPass;
 class CompositePass;
 class BlurPass;
+class LightingPass;
 
 
 /**
@@ -103,6 +104,7 @@ private:
 	VulkanImage* m_Main_DepthStencilImage;				// Attachment depth/stencil (MSAA) cho Composite Pass.
 
 	// --- Post-Processing (Bloom Effect) ---
+	std::vector<VulkanImage*> m_LitSceneImages;
 	std::vector<VulkanImage*> m_BrightImages;			// Chứa các vùng sáng được lọc từ m_SceneImages. Cũng là output của bước blur dọc.
 	std::vector<VulkanImage*> m_TempBlurImages;			// Image tạm, là output của bước blur ngang và input cho bước blur dọc.
 
@@ -126,6 +128,7 @@ private:
 	// Mỗi pass là một bước trong chuỗi render pipeline.
 
 	GeometryPass* m_GeometryPass;			// Pass 1: Vẽ các đối tượng 3D vào một texture (render-to-texture).
+	LightingPass* m_LightingPass;
 	BrightFilterPass* m_BrightFilterPass;	// Pass 2: Lọc ra các vùng có độ sáng cao từ kết quả của Geometry Pass.
 	BlurPass* m_BlurHPass;					// Pass 3: Áp dụng hiệu ứng mờ theo chiều ngang (Horizontal Blur).
 	BlurPass* m_BlurVPass;					// Pass 4: Áp dụng hiệu ứng mờ theo chiều dọc (Vertical Blur).

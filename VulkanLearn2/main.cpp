@@ -16,6 +16,7 @@
 #include "Renderer/BrightFilterPass.h"
 #include "Renderer/CompositePass.h"
 #include "Renderer/BlurPass.h"
+#include "Renderer/LightingPass.h"
 #include "Utils/DebugTimer.h"
 #include "Utils/ModelLoader.h"
 #include <Scene/RenderObject.h>
@@ -97,6 +98,7 @@ Application::Application()
 	// Tổng hợp tất cả các descriptor từ các pass và tạo descriptor pool.
 	m_VulkanDescriptorManager = new VulkanDescriptorManager(m_VulkanContext->getVulkanHandles());
 	m_VulkanDescriptorManager->AddDescriptors(m_GeometryPass->GetHandles().descriptors);
+	m_VulkanDescriptorManager->AddDescriptors(m_LightingPass->GetHandles().descriptors);
 	m_VulkanDescriptorManager->AddDescriptors(m_BrightFilterPass->GetHandles().descriptors);
 	m_VulkanDescriptorManager->AddDescriptors(m_BlurHPass->GetHandles().descriptors);
 	m_VulkanDescriptorManager->AddDescriptors(m_BlurVPass->GetHandles().descriptors);
@@ -124,6 +126,7 @@ Application::~Application()
 
 	// 1. Giải phóng các Render Pass.
 	delete(m_GeometryPass);
+	delete(m_LightingPass);
 	delete(m_BrightFilterPass);
 	delete(m_BlurVPass);
 	delete(m_BlurHPass);
@@ -145,6 +148,10 @@ Application::~Application()
 	}
 
 	// 4. Giải phóng Images (các attachment của framebuffer).
+	for (auto& image : m_LitSceneImages)
+	{
+		delete(image);
+	}
 	for (auto& image : m_TempBlurImages)
 	{
 		delete(image);
@@ -365,6 +372,7 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 
 	// Thực thi tuần tự các render pass.
 	m_GeometryPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
+	m_LightingPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BrightFilterPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BlurHPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BlurVPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
@@ -520,10 +528,12 @@ void Application::CreateFrameBufferImages()
 	postProcessingCVI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 	postProcessingCVI.mipLevels = 1;
 
+	m_LitSceneImages.resize(MAX_FRAMES_IN_FLIGHT);
 	m_BrightImages.resize(MAX_FRAMES_IN_FLIGHT);
 	m_TempBlurImages.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
+		m_LitSceneImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
 		m_BrightImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
 		m_TempBlurImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
 	}
@@ -556,8 +566,25 @@ void Application::CreateRenderPasses()
 	geometryInfo.uniformBuffers = &m_RTT_UniformBuffers;
 	m_GeometryPass = new GeometryPass(geometryInfo);
 
-	// --- 2. Bright Filter Pass ---
-	// Lọc ra các vùng sáng từ ảnh scene để chuẩn bị cho hiệu ứng bloom.
+	// --- 2. Lighting Pass ---
+	// Thực hiện tính toán ánh sáng bằng cách sử dụng G-Buffer.
+	LightingPassCreateInfo lightingInfo{};
+	lightingInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
+	lightingInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
+	lightingInfo.MSAA_SAMPLES = MSAA_SAMPLES;
+	lightingInfo.MAX_FRAMES_IN_FLIGHT = MAX_FRAMES_IN_FLIGHT;
+	lightingInfo.fragShaderFilePath = "Shaders/Lighting_Shader.frag.spv";
+	lightingInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv";
+	lightingInfo.BackgroundColor = BACKGROUND_COLOR;
+	lightingInfo.outputImages = &m_LitSceneImages;
+	lightingInfo.gAlbedoTextures = &m_Geometry_AlbedoImages;
+	lightingInfo.gNormalTextures = &m_Geometry_NormalImages; 
+	lightingInfo.gPositionTextures = &m_Geometry_PositionImages;
+	lightingInfo.vulkanSampler = m_VulkanSampler;
+	m_LightingPass = new LightingPass(lightingInfo);
+
+	// --- 3. Bright Filter Pass ---
+	// Lọc ra các vùng sáng từ ảnh đã được chiếu sáng để chuẩn bị cho hiệu ứng bloom.
 	BrightFilterPassCreateInfo brightFilterInfo{};
 	brightFilterInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	brightFilterInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
@@ -567,11 +594,11 @@ void Application::CreateRenderPasses()
 	brightFilterInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv"; // Dùng chung vertex shader vẽ quad.
 	brightFilterInfo.BackgroundColor = BACKGROUND_COLOR;
 	brightFilterInfo.outputImage = &m_BrightImages;
-	brightFilterInfo.inputTextures = &m_Geometry_AlbedoImages;
+	brightFilterInfo.inputTextures = &m_LitSceneImages; // Input là ảnh đã được chiếu sáng.
 	brightFilterInfo.vulkanSampler = m_VulkanSampler;
 	m_BrightFilterPass = new BrightFilterPass(brightFilterInfo);
 
-	// --- 3. Horizontal Blur Pass ---
+	// --- 4. Horizontal Blur Pass ---
 	// Làm mờ ảnh chứa các vùng sáng theo chiều ngang.
 	BlurPassCreateInfo blurHInfo{};
 	blurHInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
@@ -585,7 +612,7 @@ void Application::CreateRenderPasses()
 	blurHInfo.vulkanSampler = m_VulkanSampler;
 	m_BlurHPass = new BlurPass(blurHInfo);
 
-	// --- 4. Vertical Blur Pass ---
+	// --- 5. Vertical Blur Pass ---
 	// Làm mờ ảnh đã được làm mờ ngang theo chiều dọc.
 	BlurPassCreateInfo blurVInfo{};
 	blurVInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
@@ -599,19 +626,19 @@ void Application::CreateRenderPasses()
 	blurVInfo.vulkanSampler = m_VulkanSampler;
 	m_BlurVPass = new BlurPass(blurVInfo);
 
-	// --- 5. Composite Pass ---
-	// Tổng hợp ảnh scene gốc và ảnh bloom cuối cùng, sau đó resolve ra swapchain image.
+	// --- 6. Composite Pass ---
+	// Tổng hợp ảnh scene đã chiếu sáng và ảnh bloom cuối cùng.
 	CompositePassCreateInfo compositeInfo{};
 	compositeInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	compositeInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
-	compositeInfo.MSAA_SAMPLES = MSAA_SAMPLES; // Pass này vẽ ra attachment MSAA để resolve.
+	compositeInfo.MSAA_SAMPLES = MSAA_SAMPLES;
 	compositeInfo.fragShaderFilePath = "Shaders/Main_Shader.frag.spv";
 	compositeInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv";
 	compositeInfo.BackgroundColor = BACKGROUND_COLOR;
 	compositeInfo.mainColorImage = m_Main_ColorImage;
 	compositeInfo.mainDepthStencilImage = m_Main_DepthStencilImage;
-	compositeInfo.inputTextures0 = &m_Geometry_AlbedoImages; // Input 1: Ảnh scene gốc.
-	compositeInfo.inputTextures1 = &m_BrightImages; // Input 2: Ảnh bloom đã xử lý.
+	compositeInfo.inputTextures0 = &m_LitSceneImages;       // Input 1: Ảnh scene đã chiếu sáng.
+	compositeInfo.inputTextures1 = &m_BrightImages;        // Input 2: Ảnh bloom đã xử lý.
 	compositeInfo.vulkanSampler = m_VulkanSampler;
 	m_CompositePass = new CompositePass(compositeInfo);
 }
