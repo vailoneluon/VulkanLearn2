@@ -10,7 +10,8 @@ LightingPass::LightingPass(const LightingPassCreateInfo& lightingInfo) :
 	m_VulkanHandles(lightingInfo.vulkanHandles),
 	m_SwapchainExtent(lightingInfo.vulkanSwapchainHandles->swapChainExtent),
 	m_BackgroundColor(lightingInfo.BackgroundColor),
-	m_OutputImages(lightingInfo.outputImages)
+	m_OutputImages(lightingInfo.outputImages), 
+	m_SceneLightDescriptors(*lightingInfo.sceneLightDescriptors)
 {
 	CreateDescriptor(
 		*lightingInfo.gAlbedoTextures,
@@ -77,7 +78,7 @@ void LightingPass::CreateDescriptor(
 	const std::vector<VulkanImage*>& gAlbedoTextures,
 	const std::vector<VulkanImage*>& gNormalTextures,
 	const std::vector<VulkanImage*>& gPositionTextures,
-	const VulkanSampler* vulkanSampler)
+ 	const VulkanSampler* vulkanSampler)
 {
 	m_TextureDescriptors.resize(gAlbedoTextures.size());
 	for (size_t i = 0; i < gAlbedoTextures.size(); i++)
@@ -142,6 +143,8 @@ void LightingPass::CreateDescriptor(
 		m_TextureDescriptors[i] = new VulkanDescriptor(*m_VulkanHandles, bindingElements, 0); // Set 0
 		m_Handles.descriptors.push_back(m_TextureDescriptors[i]);
 	}
+
+	m_Handles.descriptors.insert(m_Handles.descriptors.end(), m_SceneLightDescriptors.begin(), m_SceneLightDescriptors.end());
 }
 
 void LightingPass::CreatePipeline(const LightingPassCreateInfo& lightingInfo)
@@ -169,6 +172,15 @@ void LightingPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t cu
 		m_Handles.pipeline->getHandles().pipelineLayout,
 		m_TextureDescriptors[currentFrame]->getSetIndex(), 1,
 		&m_TextureDescriptors[currentFrame]->getHandles().descriptorSet,
+		0, nullptr
+	);
+
+	vkCmdBindDescriptorSets(
+		*cmdBuffer,
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		m_Handles.pipeline->getHandles().pipelineLayout,
+		m_SceneLightDescriptors[currentFrame]->getSetIndex(), 1,
+		&m_SceneLightDescriptors[currentFrame]->getHandles().descriptorSet,
 		0, nullptr
 	);
 }

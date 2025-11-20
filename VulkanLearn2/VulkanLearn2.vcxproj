@@ -40,6 +40,7 @@
     <ClCompile Include="Renderer\CompositePass.cpp" />
     <ClCompile Include="Renderer\GeometryPass.cpp" />
     <ClCompile Include="Renderer\LightingPass.cpp" />
+    <ClCompile Include="Scene\LightManager.cpp" />
     <ClCompile Include="Scene\MaterialManager.cpp" />
     <ClCompile Include="Scene\MeshManager.cpp" />
     <ClCompile Include="Scene\Model.cpp" />
@@ -76,6 +77,8 @@
     <ClInclude Include="Renderer\GeometryPass.h" />
     <ClInclude Include="Renderer\IRenderPass.h" />
     <ClInclude Include="Renderer\LightingPass.h" />
+    <ClInclude Include="Scene\LightData.h" />
+    <ClInclude Include="Scene\LightManager.h" />
     <ClInclude Include="Scene\MaterialManager.h" />
     <ClInclude Include="Scene\MeshManager.h" />
     <ClInclude Include="Scene\Model.h" />

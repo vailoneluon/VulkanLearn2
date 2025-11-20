@@ -24,6 +24,8 @@
 #include "Scene/Model.h"
 #include "Scene/TextureManager.h"
 #include "Scene/MaterialManager.h"
+#include "Scene\LightManager.h"
+
 
 
 // =================================================================================================
@@ -64,6 +66,8 @@ Application::Application()
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
 
+	CreateSceneLights();
+
 	// --- 2. TẠO TÀI NGUYÊN FRAMEBUFFER (ATTACHMENTS) ---
 	// Tạo các ảnh (VulkanImage) sẽ được dùng làm đầu ra cho các render pass.
 	CreateFrameBufferImages();
@@ -77,6 +81,7 @@ Application::Application()
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
 	m_TextureManager = new TextureManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler->getSampler());
 	m_MaterialManager = new MaterialManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_TextureManager);
+	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, &m_AllSceneLights, MAX_FRAMES_IN_FLIGHT);
 
 	m_BunnyGirl = new RenderObject("Resources/bunnyGirl.assbin", m_MeshManager, m_MaterialManager);
 	m_Swimsuit = new RenderObject("Resources/swimSuit.assbin", m_MeshManager, m_MaterialManager);
@@ -103,6 +108,7 @@ Application::Application()
 	m_VulkanDescriptorManager->AddDescriptors(m_BlurHPass->GetHandles().descriptors);
 	m_VulkanDescriptorManager->AddDescriptors(m_BlurVPass->GetHandles().descriptors);
 	m_VulkanDescriptorManager->AddDescriptors(m_CompositePass->GetHandles().descriptors);
+	//m_VulkanDescriptorManager->AddDescriptors(m_LightManager->GetDescriptors());
 	m_VulkanDescriptorManager->Finalize(); // Tạo pool và cấp phát các set.
 
 	// Tạo các đối tượng đồng bộ (semaphores, fences) để điều phối vòng lặp render.
@@ -140,6 +146,7 @@ Application::~Application()
 	delete(m_MeshManager);
 	delete(m_TextureManager);
 	delete(m_MaterialManager);
+	delete(m_LightManager);
 
 	// 3. Giải phóng Buffers (ví dụ: uniform buffers).
 	for (auto& uniformBuffer : m_RTT_UniformBuffers)
@@ -331,7 +338,7 @@ void Application::UpdateRTT_Uniforms()
  * Hàm này dùng để tạo animation đơn giản cho các đối tượng.
  */
 void Application::UpdateRenderObjectTransforms()
-{
+{	
 	// Animation đơn giản dựa trên thời gian thực.
 	static auto startTime = std::chrono::high_resolution_clock::now();
 	static auto lastTime = std::chrono::high_resolution_clock::now();
@@ -539,6 +546,28 @@ void Application::CreateFrameBufferImages()
 	}
 }
 
+void Application::CreateSceneLights()
+{
+	// Tạo đèn điểm (Point Light)
+	m_Light0 = Light::CreatePoint(
+		glm::vec3(2.0f, 3.0f, 2.0f),  // Vị trí
+		glm::vec3(1.0f, 0.8f, 0.6f),  // Màu sắc (hơi vàng ấm)
+		15.0f,                       // Cường độ
+		10.0f                        // Tầm xa
+	);
+
+	// Tạo đèn định hướng (Directional Light)
+	m_Light1 = Light::CreateDirectional(
+		glm::normalize(glm::vec3(-0.5f, -1.0f, -0.5f)), // Hướng (từ trên xuống, hơi chéo)
+		glm::vec3(0.6f, 0.7f, 1.0f), // Màu sắc (hơi xanh mát)
+		2.0f                         // Cường độ
+	);
+
+	// Thêm các đèn vào danh sách tất cả đèn trong scene
+	m_AllSceneLights.push_back(m_Light0);
+	m_AllSceneLights.push_back(m_Light1);
+}
+
 /**
  * @brief Tạo các đối tượng render pass.
  * Mỗi pass đóng gói một pipeline và logic để thực thi một bước render cụ thể.
@@ -580,6 +609,7 @@ void Application::CreateRenderPasses()
 	lightingInfo.gAlbedoTextures = &m_Geometry_AlbedoImages;
 	lightingInfo.gNormalTextures = &m_Geometry_NormalImages; 
 	lightingInfo.gPositionTextures = &m_Geometry_PositionImages;
+	lightingInfo.sceneLightDescriptors = &m_LightManager->GetDescriptors();
 	lightingInfo.vulkanSampler = m_VulkanSampler;
 	m_LightingPass = new LightingPass(lightingInfo);
 

@@ -26,6 +26,9 @@ struct LightingPassCreateInfo
 	const std::vector<VulkanImage*>* gNormalTextures;
 	const std::vector<VulkanImage*>* gPositionTextures;
 
+	// Lighting Inputs
+	const std::vector<VulkanDescriptor*>* sceneLightDescriptors;
+
 	std::string fragShaderFilePath;
 	std::string vertShaderFilePath;
 
@@ -70,6 +73,7 @@ private:
 
 	// --- Tài nguyên dành riêng cho pass ---
 	std::vector<VulkanDescriptor*> m_TextureDescriptors; // Descriptors cho G-Buffer đầu vào.
+	std::vector<VulkanDescriptor*> m_SceneLightDescriptors; // Descriptors cho Lighting đầu vào.
 	const std::vector<VulkanImage*>* m_OutputImages;      // Ảnh đầu ra.
 
 	// --- Hàm khởi tạo ---

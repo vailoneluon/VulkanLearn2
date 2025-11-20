@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Scene/LightData.h"
 // --- Khai báo sớm (Forward Declarations) ---
 // Giảm thiểu sự phụ thuộc vào các file header và tăng tốc độ biên dịch.
 
@@ -7,6 +8,7 @@
 struct UniformBufferObject;
 struct PushConstantData;
 class MaterialManager;
+class LightManager;
 
 // Classes
 class Window;
@@ -84,6 +86,7 @@ private:
 	MeshManager* m_MeshManager;
 	TextureManager* m_TextureManager;
 	MaterialManager* m_MaterialManager;
+	LightManager* m_LightManager;
 
 	// =================================================================================================
 	// SECTION: TÀI NGUYÊN RENDER (FRAMEBUFFER ATTACHMENTS)
@@ -117,6 +120,11 @@ private:
 	RenderObject* m_Swimsuit;
 	std::vector<RenderObject*> m_RenderObjects;			// Danh sách tất cả các đối tượng cần được render trong scene.
 
+	// --- Dữ liệu Light
+	Light m_Light0;
+	Light m_Light1;
+	std::vector<Light> m_AllSceneLights;
+
 	// --- Dữ liệu cho Shader ---
 	UniformBufferObject m_RTT_Ubo{};					// Struct chứa dữ liệu cho Uniform Buffer (ma trận View, Projection).
 	std::vector<VulkanBuffer*> m_RTT_UniformBuffers;	// Các uniform buffer cho camera, một buffer cho mỗi frame-in-flight.
@@ -140,6 +148,7 @@ private:
 
 private:
 	// --- Nhóm hàm khởi tạo ---
+	void CreateSceneLights();
 	void CreateRenderPasses();
 	void CreateFrameBufferImages();
 	void CreateUniformBuffers();
