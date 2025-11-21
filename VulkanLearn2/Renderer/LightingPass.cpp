@@ -5,6 +5,7 @@
 #include "Core/VulkanSwapchain.h"
 #include "Core/VulkanPipeline.h"
 #include "Core/VulkanDescriptor.h"
+#include "Core/VulkanBuffer.h"
 
 LightingPass::LightingPass(const LightingPassCreateInfo& lightingInfo) :
 	m_VulkanHandles(lightingInfo.vulkanHandles),
@@ -17,7 +18,8 @@ LightingPass::LightingPass(const LightingPassCreateInfo& lightingInfo) :
 		*lightingInfo.gAlbedoTextures,
 		*lightingInfo.gNormalTextures,
 		*lightingInfo.gPositionTextures,
-		lightingInfo.vulkanSampler);
+		lightingInfo.vulkanSampler,
+		*lightingInfo.uniformBuffers);
 	CreatePipeline(lightingInfo);
 }
 
@@ -78,8 +80,12 @@ void LightingPass::CreateDescriptor(
 	const std::vector<VulkanImage*>& gAlbedoTextures,
 	const std::vector<VulkanImage*>& gNormalTextures,
 	const std::vector<VulkanImage*>& gPositionTextures,
- 	const VulkanSampler* vulkanSampler)
+ 	const VulkanSampler* vulkanSampler,
+	const std::vector<VulkanBuffer*>& uniformBuffers)
 {
+	// =================================================================================================
+	// DESCRIPTOR SET 0: G-BUFFER INPUTS
+	// =================================================================================================
 	m_TextureDescriptors.resize(gAlbedoTextures.size());
 	for (size_t i = 0; i < gAlbedoTextures.size(); i++)
 	{
@@ -144,7 +150,45 @@ void LightingPass::CreateDescriptor(
 		m_Handles.descriptors.push_back(m_TextureDescriptors[i]);
 	}
 
+	// =================================================================================================
+	// DESCRIPTOR SET 1: SCENE LIGHTS
+	// =================================================================================================
 	m_Handles.descriptors.insert(m_Handles.descriptors.end(), m_SceneLightDescriptors.begin(), m_SceneLightDescriptors.end());
+
+	// =================================================================================================
+	// DESCRIPTOR SET 2: CAMERA UBO
+	// =================================================================================================
+	m_UboDescriptors.resize(uniformBuffers.size());
+	for (size_t i = 0; i < uniformBuffers.size(); i++)
+	{
+		// Cấu hình binding cho UBO.
+		BindingElementInfo uniformElementInfo;
+		uniformElementInfo.binding = 0; // layout(binding = 0) trong set 2.
+		uniformElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uniformElementInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // SỬA LỖI: Phải là FRAGMENT_BIT vì viewPos dùng trong fragment shader.
+		uniformElementInfo.descriptorCount = 1;
+
+		// Thông tin về buffer sẽ được bind.
+		VkDescriptorBufferInfo uniformBufferInfo;
+		uniformBufferInfo.buffer = uniformBuffers[i]->GetHandles().buffer;
+		uniformBufferInfo.offset = 0;
+		uniformBufferInfo.range = uniformBuffers[i]->GetHandles().bufferSize;
+
+		std::vector<VkDescriptorBufferInfo> uniformBufferInfos = { uniformBufferInfo };
+
+		BufferDescriptorUpdateInfo uniformBufferUpdate{};
+		uniformBufferUpdate.binding = 0;
+		uniformBufferUpdate.firstArrayElement = 0;
+		uniformBufferUpdate.bufferInfos = uniformBufferInfos;
+
+		uniformElementInfo.bufferDescriptorUpdateInfoCount = 1;
+		uniformElementInfo.pBufferDescriptorUpdates = &uniformBufferUpdate;
+
+		// Tạo đối tượng VulkanDescriptor và thêm vào danh sách quản lý.
+		std::vector<BindingElementInfo> uniformBindings{ uniformElementInfo };
+		m_UboDescriptors[i] = new VulkanDescriptor(*m_VulkanHandles, uniformBindings, 2); // Set 2
+		m_Handles.descriptors.push_back(m_UboDescriptors[i]);
+	}
 }
 
 void LightingPass::CreatePipeline(const LightingPassCreateInfo& lightingInfo)
@@ -166,6 +210,7 @@ void LightingPass::CreatePipeline(const LightingPassCreateInfo& lightingInfo)
 
 void LightingPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t currentFrame)
 {
+	// Bind Set 0: G-Buffer textures
 	vkCmdBindDescriptorSets(
 		*cmdBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -175,12 +220,23 @@ void LightingPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t cu
 		0, nullptr
 	);
 
+	// Bind Set 1: Scene Light SSBO
 	vkCmdBindDescriptorSets(
 		*cmdBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		m_Handles.pipeline->getHandles().pipelineLayout,
 		m_SceneLightDescriptors[currentFrame]->getSetIndex(), 1,
 		&m_SceneLightDescriptors[currentFrame]->getHandles().descriptorSet,
+		0, nullptr
+	);
+
+	// SỬA LỖI: Bind Set 2: Camera UBO
+	vkCmdBindDescriptorSets(
+		*cmdBuffer,
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		m_Handles.pipeline->getHandles().pipelineLayout,
+		m_UboDescriptors[currentFrame]->getSetIndex(), 1,
+		&m_UboDescriptors[currentFrame]->getHandles().descriptorSet,
 		0, nullptr
 	);
 }

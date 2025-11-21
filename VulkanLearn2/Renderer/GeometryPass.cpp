@@ -21,7 +21,7 @@ GeometryPass::GeometryPass(const GeometryPassCreateInfo& geometryInfo) :
 	m_BackgroundColor(geometryInfo.BackgroundColor),
 	m_SwapchainExtent(geometryInfo.vulkanSwapchainHandles->swapChainExtent),
 	m_RenderObjects(geometryInfo.renderObjects),
-	m_PushConstantData(geometryInfo.pushConstantData),
+	//m_PushConstantData(geometryInfo.pushConstantData), // Removed
 	m_VulkanHandles(geometryInfo.vulkanHandles),
 	m_AlbedoImages(geometryInfo.albedoImages),
 	m_NormalImages(geometryInfo.normalImages),
@@ -280,10 +280,10 @@ void GeometryPass::DrawSceneObject(VkCommandBuffer cmdBuffer)
 			// --- Cập nhật Push Constants ---
 			// Gửi dữ liệu cho từng lần vẽ (per-draw data) như ma trận model và ID texture.
 			// Đây là cách hiệu quả để gửi một lượng nhỏ dữ liệu thay đổi thường xuyên.
-			m_PushConstantData->model = renderObject->GetModelMatrix();
-			m_PushConstantData->materialIndex = mesh->materialIndex;
+			m_PushConstantData.model = renderObject->GetModelMatrix();
+			m_PushConstantData.materialIndex = mesh->materialIndex;
 
-			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), m_PushConstantData);
+			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), &m_PushConstantData);
 
 			// --- Ghi Lệnh Vẽ ---
 			// Vẽ mesh hiện tại bằng cách sử dụng các offset trong buffer chung.

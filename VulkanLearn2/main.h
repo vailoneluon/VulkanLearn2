@@ -128,7 +128,6 @@ private:
 	// --- Dữ liệu cho Shader ---
 	UniformBufferObject m_RTT_Ubo{};					// Struct chứa dữ liệu cho Uniform Buffer (ma trận View, Projection).
 	std::vector<VulkanBuffer*> m_RTT_UniformBuffers;	// Các uniform buffer cho camera, một buffer cho mỗi frame-in-flight.
-	PushConstantData m_PushConstantData;				// Struct chứa dữ liệu cho Push Constants (ma trận Model, Texture ID).
 
 	// =================================================================================================
 	// SECTION: CÁC RENDER PASS

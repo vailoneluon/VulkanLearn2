@@ -42,11 +42,6 @@ struct GeometryPassCreateInfo
 	const std::vector<VulkanImage*>* albedoImages;		
 	const std::vector<VulkanImage*>* normalImages;
 	const std::vector<VulkanImage*>* positionImages;
-	
-	
-
-	// --- Dữ liệu Shader ---
-	PushConstantData* pushConstantData;
 };
 
 /**
@@ -84,7 +79,7 @@ private:
 	const MeshManager* m_MeshManager;
 	MaterialManager* m_MaterialManager;
 	const VulkanHandles* m_VulkanHandles;
-	PushConstantData* m_PushConstantData;
+	PushConstantData m_PushConstantData; // Changed from pointer to instance.
 	const std::vector<RenderObject*>* m_RenderObjects;
 	VkExtent2D m_SwapchainExtent;
 	VkClearColorValue m_BackgroundColor;

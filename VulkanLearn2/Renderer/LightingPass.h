@@ -8,6 +8,7 @@ class VulkanPipeline;
 class VulkanImage;
 class VulkanDescriptor;
 class VulkanSampler;
+class VulkanBuffer;
 
 /**
  * @struct LightingPassCreateInfo
@@ -28,6 +29,7 @@ struct LightingPassCreateInfo
 
 	// Lighting Inputs
 	const std::vector<VulkanDescriptor*>* sceneLightDescriptors;
+	const std::vector<VulkanBuffer*>* uniformBuffers; // Camera UBO for viewPos
 
 	std::string fragShaderFilePath;
 	std::string vertShaderFilePath;
@@ -74,6 +76,7 @@ private:
 	// --- Tài nguyên dành riêng cho pass ---
 	std::vector<VulkanDescriptor*> m_TextureDescriptors; // Descriptors cho G-Buffer đầu vào.
 	std::vector<VulkanDescriptor*> m_SceneLightDescriptors; // Descriptors cho Lighting đầu vào.
+	std::vector<VulkanDescriptor*> m_UboDescriptors;      // Descriptors cho Camera UBO.
 	const std::vector<VulkanImage*>* m_OutputImages;      // Ảnh đầu ra.
 
 	// --- Hàm khởi tạo ---
@@ -81,7 +84,8 @@ private:
 		const std::vector<VulkanImage*>& gAlbedoTextures,
 		const std::vector<VulkanImage*>& gNormalTextures,
 		const std::vector<VulkanImage*>& gPositionTextures,
-		const VulkanSampler* vulkanSampler
+		const VulkanSampler* vulkanSampler,
+		const std::vector<VulkanBuffer*>& uniformBuffers
 	);
 	void CreatePipeline(const LightingPassCreateInfo& lightingInfo);
 

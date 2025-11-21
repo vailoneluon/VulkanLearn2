@@ -108,7 +108,6 @@ Application::Application()
 	m_VulkanDescriptorManager->AddDescriptors(m_BlurHPass->GetHandles().descriptors);
 	m_VulkanDescriptorManager->AddDescriptors(m_BlurVPass->GetHandles().descriptors);
 	m_VulkanDescriptorManager->AddDescriptors(m_CompositePass->GetHandles().descriptors);
-	//m_VulkanDescriptorManager->AddDescriptors(m_LightManager->GetDescriptors());
 	m_VulkanDescriptorManager->Finalize(); // Tạo pool và cấp phát các set.
 
 	// Tạo các đối tượng đồng bộ (semaphores, fences) để điều phối vòng lặp render.
@@ -320,8 +319,11 @@ void Application::DrawFrame()
  */
 void Application::UpdateRTT_Uniforms()
 {
+    glm::vec3 cameraPos = glm::vec3(0.0f, 3.0f, 4.0f); // Define camera position
+
 	// Thiết lập ma trận view (camera nhìn từ đâu, nhìn vào đâu).
-	m_RTT_Ubo.view = glm::lookAt(glm::vec3(0.0f, 3.0f, 4.0f), glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	m_RTT_Ubo.view = glm::lookAt(cameraPos, glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    m_RTT_Ubo.viewPos = cameraPos; // Set camera position for lighting calculations
 
 	// Thiết lập ma trận projection (phối cảnh).
 	m_RTT_Ubo.proj = glm::perspective(glm::radians(45.0f), m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
@@ -388,7 +390,7 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "LỖI: Kết thúc ghi command buffer thất bại!");
 }
 
-
+   
 // =================================================================================================
 // SECTION 5: LỚP APPLICATION - CÁC HÀM HELPER KHỞI TẠO
 // =================================================================================================
@@ -552,15 +554,15 @@ void Application::CreateSceneLights()
 	m_Light0 = Light::CreatePoint(
 		glm::vec3(2.0f, 3.0f, 2.0f),  // Vị trí
 		glm::vec3(1.0f, 0.8f, 0.6f),  // Màu sắc (hơi vàng ấm)
-		15.0f,                       // Cường độ
+		1.0f,                        // Cường độ (GIẢM cho PBR)
 		10.0f                        // Tầm xa
 	);
 
-	// Tạo đèn định hướng (Directional Light)
+	// Tạo đèn định hướng (Directional Light) 
 	m_Light1 = Light::CreateDirectional(
 		glm::normalize(glm::vec3(-0.5f, -1.0f, -0.5f)), // Hướng (từ trên xuống, hơi chéo)
 		glm::vec3(0.6f, 0.7f, 1.0f), // Màu sắc (hơi xanh mát)
-		2.0f                         // Cường độ
+		1.0f                         // Cường độ (GIẢM cho PBR)
 	);
 
 	// Thêm các đèn vào danh sách tất cả đèn trong scene
@@ -587,7 +589,6 @@ void Application::CreateRenderPasses()
 	geometryInfo.BackgroundColor = BACKGROUND_COLOR;
 	geometryInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
 	geometryInfo.renderObjects = &m_RenderObjects;
-	geometryInfo.pushConstantData = &m_PushConstantData;
 	geometryInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	geometryInfo.MSAA_SAMPLES = MSAA_SAMPLES;
 	geometryInfo.fragShaderFilePath = "Shaders/RTT_Shader.frag.spv";
@@ -610,6 +611,7 @@ void Application::CreateRenderPasses()
 	lightingInfo.gNormalTextures = &m_Geometry_NormalImages; 
 	lightingInfo.gPositionTextures = &m_Geometry_PositionImages;
 	lightingInfo.sceneLightDescriptors = &m_LightManager->GetDescriptors();
+	lightingInfo.uniformBuffers = &m_RTT_UniformBuffers; // Pass camera UBO
 	lightingInfo.vulkanSampler = m_VulkanSampler;
 	m_LightingPass = new LightingPass(lightingInfo);
 
