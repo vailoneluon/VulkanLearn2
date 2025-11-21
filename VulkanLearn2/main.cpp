@@ -84,8 +84,9 @@ Application::Application()
 	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, &m_AllSceneLights, MAX_FRAMES_IN_FLIGHT);
 
 	m_BunnyGirl = new RenderObject("Resources/bunnyGirl.assbin", m_MeshManager, m_MaterialManager);
-	m_Swimsuit = new RenderObject("Resources/swimSuit.assbin", m_MeshManager, m_MaterialManager);
+	m_Swimsuit = new RenderObject("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
 	m_BunnyGirl->SetRotation({ -90, 0, 0 });
+	m_Swimsuit->SetRotation({ -90, 0, 0 });
 
 	m_RenderObjects.push_back(m_BunnyGirl);
 	m_RenderObjects.push_back(m_Swimsuit);
@@ -355,7 +356,7 @@ void Application::UpdateRenderObjectTransforms()
 	m_BunnyGirl->Scale({ 0.05f, 0.05f, 0.05f });
 
 	m_Swimsuit->SetPosition({ -1, 0, 0 });
-	m_Swimsuit->Scale({ 0.05f, 0.05f, 0.05f });
+	m_Swimsuit->Scale({ 0.045f, 0.045f, 0.045f });
 	m_Swimsuit->Rotate(glm::vec3(0, deltaTime * -45.0f, 0));
 }
 
@@ -547,22 +548,29 @@ void Application::CreateFrameBufferImages()
 		m_TempBlurImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
 	}
 }
-
+ 
 void Application::CreateSceneLights()
 {
-	// Tạo đèn điểm (Point Light)
-	m_Light0 = Light::CreatePoint(
-		glm::vec3(2.0f, 3.0f, 2.0f),  // Vị trí
-		glm::vec3(1.0f, 0.8f, 0.6f),  // Màu sắc (hơi vàng ấm)
-		1.0f,                        // Cường độ (GIẢM cho PBR)
-		10.0f                        // Tầm xa
+	// Tạo đèn định hướng (Directional Light) - Chiếu từ trên-trái xuống
+	m_Light0 = Light::CreateDirectional(
+		glm::normalize(glm::vec3(-0.5f, -1.0f, -0.5f)), // Hướng: Từ trên-trái-trước xuống
+		glm::vec3(0.2f, 1.0f, 0.2f),                     // Màu sắc: Xanh lá cây rực rỡ
+		1.0f                                            // Cường độ: Slightly adjusted
 	);
 
-	// Tạo đèn định hướng (Directional Light) 
-	m_Light1 = Light::CreateDirectional(
-		glm::normalize(glm::vec3(-0.5f, -1.0f, -0.5f)), // Hướng (từ trên xuống, hơi chéo)
-		glm::vec3(0.6f, 0.7f, 1.0f), // Màu sắc (hơi xanh mát)
-		1.0f                         // Cường độ (GIẢM cho PBR)
+	// Tạo đèn Spot (Spot Light) - Chiếu chéo từ trên-phải xuống giữa màn hình
+	glm::vec3 spotLightPosition = glm::vec3(3.0f, 4.0f, 0.0f);   // Vị trí đèn
+	glm::vec3 spotLightTarget = glm::vec3(0.5f, 2.5f, 0.0f);     // Điểm nhắm tới (giữa màn hình bên phải)
+	glm::vec3 spotLightDirection = glm::normalize(spotLightTarget - spotLightPosition); // Hướng chiếu
+
+	m_Light1 = Light::CreateSpot(
+		spotLightPosition,                                  // Vị trí
+		spotLightDirection,                                 // Hướng chiếu
+		glm::vec3(1.0f, 0.6f, 0.0f),                        // Màu sắc: Cam rực
+		90.0f,                                              // Cường độ: Sáng hơn nhiều
+		20.0f,                                              // Tầm xa (giữ nguyên)
+		5.0f,                                               // Góc cắt trong (innerCutoff) - Hẹp hơn
+		8.0f                                               // Góc cắt ngoài (outerCutoff) - Hẹp hơn
 	);
 
 	// Thêm các đèn vào danh sách tất cả đèn trong scene

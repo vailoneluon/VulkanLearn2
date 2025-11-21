@@ -62,7 +62,8 @@ private:
 	// --- Hằng số Cấu hình ---
 	const uint32_t WINDOW_WIDTH = 800;
 	const uint32_t WINDOW_HEIGHT = 600;
-	const VkClearColorValue BACKGROUND_COLOR = { 0.1f, 0.1f, 0.2f, 1.0f };
+	//const VkClearColorValue BACKGROUND_COLOR = { 0.1f, 0.1f, 0.2f, 1.0f };
+	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
 	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)
 
@@ -123,7 +124,7 @@ private:
 	// --- Dữ liệu Light
 	Light m_Light0;
 	Light m_Light1;
-	std::vector<Light> m_AllSceneLights;
+	std::vector<Light> m_AllSceneLights; 
 
 	// --- Dữ liệu cho Shader ---
 	UniformBufferObject m_RTT_Ubo{};					// Struct chứa dữ liệu cho Uniform Buffer (ma trận View, Projection).
