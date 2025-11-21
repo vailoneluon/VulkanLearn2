@@ -94,6 +94,60 @@ uint32_t MaterialManager::LoadMaterial(const MaterialRawData& materialRawData)
 		}
 	}
 
+	// --- Xử lý Roughness Map (PBR) ---
+	if (materialRawData.roughnessMapFileName == "")
+	{
+		material.roughnessMapIndex = m_TextureManager->m_DefaultRoughnessIndex; // TODO: Implement m_DefaultRoughnessIndex in TextureManager
+	}
+	else
+	{
+		try
+		{
+			material.roughnessMapIndex = m_TextureManager->LoadTextureImage(materialRawData.roughnessMapFileName);
+		}
+		catch (const std::runtime_error& e)
+		{
+			Log::Warning(e.what());
+			material.roughnessMapIndex = m_TextureManager->m_DefaultRoughnessIndex;
+		}
+	}
+
+	// --- Xử lý Metallic Map (PBR) ---
+	if (materialRawData.metallicMapFileName == "")
+	{
+		material.metallicMapIndex = m_TextureManager->m_DefaultMetallicIndex; // TODO: Implement m_DefaultMetallicIndex in TextureManager
+	}
+	else
+	{
+		try
+		{
+			material.metallicMapIndex = m_TextureManager->LoadTextureImage(materialRawData.metallicMapFileName);
+		}
+		catch (const std::runtime_error& e)
+		{
+			Log::Warning(e.what());
+			material.metallicMapIndex = m_TextureManager->m_DefaultMetallicIndex;
+		}
+	}
+
+	// --- Xử lý Occlusion Map (PBR) ---
+	if (materialRawData.occulusionMapFileName == "") // Corrected typo: occulusion -> occlusion
+	{
+		material.occlusionMapIndex = m_TextureManager->m_DefaultOcclusionIndex; // TODO: Implement m_DefaultOcclusionIndex in TextureManager
+	}
+	else
+	{
+		try
+		{
+			material.occlusionMapIndex = m_TextureManager->LoadTextureImage(materialRawData.occulusionMapFileName); // Corrected typo: occulusion -> occlusion
+		}
+		catch (const std::runtime_error& e)
+		{
+			Log::Warning(e.what());
+			material.occlusionMapIndex = m_TextureManager->m_DefaultOcclusionIndex;
+		}
+	}
+
 	// Thêm vật liệu đã cấu hình vào danh sách tất cả các vật liệu được quản lý.
 	m_Handles.allMaterials.push_back(material);
 	// Trả về chỉ số của vật liệu vừa được thêm vào.

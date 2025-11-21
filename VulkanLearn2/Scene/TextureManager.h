@@ -43,6 +43,9 @@ public:
 	uint32_t m_DefaultDiffuseIndex;
 	uint32_t m_DefaultNormalIndex;
 	uint32_t m_DefaultSpecularIndex;
+	uint32_t m_DefaultRoughnessIndex;
+	uint32_t m_DefaultMetallicIndex;
+	uint32_t m_DefaultOcclusionIndex;
 
 	// Yêu cầu tải một texture từ đường dẫn file.
 	// Trả về ID của texture, có thể dùng trong shader.

@@ -90,34 +90,33 @@ float CalculateAttenuation(float distance, float range) {
 
 void main() 
 {
-    // --- 1. Get data from G-Buffer ---
-    vec3 rawNormal = texture(gNormal, inUV).rgb;
+    // --- 1. Unpack data from G-Buffer ---
+    vec4 albedoRoughnessSample = texture(gAlbedoSpec, inUV);
+    vec4 normalMetallicSample  = texture(gNormal, inUV);
+    vec4 positionAOSample      = texture(gPosition, inUV);
 
-    // Check for background pixels by testing the length of the raw normal vector.
-    // In GeometryPass, background pixels should have a normal of (0,0,0).
-    if (length(rawNormal) < 0.01) {
+    // Check for background pixels
+    if (length(normalMetallicSample.rgb) < 0.01) {
         outColor = vec4(0.0, 0.0, 0.0, 1.0); // Output black background
         return;
     }
 
-    // Now that we know it's not a zero vector, we can safely normalize it.
-    vec3 N = normalize(rawNormal);
-    
-    vec3 WorldPos = texture(gPosition, inUV).rgb;
-    vec3 Albedo = pow(texture(gAlbedoSpec, inUV).rgb, vec3(2.2)); // sRGB to Linear
+    // --- 2. Assign PBR material properties from G-Buffer ---
+    vec3 Albedo     = pow(albedoRoughnessSample.rgb, vec3(2.2)); // sRGB to Linear
+    float roughness = albedoRoughnessSample.a;
+    vec3 N          = normalize(normalMetallicSample.rgb);
+    float metallic  = normalMetallicSample.a;
+    vec3 WorldPos   = positionAOSample.rgb;
+    float ao        = positionAOSample.a;
 
-    // --- PBR Parameters (Hardcoded) ---
-    float metallic = 0.1;
-    float roughness = 0.3;
-    float ao = 1.0;
-
+    // --- 3. Prepare vectors for lighting ---
     vec3 V = normalize(ubo.viewPos - WorldPos);
-
     vec3 F0 = vec3(0.04); 
     F0 = mix(F0, Albedo, metallic);
               
     vec3 Lo = vec3(0.0);
 
+    // --- 4. Loop through all lights ---
     uint numLights = lightBuffer.lights.length();
     for(uint i = 0; i < numLights; ++i) {
         Light light = lightBuffer.lights[i];
@@ -147,6 +146,7 @@ void main()
         vec3 H = normalize(V + L);
         vec3 radiance = lightColor * attenuation;
 
+        // --- Cook-Torrance BRDF ---
         float NDF = DistributionGGX(N, H, roughness);   
         float G   = GeometrySmith(N, V, L, roughness);      
         vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);
@@ -163,11 +163,13 @@ void main()
         Lo += (kD * Albedo / PI + specular) * radiance * NdotL; 
     }   
     
+    // --- 5. Final Assembly ---
     vec3 ambient = vec3(0.03) * Albedo * ao;
     vec3 color = ambient + Lo;
 
-    color = color / (color + vec3(1.0)); // Reinhard Tonemapping
-    color = pow(color, vec3(1.0 / 2.2)); // Gamma Correction
+    // --- 6. HDR Tonemapping & Gamma Correction ---
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0 / 2.2)); 
 
     outColor = vec4(color, 1.0);
 }

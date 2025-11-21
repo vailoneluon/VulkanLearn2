@@ -8,17 +8,23 @@ layout(location = 3) in vec3 fragWorldNormal;
 layout(location = 4) in vec3 fragTangent;
 
 // OUT to G-Buffer attachments
-layout(location = 0) out vec4 outAlbedo;
-layout(location = 1) out vec4 outNormal;
-layout(location = 2) out vec4 outPosition;
+layout(location = 0) out vec4 outAlbedoRoughness;   // .rgb = Albedo, .a = Roughness
+layout(location = 1) out vec4 outNormalMetallic;    // .rgb = Normal, .a = Metallic
+layout(location = 2) out vec4 outPositionAO;        // .rgb = Position, .a = Ambient Occlusion
 
+// Bindless texture array
 layout(set = 0, binding = 0) uniform sampler2D texSampler[256];
 
+// Material data SSBO
 struct MaterialData {
     uint diffuseMapIndex;
     uint normalMapIndex;
-    uint specularMapIndex;
-    uint padding;
+    uint specularMapIndex;  // Kept for alignment, can be repurposed
+    uint roughnessMapIndex;
+    uint metallicMapIndex;
+    uint occlusionMapIndex;
+    uint padding1;
+    uint padding2;
 };
 
 layout(set = 2, binding = 0) readonly buffer Materials {
@@ -29,32 +35,29 @@ void main() {
     // --- 1. Get Material Data ---
     MaterialData material = materialsBuffer.materials[fragMaterialId];
     
-    // --- 2. Write Albedo and Position to G-Buffer ---
-    uint diffuseTextureIndex = material.diffuseMapIndex;
-    outAlbedo = texture(texSampler[diffuseTextureIndex], fragTexCoord);
-    outPosition = vec4(fragWorldPos, 1.0);
+    // --- 2. Sample PBR Textures ---
+    // Sample Albedo
+    vec3 albedo = texture(texSampler[material.diffuseMapIndex], fragTexCoord).rgb;
+
+    // Sample PBR maps. Assuming ORM/MRAo packing: Occlusion(R), Roughness(G), Metallic(B)
+    // For separate textures, we just sample the relevant channel. Default textures are single-channel.
+    float roughness = texture(texSampler[material.roughnessMapIndex], fragTexCoord).r;
+    float metallic  = texture(texSampler[material.metallicMapIndex], fragTexCoord).r;
+    float ao        = texture(texSampler[material.occlusionMapIndex], fragTexCoord).r;
 
     // --- 3. Calculate Final Normal from Normal Map ---
-    
-    // Get normal from normal map (in tangent space)
-    uint normalMapIndex = material.normalMapIndex;
-    vec3 tangentNormal = texture(texSampler[normalMapIndex], fragTexCoord).rgb;
-    // Remap values from [0, 1] color range to [-1, 1] vector range
-    tangentNormal = normalize(tangentNormal * 2.0 - 1.0);
+    vec3 tangentNormal = texture(texSampler[material.normalMapIndex], fragTexCoord).rgb;
+    tangentNormal = normalize(tangentNormal * 2.0 - 1.0); // Remap from [0,1] to [-1,1]
 
-    // Construct the TBN matrix to transform from tangent space to world space
-    // Re-normalize interpolated vectors for accuracy
     vec3 N = normalize(fragWorldNormal);
     vec3 T = normalize(fragTangent);
-    // Use Gram-Schmidt process to ensure T and N are orthogonal
     T = normalize(T - dot(T, N) * N);
-    // Calculate Bitangent B using cross product
     vec3 B = cross(N, T);
     mat3 TBN = mat3(T, B, N);
-
-    // Transform normal from tangent space to world space
     vec3 finalNormal = normalize(TBN * tangentNormal);
 
-    // Write final normal to G-Buffer
-    outNormal = vec4(finalNormal, 1.0);
+    // --- 4. Write to G-Buffer Attachments ---
+    outAlbedoRoughness   = vec4(albedo, roughness);
+    outNormalMetallic    = vec4(finalNormal, metallic);
+    outPositionAO        = vec4(fragWorldPos, ao);
 }

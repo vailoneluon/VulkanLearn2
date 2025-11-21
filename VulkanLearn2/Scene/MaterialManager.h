@@ -13,8 +13,12 @@ struct MaterialData
 	alignas(4) uint32_t diffuseMapIndex;
 	alignas(4) uint32_t normalMapIndex;
 	alignas(4) uint32_t specularMapIndex;
+	alignas(4) uint32_t roughnessMapIndex;
+	alignas(4) uint32_t metallicMapIndex;
+	alignas(4) uint32_t occlusionMapIndex;
 
 	alignas(4) uint32_t _padding;
+	alignas(4) uint32_t _padding2;
 };
 
 struct MaterialRawData
@@ -22,6 +26,9 @@ struct MaterialRawData
 	std::string diffuseMapFileName = "";
 	std::string normalMapFileName = "";
 	std::string specularMapFileName = "";
+	std::string roughnessMapFileName = "";
+	std::string metallicMapFileName = "";
+	std::string occulusionMapFileName = "";
 };
 
 struct MaterialManagerHandles

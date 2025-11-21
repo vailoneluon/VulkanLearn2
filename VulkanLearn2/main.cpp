@@ -559,7 +559,7 @@ void Application::CreateSceneLights()
 	);
 
 	// Tạo đèn Spot (Spot Light) - Chiếu chéo từ trên-phải xuống giữa màn hình
-	glm::vec3 spotLightPosition = glm::vec3(3.0f, 4.0f, 0.0f);   // Vị trí đèn
+	glm::vec3 spotLightPosition = glm::vec3(-3.0f, 3.0f, 0.0f);   // Vị trí đèn
 	glm::vec3 spotLightTarget = glm::vec3(0.5f, 2.5f, 0.0f);     // Điểm nhắm tới (giữa màn hình bên phải)
 	glm::vec3 spotLightDirection = glm::normalize(spotLightTarget - spotLightPosition); // Hướng chiếu
 

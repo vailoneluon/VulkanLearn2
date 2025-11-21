@@ -14,6 +14,9 @@ TextureManager::TextureManager(const VulkanHandles& vulkanHandles, VulkanCommand
 	m_DefaultDiffuseIndex = LoadTextureImage("Resources/DefaultTextures/default_diffuse.png");
 	m_DefaultNormalIndex = LoadTextureImage("Resources/DefaultTextures/default_normal.png");
 	m_DefaultSpecularIndex = LoadTextureImage("Resources/DefaultTextures/default_specular.png");
+	m_DefaultRoughnessIndex = LoadTextureImage("Resources/DefaultTextures/default_roughness.png");
+	m_DefaultMetallicIndex = LoadTextureImage("Resources/DefaultTextures/default_metallic.png");
+	m_DefaultOcclusionIndex = LoadTextureImage("Resources/DefaultTextures/default_occlusion.png");
 }
 
 TextureManager::~TextureManager()
