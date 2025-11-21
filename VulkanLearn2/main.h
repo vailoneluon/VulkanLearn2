@@ -59,11 +59,11 @@ private:
 	// SECTION: CẤU HÌNH VÀ TRẠNG THÁI
 	// =================================================================================================
 	
-	// --- Hằng số Cấu hình ---
-	const uint32_t WINDOW_WIDTH = 800;
+	// --- Hằng số Cấu hình ---   
+	const uint32_t WINDOW_WIDTH = 800; 
 	const uint32_t WINDOW_HEIGHT = 600;
-	//const VkClearColorValue BACKGROUND_COLOR = { 0.1f, 0.1f, 0.2f, 1.0f };
-	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
+	const VkClearColorValue BACKGROUND_COLOR = { 0.1f, 0.1f, 0.2f, 1.0f };
+	//const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
 	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)
 

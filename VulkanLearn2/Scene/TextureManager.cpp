@@ -140,7 +140,7 @@ TextureImage* TextureManager::CreateNewTextureImage(const std::string& imageFile
 	TextureImage* textureImage = new TextureImage();
 	textureImage->textureImage = image;
 	textureImage->id = static_cast<uint32_t>(m_Handles.allTextureImageLoaded.size()); // ID chính là index trong mảng.
-	
+	std::cout << imageFilePath << std::endl;
 	m_Handles.allTextureImageLoaded.push_back(textureImage);
 
 	return textureImage;
