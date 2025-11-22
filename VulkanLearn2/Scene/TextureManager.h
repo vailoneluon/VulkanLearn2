@@ -43,10 +43,13 @@ public:
 	uint32_t m_DefaultDiffuseIndex;
 	uint32_t m_DefaultNormalIndex;
 	uint32_t m_DefaultSpecularIndex;
+	uint32_t m_DefaultRoughnessIndex;
+	uint32_t m_DefaultMetallicIndex;
+	uint32_t m_DefaultOcclusionIndex;
 
 	// Yêu cầu tải một texture từ đường dẫn file.
 	// Trả về ID của texture, có thể dùng trong shader.
-	uint32_t LoadTextureImage(const std::string& imageFilePath);
+	uint32_t LoadTextureImage(const std::string& imageFilePath, VkFormat imageFormat);
 
 	// Hoàn tất quá trình thiết lập: tải tất cả texture đã được yêu cầu lên GPU và tạo descriptor.
 	void FinalizeSetup();
@@ -66,7 +69,7 @@ private:
 	const uint32_t DESCRIPTOR_COUNT = 256;
 
 	// --- Hàm helper private ---
-	TextureImage* CreateNewTextureImage(const std::string& imageFilePath);
+	TextureImage* CreateNewTextureImage(const std::string& imageFilePath, VkFormat imageFormat);
 	void UploadDataToTextureImage();
 	void CreateTextureImageDescriptor();
 };

@@ -11,9 +11,12 @@ TextureManager::TextureManager(const VulkanHandles& vulkanHandles, VulkanCommand
 	m_Sampler(sampler)
 {
 	// Load Các Default Image.
-	m_DefaultDiffuseIndex = LoadTextureImage("Resources/DefaultTextures/default_diffuse.png");
-	m_DefaultNormalIndex = LoadTextureImage("Resources/DefaultTextures/default_normal.png");
-	m_DefaultSpecularIndex = LoadTextureImage("Resources/DefaultTextures/default_specular.png");
+	m_DefaultDiffuseIndex = LoadTextureImage("Resources/DefaultTextures/default_diffuse.png", VK_FORMAT_R8G8B8A8_SRGB);
+	m_DefaultNormalIndex = LoadTextureImage("Resources/DefaultTextures/default_normal.png", VK_FORMAT_R8G8B8A8_UNORM);
+	m_DefaultSpecularIndex = LoadTextureImage("Resources/DefaultTextures/default_specular.png", VK_FORMAT_R8G8B8A8_UNORM);
+	m_DefaultRoughnessIndex = LoadTextureImage("Resources/DefaultTextures/default_roughness.png", VK_FORMAT_R8G8B8A8_UNORM);
+	m_DefaultMetallicIndex = LoadTextureImage("Resources/DefaultTextures/default_metallic.png", VK_FORMAT_R8G8B8A8_UNORM);
+	m_DefaultOcclusionIndex = LoadTextureImage("Resources/DefaultTextures/default_occlusion.png", VK_FORMAT_R8G8B8A8_UNORM);
 }
 
 TextureManager::~TextureManager()
@@ -26,13 +29,13 @@ TextureManager::~TextureManager()
 	}
 }
 
-uint32_t TextureManager::LoadTextureImage(const std::string& imageFilePath)
+uint32_t TextureManager::LoadTextureImage(const std::string& imageFilePath, VkFormat imageFormat)
 {
 	// Kiểm tra xem texture đã được yêu cầu tải trước đó chưa bằng cách tìm trong map. 
 	if (m_Handles.filePathList.find(imageFilePath) == m_Handles.filePathList.end())
 	{
 		// Nếu chưa, tạo một đối tượng TextureImage mới và lưu vào map.
-		m_Handles.filePathList[imageFilePath] = CreateNewTextureImage(imageFilePath);
+		m_Handles.filePathList[imageFilePath] = CreateNewTextureImage(imageFilePath, imageFormat);
 	}
 
 	// Trả về ID của texture đã có hoặc vừa được tạo.
@@ -127,17 +130,17 @@ void TextureManager::CreateTextureImageDescriptor()
 	m_Handles.textureImageDescriptor = new VulkanDescriptor(m_VulkanHandles, textureBindings, 0);
 }
 
-TextureImage* TextureManager::CreateNewTextureImage(const std::string& imageFilePath)
+TextureImage* TextureManager::CreateNewTextureImage(const std::string& imageFilePath, VkFormat imageFormat)
 {
 	// LƯU Ý: Tham số cuối cùng là `false`, nghĩa là mipmap không được tạo.
 	// Đối với texture, điều này thường không tối ưu và có thể gây ra aliasing (hiện tượng răng cưa).
 	// Nên cân nhắc đổi thành `true`.
-	VulkanImage* image = new VulkanImage(m_VulkanHandles, imageFilePath.c_str(), true);
+	VulkanImage* image = new VulkanImage(m_VulkanHandles, imageFilePath.c_str(), imageFormat, true);
 	
 	TextureImage* textureImage = new TextureImage();
 	textureImage->textureImage = image;
 	textureImage->id = static_cast<uint32_t>(m_Handles.allTextureImageLoaded.size()); // ID chính là index trong mảng.
-	
+	std::cout << imageFilePath << std::endl;
 	m_Handles.allTextureImageLoaded.push_back(textureImage);
 
 	return textureImage;

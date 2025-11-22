@@ -17,14 +17,15 @@ GeometryPass::GeometryPass(const GeometryPassCreateInfo& geometryInfo) :
 	m_TextureDescriptors(geometryInfo.textureManager->getDescriptor()),
 	m_MeshManager(geometryInfo.meshManager),
 	m_MaterialManager(geometryInfo.materialManager),
-	m_ColorImages(geometryInfo.colorImages),
 	m_DepthStencilImages(geometryInfo.depthStencilImages),
-	m_OutputImage(geometryInfo.outputImage),
 	m_BackgroundColor(geometryInfo.BackgroundColor),
 	m_SwapchainExtent(geometryInfo.vulkanSwapchainHandles->swapChainExtent),
 	m_RenderObjects(geometryInfo.renderObjects),
-	m_PushConstantData(geometryInfo.pushConstantData),
-	m_VulkanHandles(geometryInfo.vulkanHandles)
+	//m_PushConstantData(geometryInfo.pushConstantData), // Removed
+	m_VulkanHandles(geometryInfo.vulkanHandles),
+	m_AlbedoImages(geometryInfo.albedoImages),
+	m_NormalImages(geometryInfo.normalImages),
+	m_PositionImages(geometryInfo.positionImages)
 {
 	CreateDescriptor(*geometryInfo.uniformBuffers);
 	CreatePipeline(geometryInfo);
@@ -38,13 +39,7 @@ GeometryPass::~GeometryPass()
 void GeometryPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex, uint32_t currentFrame)
 {
 	// --- 1. Chuyển đổi Layout cho các Attachment ---
-	// Chuyển layout cho attachment màu (MSAA) để có thể ghi vào.
-	VulkanImage::TransitionLayout(
-		*cmdBuffer, (*m_ColorImages)[currentFrame]->GetHandles().image, 1,
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		0, 1);
+
 
 	// Chuyển layout cho attachment depth/stencil (MSAA) để có thể ghi vào.
 	VulkanImage::TransitionLayout(
@@ -54,9 +49,22 @@ void GeometryPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex
 		0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
 		0, 1);
 
-	// Chuyển layout cho ảnh đầu ra (không MSAA) để nó có thể nhận kết quả resolve.
+
+	// G-Buffer
 	VulkanImage::TransitionLayout(
-		*cmdBuffer, (*m_OutputImage)[currentFrame]->GetHandles().image, 1,
+		*cmdBuffer, (*m_AlbedoImages)[currentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		0, 1);
+	VulkanImage::TransitionLayout(
+		*cmdBuffer, (*m_NormalImages)[currentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		0, 1);
+	VulkanImage::TransitionLayout(
+		*cmdBuffer, (*m_PositionImages)[currentFrame]->GetHandles().image, 1,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -64,17 +72,31 @@ void GeometryPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex
 
 	// --- 2. Thiết lập và Bắt đầu Dynamic Rendering ---
 	// Cấu hình attachment màu, bao gồm cả việc resolve MSAA.
-	VkRenderingAttachmentInfo colorAttachment{};
-	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	colorAttachment.clearValue.color = m_BackgroundColor;
-	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	colorAttachment.imageView = (*m_ColorImages)[currentFrame]->GetHandles().imageView; // Vẽ vào ảnh MSAA.
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; // Không cần lưu ảnh MSAA sau khi resolve.
-	// Cấu hình resolve: kết quả từ ảnh MSAA sẽ được resolve và ghi vào ảnh output (không MSAA).
-	colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	colorAttachment.resolveImageView = (*m_OutputImage)[currentFrame]->GetHandles().imageView;
-	colorAttachment.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
+	VkRenderingAttachmentInfo albedoAttachment{};
+	albedoAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	albedoAttachment.clearValue.color = m_BackgroundColor;
+	albedoAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	albedoAttachment.imageView = (*m_AlbedoImages)[currentFrame]->GetHandles().imageView; // Vẽ vào ảnh MSAA.
+	albedoAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	albedoAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+	// Normal
+	VkRenderingAttachmentInfo normalAttachment{};
+	normalAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	normalAttachment.clearValue.color = m_BackgroundColor;
+	normalAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	normalAttachment.imageView = (*m_NormalImages)[currentFrame]->GetHandles().imageView; 
+	normalAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	normalAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+	// Position
+	VkRenderingAttachmentInfo positionAttachment{};
+	positionAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	positionAttachment.clearValue.color = m_BackgroundColor;
+	positionAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	positionAttachment.imageView = (*m_PositionImages)[currentFrame]->GetHandles().imageView;
+	positionAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	positionAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
 	// Cấu hình attachment depth/stencil.
 	VkRenderingAttachmentInfo depthStencilAttachment{};
@@ -85,11 +107,13 @@ void GeometryPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex
 	depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
+	VkRenderingAttachmentInfo attachments[] = { albedoAttachment, normalAttachment, positionAttachment };
+
 	// Cấu hình thông tin cho dynamic rendering.
 	VkRenderingInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	renderingInfo.colorAttachmentCount = 1;
-	renderingInfo.pColorAttachments = &colorAttachment;
+	renderingInfo.colorAttachmentCount = 3;
+	renderingInfo.pColorAttachments = attachments;
 	renderingInfo.pDepthAttachment = &depthStencilAttachment;
 	renderingInfo.pStencilAttachment = &depthStencilAttachment;
 	renderingInfo.layerCount = 1;
@@ -112,9 +136,24 @@ void GeometryPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex
 	vkCmdEndRendering(*cmdBuffer);
 
 	// --- 4. Chuyển đổi Layout sau khi Render ---
-	// Chuyển layout của ảnh đầu ra sang SHADER_READ_ONLY_OPTIMAL để nó có thể được dùng làm texture trong các pass tiếp theo.
+	
+	// G-Buffer
 	VulkanImage::TransitionLayout(
-		*cmdBuffer, (*m_OutputImage)[currentFrame]->GetHandles().image, 1,
+		*cmdBuffer, (*m_AlbedoImages)[currentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+		0, 1);
+
+	VulkanImage::TransitionLayout(
+		*cmdBuffer, (*m_NormalImages)[currentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+		0, 1);
+
+	VulkanImage::TransitionLayout(
+		*cmdBuffer, (*m_PositionImages)[currentFrame]->GetHandles().image, 1,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
@@ -184,6 +223,13 @@ void GeometryPass::CreatePipeline(const GeometryPassCreateInfo& geometryInfo)
 	pipelineInfo.fragmentShaderFilePath = geometryInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = geometryInfo.vertShaderFilePath;
 
+	std::vector<VkFormat> renderingColorAttachments = { 
+		VK_FORMAT_B8G8R8A8_SRGB,					// Albedo
+		VK_FORMAT_R16G16B16A16_SFLOAT,			// Normal
+		VK_FORMAT_R16G16B16A16_SFLOAT			// Position
+	};
+	pipelineInfo.renderingColorAttachments = &renderingColorAttachments;
+
 	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
 }
 
@@ -234,10 +280,10 @@ void GeometryPass::DrawSceneObject(VkCommandBuffer cmdBuffer)
 			// --- Cập nhật Push Constants ---
 			// Gửi dữ liệu cho từng lần vẽ (per-draw data) như ma trận model và ID texture.
 			// Đây là cách hiệu quả để gửi một lượng nhỏ dữ liệu thay đổi thường xuyên.
-			m_PushConstantData->model = renderObject->GetModelMatrix();
-			m_PushConstantData->materialIndex = mesh->materialIndex;
+			m_PushConstantData.model = renderObject->GetModelMatrix();
+			m_PushConstantData.materialIndex = mesh->materialIndex;
 
-			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), m_PushConstantData);
+			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), &m_PushConstantData);
 
 			// --- Ghi Lệnh Vẽ ---
 			// Vẽ mesh hiện tại bằng cách sử dụng các offset trong buffer chung.

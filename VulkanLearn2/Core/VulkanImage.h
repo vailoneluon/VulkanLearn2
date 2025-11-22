@@ -95,7 +95,7 @@ public:
 	 * @param filePath Đường dẫn đến file ảnh.
 	 * @param createMipmaps Có tạo mipmap cho texture hay không (mặc định là false).
 	 */
-	VulkanImage(const VulkanHandles& vulkanHandles, const char* filePath, bool createMipmaps = false);
+	VulkanImage(const VulkanHandles& vulkanHandles, const char* filePath, VkFormat imageFormat, bool createMipmaps = false);
 
 	/**
 	 * @brief Destructor, giải phóng VkImageView, VkImage và bộ nhớ đã cấp phát.

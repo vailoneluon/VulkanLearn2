@@ -18,3 +18,24 @@ Release/
 # OS files
 Thumbs.db
 .DS_Store
+
+# --- NEW: Assets & Textures ---
+# Common Images
+*.png
+*.jpg
+*.jpeg
+*.tga
+*.bmp
+*.psd
+
+# Vulkan/Graphics Textures (Quan trọng cho Game Engine)
+*.dds
+*.ktx
+*.astc
+
+# 3D Models (Thường đi kèm texture, nên ignore luôn nếu nặng)
+*.obj
+*.fbx
+*.gltf
+*.glb
+*.assbin
