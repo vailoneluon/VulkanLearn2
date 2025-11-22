@@ -132,6 +132,9 @@ void BlurPass::CreatePipeline(const BlurPassCreateInfo& blurInfo)
 	pipelineInfo.fragmentShaderFilePath = blurInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = blurInfo.vertShaderFilePath;
 
+	std::vector<VkFormat> renderingColorAttachments = { VK_FORMAT_R16G16B16A16_SFLOAT };
+	pipelineInfo.renderingColorAttachments = &renderingColorAttachments;
+
 	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
 }
 

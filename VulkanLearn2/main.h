@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Scene/LightData.h"
 // --- Khai báo sớm (Forward Declarations) ---
 // Giảm thiểu sự phụ thuộc vào các file header và tăng tốc độ biên dịch.
 
@@ -7,6 +8,7 @@
 struct UniformBufferObject;
 struct PushConstantData;
 class MaterialManager;
+class LightManager;
 
 // Classes
 class Window;
@@ -27,6 +29,7 @@ class GeometryPass;
 class BrightFilterPass;
 class CompositePass;
 class BlurPass;
+class LightingPass;
 
 
 /**
@@ -53,14 +56,15 @@ public:
 
 private:
 	// =================================================================================================
-	// SECTION: CẤU HÌNH VÀ TRẠNG THÁI
+	// SECTION: CẤU HÌNH VÀ TRẠNG THÁI 
 	// =================================================================================================
 	
-	// --- Hằng số Cấu hình ---
-	const uint32_t WINDOW_WIDTH = 800;
+	// --- Hằng số Cấu hình ---   
+	const uint32_t WINDOW_WIDTH = 800; 
 	const uint32_t WINDOW_HEIGHT = 600;
-	const VkClearColorValue BACKGROUND_COLOR = { 0.1f, 0.1f, 0.2f, 1.0f };
-	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_4_BIT; // Mức độ khử răng cưa (MSAA)
+	//const VkClearColorValue BACKGROUND_COLOR = { 0.1f, 0.1f, 0.2f, 1.0f };
+	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
+	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
 	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)
 
 	// --- Trạng thái Ứng dụng ---
@@ -83,6 +87,7 @@ private:
 	MeshManager* m_MeshManager;
 	TextureManager* m_TextureManager;
 	MaterialManager* m_MaterialManager;
+	LightManager* m_LightManager;
 
 	// =================================================================================================
 	// SECTION: TÀI NGUYÊN RENDER (FRAMEBUFFER ATTACHMENTS)
@@ -91,15 +96,19 @@ private:
 	// Chúng được tạo cho mỗi frame-in-flight để tránh xung đột dữ liệu.
 
 	// --- Geometry Pass (Vẽ scene 3D) ---
-	std::vector<VulkanImage*> m_RTT_ColorImage;			// Attachment màu (MSAA) để vẽ scene 3D.
-	std::vector<VulkanImage*> m_RTT_DepthStencilImage;	// Attachment depth/stencil (MSAA) cho Geometry Pass.
-	std::vector<VulkanImage*> m_SceneImages;			// Kết quả sau khi resolve MSAA từ Geometry Pass. Đây là input cho các bước post-processing.
+	std::vector<VulkanImage*> m_Geometry_DepthStencilImage;	// Attachment depth/stencil (MSAA) cho Geometry Pass.
+
+	std::vector<VulkanImage*> m_Geometry_PositionImages;
+	std::vector<VulkanImage*> m_Geometry_AlbedoImages;
+	std::vector<VulkanImage*> m_Geometry_NormalImages;
+
 
 	// --- Composite Pass (Tổng hợp cuối cùng) ---
 	VulkanImage* m_Main_ColorImage;						// Attachment màu (MSAA) cho Composite Pass.
 	VulkanImage* m_Main_DepthStencilImage;				// Attachment depth/stencil (MSAA) cho Composite Pass.
 
 	// --- Post-Processing (Bloom Effect) ---
+	std::vector<VulkanImage*> m_LitSceneImages;
 	std::vector<VulkanImage*> m_BrightImages;			// Chứa các vùng sáng được lọc từ m_SceneImages. Cũng là output của bước blur dọc.
 	std::vector<VulkanImage*> m_TempBlurImages;			// Image tạm, là output của bước blur ngang và input cho bước blur dọc.
 
@@ -112,10 +121,14 @@ private:
 	RenderObject* m_Swimsuit;
 	std::vector<RenderObject*> m_RenderObjects;			// Danh sách tất cả các đối tượng cần được render trong scene.
 
+	// --- Dữ liệu Light
+	Light m_Light0;
+	Light m_Light1;
+	std::vector<Light> m_AllSceneLights; 
+
 	// --- Dữ liệu cho Shader ---
 	UniformBufferObject m_RTT_Ubo{};					// Struct chứa dữ liệu cho Uniform Buffer (ma trận View, Projection).
 	std::vector<VulkanBuffer*> m_RTT_UniformBuffers;	// Các uniform buffer cho camera, một buffer cho mỗi frame-in-flight.
-	PushConstantData m_PushConstantData;				// Struct chứa dữ liệu cho Push Constants (ma trận Model, Texture ID).
 
 	// =================================================================================================
 	// SECTION: CÁC RENDER PASS
@@ -123,17 +136,19 @@ private:
 	// Mỗi pass là một bước trong chuỗi render pipeline.
 
 	GeometryPass* m_GeometryPass;			// Pass 1: Vẽ các đối tượng 3D vào một texture (render-to-texture).
+	LightingPass* m_LightingPass;
 	BrightFilterPass* m_BrightFilterPass;	// Pass 2: Lọc ra các vùng có độ sáng cao từ kết quả của Geometry Pass.
 	BlurPass* m_BlurHPass;					// Pass 3: Áp dụng hiệu ứng mờ theo chiều ngang (Horizontal Blur).
 	BlurPass* m_BlurVPass;					// Pass 4: Áp dụng hiệu ứng mờ theo chiều dọc (Vertical Blur).
 	CompositePass* m_CompositePass;			// Pass 5: Tổng hợp kết quả của Geometry Pass và các bước blur để tạo ra ảnh cuối cùng và hiển thị lên màn hình.
-
+	 
 	// =================================================================================================
 	// SECTION: CÁC HÀM HELPER
 	// =================================================================================================
 
 private:
 	// --- Nhóm hàm khởi tạo ---
+	void CreateSceneLights();
 	void CreateRenderPasses();
 	void CreateFrameBufferImages();
 	void CreateUniformBuffers();

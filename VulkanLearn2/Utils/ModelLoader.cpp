@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "ModelLoader.h"
-#include "Core/VulkanContext.h" // Include để có định nghĩa đầy đủ của struct Vertex
+#include "Core/VulkanTypes.h"
 #include "Scene/MeshManager.h"
 #include "Scene/Model.h"
 #include <stdexcept>
@@ -72,6 +72,10 @@ Mesh* ModelLoader::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		{
 			vertex.uv = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
 		}
+		if (mesh->HasTangentsAndBitangents())
+		{
+			vertex.tangent = { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z };
+		}
 		currentMeshData.vertices.push_back(vertex);
 	}
 
@@ -119,6 +123,31 @@ Mesh* ModelLoader::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			if (!fileName.empty())
 			{
 				materialRawData.specularMapFileName = TEXTURE_PATH_PREFIX + fileName;
+			}
+		}
+		// --- Tải PBR Textures ---
+		if (material->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, 0, &texPath) == AI_SUCCESS)
+		{
+			std::string fileName = GetFileNameFromPath(texPath.C_Str());
+			if (!fileName.empty())
+			{
+				materialRawData.roughnessMapFileName = TEXTURE_PATH_PREFIX + fileName;
+			}
+		}
+		if (material->GetTexture(aiTextureType_METALNESS, 0, &texPath) == AI_SUCCESS)
+		{
+			std::string fileName = GetFileNameFromPath(texPath.C_Str());
+			if (!fileName.empty())
+			{
+				materialRawData.metallicMapFileName = TEXTURE_PATH_PREFIX + fileName;
+			}
+		}
+		if (material->GetTexture(aiTextureType_AMBIENT_OCCLUSION, 0, &texPath) == AI_SUCCESS)
+		{
+			std::string fileName = GetFileNameFromPath(texPath.C_Str());
+			if (!fileName.empty())
+			{
+				materialRawData.occulusionMapFileName = TEXTURE_PATH_PREFIX + fileName;
 			}
 		}
 	}

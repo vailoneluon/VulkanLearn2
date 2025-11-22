@@ -23,6 +23,7 @@ struct VulkanPipelineCreateInfo
 	const SwapchainHandles* swapchainHandles;
 	VkSampleCountFlagBits msaaSamples;
 	std::vector<VulkanDescriptor*>* descriptors;
+	std::vector<VkFormat>* renderingColorAttachments;
 
 	std::string vertexShaderFilePath;
 	std::string fragmentShaderFilePath;
@@ -67,6 +68,7 @@ private:
 		VkSampleCountFlagBits msaaSamples,
 		VkShaderModule vertShaderModule,
 		VkShaderModule fragShaderModule,
+		std::vector<VkFormat>* renderingColorAttachments,
 		bool useVertexInput
 	);
 };

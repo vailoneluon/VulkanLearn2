@@ -120,6 +120,9 @@ void BrightFilterPass::CreatePipeline(const BrightFilterPassCreateInfo& brightFi
 	pipelineInfo.fragmentShaderFilePath = brightFilterInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = brightFilterInfo.vertShaderFilePath;
 
+	std::vector<VkFormat> renderingColorAttachments = { VK_FORMAT_R16G16B16A16_SFLOAT };
+	pipelineInfo.renderingColorAttachments = &renderingColorAttachments;
+
 	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
 }
 

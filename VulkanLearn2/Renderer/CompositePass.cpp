@@ -61,13 +61,13 @@ void CompositePass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 	colorAttachment.clearValue.color = m_BackgroundColor;
 	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	colorAttachment.imageView = m_MainColorImage->GetHandles().imageView; // Vẽ vào ảnh MSAA.
+	colorAttachment.imageView = m_VulkanSwapchainHandles->swapchainImageViews[imageIndex];
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; // Không cần lưu ảnh MSAA sau khi resolve.
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // Không cần lưu ảnh MSAA sau khi resolve.
 	// Cấu hình resolve: kết quả từ ảnh MSAA sẽ được resolve (làm mịn) và ghi vào swapchain image.
-	colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	/*colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	colorAttachment.resolveImageView = m_VulkanSwapchainHandles->swapchainImageViews[imageIndex];
-	colorAttachment.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
+	colorAttachment.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;*/
 
 	// Cấu hình attachment depth/stencil.
 	VkRenderingAttachmentInfo depthStencilAttachment{};
@@ -178,6 +178,9 @@ void CompositePass::CreatePipeline(const CompositePassCreateInfo& compositeInfo)
 	pipelineInfo.swapchainHandles = compositeInfo.vulkanSwapchainHandles;
 	pipelineInfo.fragmentShaderFilePath = compositeInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = compositeInfo.vertShaderFilePath;
+
+	std::vector<VkFormat> renderingColorAttachments = { VK_FORMAT_B8G8R8A8_SRGB };
+	pipelineInfo.renderingColorAttachments = &renderingColorAttachments;
 
 	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
 }
