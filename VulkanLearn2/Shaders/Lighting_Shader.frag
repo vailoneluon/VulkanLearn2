@@ -82,10 +82,14 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
 // Attenuation function (Inverse Square Law)
 float CalculateAttenuation(float distance, float range) {
     if(distance >= range) return 0.0;
-    // Simple linear falloff for performance, or standard inverse square:
-    // float attenuation = 1.0 / (distance * distance);
-    // Adjusted to reach 0 at range:
-    return clamp(1.0 - (distance / range), 0.0, 1.0); 
+
+    float attenuation = 1.0 / (distance * distance + 1.0);
+
+    float distDivRange = distance / range;
+    float distDivRange4 = distDivRange * distDivRange * distDivRange * distDivRange; // ^4
+    float window = clamp(1.0 - distDivRange4, 0.0, 1.0);
+    
+    return attenuation * window * window;
 }
 
 void main() 
@@ -95,6 +99,7 @@ void main()
     vec4 normalMetallicSample  = texture(gNormal, inUV);
     vec4 positionAOSample      = texture(gPosition, inUV);
 
+
     // Check for background pixels
     if (length(normalMetallicSample.rgb) < 0.01) {
         outColor = vec4(0.0, 0.0, 0.0, 1.0); // Output black background
@@ -102,8 +107,9 @@ void main()
     }
 
     // --- 2. Assign PBR material properties from G-Buffer ---
-    vec3 Albedo     = pow(albedoRoughnessSample.rgb, vec3(2.2)); // sRGB to Linear
-    float roughness = albedoRoughnessSample.a;
+	vec3 Albedo     = albedoRoughnessSample.rgb; // sRGB to Linear
+	float roughness = max(albedoRoughnessSample.a, 0.01); 
+
     vec3 N          = normalize(normalMetallicSample.rgb);
     float metallic  = normalMetallicSample.a;
     vec3 WorldPos   = positionAOSample.rgb;
@@ -167,9 +173,6 @@ void main()
     vec3 ambient = vec3(0.03) * Albedo * ao;
     vec3 color = ambient + Lo;
 
-    // --- 6. HDR Tonemapping & Gamma Correction ---
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2)); 
 
     outColor = vec4(color, 1.0);
 }

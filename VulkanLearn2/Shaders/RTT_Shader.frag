@@ -42,9 +42,11 @@ void main() {
     // Sample PBR maps according to the ORM standard (Occlusion = R, Roughness = G, Metallic = B)
     // We sample from the specified texture index for each property.
     // If they are packed into one texture, the indices in MaterialData should all point to that same texture.
-    float roughness = texture(texSampler[material.roughnessMapIndex], fragTexCoord).g; // Roughness from Green channel
-    float metallic  = texture(texSampler[material.metallicMapIndex], fragTexCoord).b;  // Metallic from Blue channel
-    float ao        = texture(texSampler[material.occlusionMapIndex], fragTexCoord).r;   // AO from Red channel
+	float roughness = texture(texSampler[material.roughnessMapIndex], fragTexCoord).g; // Roughness from Green channel
+    
+	float metallic  = texture(texSampler[material.metallicMapIndex], fragTexCoord).b;  // Metallic from Blue channel
+    
+	float ao        = texture(texSampler[material.occlusionMapIndex], fragTexCoord).r;   // AO from Red channel
 
     // --- 3. Calculate Final Normal from Normal Map ---
     vec3 tangentNormal = texture(texSampler[material.normalMapIndex], fragTexCoord).rgb;

@@ -202,7 +202,7 @@ void LightingPass::CreatePipeline(const LightingPassCreateInfo& lightingInfo)
 	pipelineInfo.fragmentShaderFilePath = lightingInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = lightingInfo.vertShaderFilePath;
 
-	std::vector<VkFormat> renderingColorAttachments = { VK_FORMAT_B8G8R8A8_SRGB };
+	std::vector<VkFormat> renderingColorAttachments = { VK_FORMAT_R16G16B16A16_SFLOAT };
 	pipelineInfo.renderingColorAttachments = &renderingColorAttachments;
 
 	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);

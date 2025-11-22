@@ -43,7 +43,7 @@ int main()
 }
 
 // =================================================================================================
-// SECTION 2: LỚP APPLICATION - GIAO DIỆN CÔNG KHAI (CONSTRUCTOR / DESTRUCTOR / MAIN LOOP)
+// SECTION 2: LỚP APPLICATION - GIAO DIỆN CÔNG KHAI (CONSTRUCTOR / DESTRUCTOR / MAIN LOOP) 
 // =================================================================================================
 
 /**
@@ -352,12 +352,12 @@ void Application::UpdateRenderObjectTransforms()
 
 	// Cập nhật transform cho các đối tượng.
 	m_BunnyGirl->SetPosition({ 1, 0, 0 });
-	m_BunnyGirl->Rotate(glm::vec3(0, deltaTime * 45.0f, 0));
+	m_BunnyGirl->Rotate(glm::vec3(0, deltaTime * 30.0f, 0)); 
 	m_BunnyGirl->Scale({ 0.05f, 0.05f, 0.05f });
 
 	m_Swimsuit->SetPosition({ -1, 0, 0 });
+	m_Swimsuit->Rotate(glm::vec3(0, deltaTime * -30.0f, 0));
 	m_Swimsuit->Scale({ 0.045f, 0.045f, 0.045f });
-	m_Swimsuit->Rotate(glm::vec3(0, deltaTime * -45.0f, 0));
 }
 
 // =================================================================================================
@@ -529,12 +529,12 @@ void Application::CreateFrameBufferImages()
 	postProcessingCI.height = swapchainExtent.height;
 	postProcessingCI.mipLevels = 1;
 	postProcessingCI.samples = VK_SAMPLE_COUNT_1_BIT;
-	postProcessingCI.format = swapchainFormat;
+	postProcessingCI.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 	postProcessingCI.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	postProcessingCI.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
 	VulkanImageViewCreateInfo postProcessingCVI{};
-	postProcessingCVI.format = swapchainFormat;
+	postProcessingCVI.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 	postProcessingCVI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 	postProcessingCVI.mipLevels = 1;
 
@@ -546,34 +546,48 @@ void Application::CreateFrameBufferImages()
 		m_LitSceneImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
 		m_BrightImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
 		m_TempBlurImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
-	}
+	} 
 }
  
+// [main.cpp]
+
 void Application::CreateSceneLights()
 {
-	// Tạo đèn định hướng (Directional Light) - Chiếu từ trên-trái xuống
-	m_Light0 = Light::CreateDirectional(
-		glm::normalize(glm::vec3(-0.5f, -1.0f, -0.5f)), // Hướng: Từ trên-trái-trước xuống
-		glm::vec3(0.2f, 1.0f, 0.2f),                     // Màu sắc: Xanh lá cây rực rỡ
-		1.0f                                            // Cường độ: Slightly adjusted
+
+	// --- CẤU HÌNH CHUNG ---
+	// Điểm nhắm (Target): Nhắm vào giữa không trung nơi đặt 2 model (độ cao ~2.5)
+	glm::vec3 targetPosition = glm::vec3(0.0f, 2.5f, 0.0f);
+
+	// --- ĐÈN 1: Bên TRÁI (Left) ---
+	// Vị trí: Bên trái (-3), Trên cao (4), Phía trước (4) -> Chiếu chéo xuống
+	glm::vec3 posLeft = glm::vec3(-3.0f, 4.0f, 4.0f);   
+	glm::vec3 dirLeft = glm::normalize(targetPosition - posLeft);
+
+	m_Light0 = Light::CreateSpot(
+		posLeft,
+		dirLeft,
+		glm::vec3(1.0f, 0.9f, 0.8f),    // Màu Vàng Ấm (Warm) - Tạo cảm giác nắng/đèn sợi đốt
+		20.0f,                         // Intensity: Cao để tạo Bloom lấp lánh
+		30.0f,                          // Range: Tầm xa
+		20.0f,                          // Inner Cutoff: Góc chiếu sáng nhất
+		30.0f                           // Outer Cutoff: Góc mờ dần
 	);
 
-	// Tạo đèn Spot (Spot Light) - Chiếu chéo từ trên-phải xuống giữa màn hình
-	glm::vec3 spotLightPosition = glm::vec3(-3.0f, 3.0f, 0.0f);   // Vị trí đèn
-	glm::vec3 spotLightTarget = glm::vec3(0.5f, 2.5f, 0.0f);     // Điểm nhắm tới (giữa màn hình bên phải)
-	glm::vec3 spotLightDirection = glm::normalize(spotLightTarget - spotLightPosition); // Hướng chiếu
-	 
+	// --- ĐÈN 2: Bên PHẢI (Right) ---
+	// Vị trí: Bên phải (3), Trên cao (4), Phía trước (4) -> Chiếu chéo xuống đối diện
+	glm::vec3 posRight = glm::vec3(3.0f, 4.0f, 4.0f);
+	glm::vec3 dirRight = glm::normalize(targetPosition - posRight);
+	     
 	m_Light1 = Light::CreateSpot(
-		spotLightPosition,                                  // Vị trí
-		spotLightDirection,                                 // Hướng chiếu
-		glm::vec3(1.0f, 0.6f, 0.0f),                        // Màu sắc: Cam rực
-		90.0f,                                              // Cường độ: Sáng hơn nhiều
-		20.0f,                                              // Tầm xa (giữ nguyên)
-		5.0f,                                               // Góc cắt trong (innerCutoff) - Hẹp hơn
-		8.0f                                               // Góc cắt ngoài (outerCutoff) - Hẹp hơn
+		posRight,
+		dirRight,
+		glm::vec3(0.8f, 0.9f, 1.0f),    // Màu Xanh Lạnh (Cool) - Tạo tương phản nghệ thuật
+		20.0f,                         // Intensity: Thấp hơn đèn chính một chút để tạo bóng khối
+		30.0f,
+		20.0f,
+		30.0f
 	);
 
-	// Thêm các đèn vào danh sách tất cả đèn trong scene
 	m_AllSceneLights.push_back(m_Light0);
 	m_AllSceneLights.push_back(m_Light1);
 }

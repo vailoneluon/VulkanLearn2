@@ -36,7 +36,7 @@ uint32_t MaterialManager::LoadMaterial(const MaterialRawData& materialRawData)
 		// Nếu có đường dẫn, thử tải diffuse map.
 		try 
 		{
-			material.diffuseMapIndex = m_TextureManager->LoadTextureImage(materialRawData.diffuseMapFileName);
+			material.diffuseMapIndex = m_TextureManager->LoadTextureImage(materialRawData.diffuseMapFileName, VK_FORMAT_R8G8B8A8_SRGB);
 		}
 		catch (const std::runtime_error& e)
 		{
@@ -61,7 +61,7 @@ uint32_t MaterialManager::LoadMaterial(const MaterialRawData& materialRawData)
 		// Nếu có đường dẫn, thử tải normal map.
 		try
 		{
-			material.normalMapIndex = m_TextureManager->LoadTextureImage(materialRawData.normalMapFileName);
+			material.normalMapIndex = m_TextureManager->LoadTextureImage(materialRawData.normalMapFileName, VK_FORMAT_R8G8B8A8_UNORM);
 		}
 		catch (const std::runtime_error& e)
 		{
@@ -83,7 +83,7 @@ uint32_t MaterialManager::LoadMaterial(const MaterialRawData& materialRawData)
 		// Nếu có đường dẫn, thử tải specular map.
 		try
 		{
-			material.specularMapIndex = m_TextureManager->LoadTextureImage(materialRawData.specularMapFileName);
+			material.specularMapIndex = m_TextureManager->LoadTextureImage(materialRawData.specularMapFileName, VK_FORMAT_R8G8B8A8_UNORM);
 
 		}
 		catch (const std::runtime_error& e)
@@ -103,7 +103,7 @@ uint32_t MaterialManager::LoadMaterial(const MaterialRawData& materialRawData)
 	{
 		try
 		{
-			material.roughnessMapIndex = m_TextureManager->LoadTextureImage(materialRawData.roughnessMapFileName);
+			material.roughnessMapIndex = m_TextureManager->LoadTextureImage(materialRawData.roughnessMapFileName, VK_FORMAT_R8G8B8A8_UNORM);
 		}
 		catch (const std::runtime_error& e)
 		{
@@ -121,7 +121,7 @@ uint32_t MaterialManager::LoadMaterial(const MaterialRawData& materialRawData)
 	{
 		try
 		{
-			material.metallicMapIndex = m_TextureManager->LoadTextureImage(materialRawData.metallicMapFileName);
+			material.metallicMapIndex = m_TextureManager->LoadTextureImage(materialRawData.metallicMapFileName, VK_FORMAT_R8G8B8A8_UNORM);
 		}
 		catch (const std::runtime_error& e)
 		{
@@ -139,7 +139,7 @@ uint32_t MaterialManager::LoadMaterial(const MaterialRawData& materialRawData)
 	{
 		try
 		{
-			material.occlusionMapIndex = m_TextureManager->LoadTextureImage(materialRawData.occulusionMapFileName); // Corrected typo: occulusion -> occlusion
+			material.occlusionMapIndex = m_TextureManager->LoadTextureImage(materialRawData.occulusionMapFileName, VK_FORMAT_R8G8B8A8_UNORM); // Corrected typo: occulusion -> occlusion
 		}
 		catch (const std::runtime_error& e)
 		{

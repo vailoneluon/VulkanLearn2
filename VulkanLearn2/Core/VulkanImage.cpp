@@ -22,7 +22,7 @@ VulkanImage::VulkanImage(const VulkanHandles& vulkanHandles, const VulkanImageCr
  * @param filePath Đường dẫn đến file ảnh.
  * @param createMipmaps Có tạo mipmap cho texture hay không.
  */
-VulkanImage::VulkanImage(const VulkanHandles& vulkanHandles, const char* filePath, bool createMipmaps)
+VulkanImage::VulkanImage(const VulkanHandles& vulkanHandles, const char* filePath, VkFormat imageFormat, bool createMipmaps)
 	: m_VulkanHandles(vulkanHandles)
 {
 	// 1. Tải dữ liệu pixel từ file vào RAM và lưu thông tin vào m_Handles.textureInfo.
@@ -34,7 +34,7 @@ VulkanImage::VulkanImage(const VulkanHandles& vulkanHandles, const char* filePat
 	imageCI.height = m_Handles.textureInfo.height;
 	imageCI.mipLevels = m_Handles.textureInfo.mipLevels;
 	imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
-	imageCI.format = VK_FORMAT_R8G8B8A8_SRGB;
+	imageCI.format = imageFormat;
 	// Image cần cờ VK_IMAGE_USAGE_TRANSFER_DST_BIT để nhận dữ liệu từ staging buffer
 	// và VK_IMAGE_USAGE_TRANSFER_SRC_BIT để làm nguồn cho việc tạo mipmap (blit).
 	imageCI.imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -43,7 +43,7 @@ VulkanImage::VulkanImage(const VulkanHandles& vulkanHandles, const char* filePat
 
 	// 3. Tạo VkImageView để truy cập image.
 	VulkanImageViewCreateInfo imageViewCI{};
-	imageViewCI.format = VK_FORMAT_R8G8B8A8_SRGB;
+	imageViewCI.format = imageFormat;
 	imageViewCI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 	imageViewCI.mipLevels = m_Handles.textureInfo.mipLevels;
 	CreateImageView(imageViewCI);
