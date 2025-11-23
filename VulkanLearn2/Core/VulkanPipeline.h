@@ -29,6 +29,13 @@ struct VulkanPipelineCreateInfo
 	std::string fragmentShaderFilePath;
 
 	bool useVertexInput = true;
+
+	VkExtent2D viewportExtent = {0, 0};
+	VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
+	VkFormat stencilFormat = VK_FORMAT_S8_UINT;
+
+	bool enableDepthBias = false;
+	VkCullModeFlags cullingMode = VK_CULL_MODE_BACK_BIT;
 };
 
 
@@ -64,11 +71,8 @@ private:
 
 	// Hàm chính để tạo Graphics Pipeline.
 	void CreateGraphicsPipeline(
-		const SwapchainHandles* swapchainHandles,
-		VkSampleCountFlagBits msaaSamples,
+		const VulkanPipelineCreateInfo* pipelineInfo,
 		VkShaderModule vertShaderModule,
-		VkShaderModule fragShaderModule,
-		std::vector<VkFormat>* renderingColorAttachments,
-		bool useVertexInput
+		VkShaderModule fragShaderModule
 	);
 };

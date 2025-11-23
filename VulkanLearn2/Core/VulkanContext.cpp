@@ -179,6 +179,12 @@ void VulkanContext::CreateLogicalDevice()
 	dynamicRenderingFT.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
 	dynamicRenderingFT.dynamicRendering = true;
 
+	// Feature cho Descriptor Indexing (để hỗ trợ partially bound descriptors)
+	VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
+	descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+	descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+	descriptorIndexingFeatures.pNext = &dynamicRenderingFT; // Nối chuỗi với dynamic rendering feature
+
 	// Thông tin để tạo logical device.
 	VkDeviceCreateInfo deviceInfo{};
 	deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -187,7 +193,7 @@ void VulkanContext::CreateLogicalDevice()
 	deviceInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 	deviceInfo.pQueueCreateInfos = queueCreateInfos.data();
 	deviceInfo.pEnabledFeatures = &features;
-	deviceInfo.pNext = &dynamicRenderingFT;
+	deviceInfo.pNext = &descriptorIndexingFeatures; // Trỏ pNext chính vào descriptor indexing features
 
 	VK_CHECK(vkCreateDevice(m_Handles.physicalDevice, &deviceInfo, nullptr, &m_Handles.device), "LỖI: Tạo logical device thất bại!");
 

@@ -18,6 +18,7 @@ struct GPULight
 	glm::vec4 direction;  // xyz: Dir, w: Range
 	glm::vec4 color;      // rgb: Color, w: Intensity
 	glm::vec4 params;     // x: Inner, y: Outer, z: ShadowIdx, w: Radius
+	alignas(16) glm::mat4 lightSpaceMatrix; // Ma trận để chuyển từ world-space sang light-space
 };
 
 // ---------------------------------------------------------
@@ -42,7 +43,12 @@ struct Light
 
 	// --- Thông số PBR / Shadow ---
 	float sourceRadius = 0.0f; // Kích thước bóng đèn (cho PBR Specular)
+	// Mặc định là -1 nếu hasShadow = false
+	// Khởi tạo là 0 nếu hasShadow = true
+	// Trong LightManager tính toán để lưu shadowMapIndex thành id của ShadowMap trong shader.
 	int shadowMapIndex = -1;   // -1 là không có bóng đổ
+	glm::mat4 m_LightSpaceMatrix{ 1.0f }; // Ma trận không gian ánh sáng (View * Projection từ góc nhìn của đèn)
+
 
 	// =========================================================
 	// HÀM CHUYỂN ĐỔI (QUAN TRỌNG NHẤT)
@@ -75,6 +81,9 @@ struct Light
 
 		gpu.params = glm::vec4(innerCos, outerCos, (float)shadowMapIndex, sourceRadius);
 
+		// Row 4-7: Light Space Matrix
+		gpu.lightSpaceMatrix = m_LightSpaceMatrix;
+
 		return gpu;
 	}
 
@@ -82,17 +91,20 @@ struct Light
 	// HELPER FUNCTIONS (BUILDER) - Giúp khởi tạo nhanh
 	// =========================================================
 
-	static Light CreateDirectional(const glm::vec3& dir, const glm::vec3& col, float intensity)
+	static Light CreateDirectional(const glm::vec3& dir, const glm::vec3& col, float intensity, bool hasShadow = false)
 	{
 		Light l;
 		l.type = LightType::Directional;
 		l.direction = dir;
 		l.color = col;
 		l.intensity = intensity;
+
+		if (hasShadow)	l.shadowMapIndex = 0;
+
 		return l;
 	}
 
-	static Light CreatePoint(const glm::vec3& pos, const glm::vec3& col, float intensity, float range, float radius = 0.05f)
+	static Light CreatePoint(const glm::vec3& pos, const glm::vec3& col, float intensity, float range, float radius = 0.05f, bool hasShadow = false)
 	{
 		Light l;
 		l.type = LightType::Point;
@@ -101,10 +113,13 @@ struct Light
 		l.intensity = intensity;
 		l.range = range;
 		l.sourceRadius = radius;
+
+		if (hasShadow)	l.shadowMapIndex = 0;
+
 		return l;
 	}
 
-	static Light CreateSpot(const glm::vec3& pos, const glm::vec3& dir, const glm::vec3& col, float intensity, float range, float innerDeg, float outerDeg)
+	static Light CreateSpot(const glm::vec3& pos, const glm::vec3& dir, const glm::vec3& col, float intensity, float range, float innerDeg, float outerDeg, bool hasShadow = false)
 	{
 		Light l;
 		l.type = LightType::Spot;
@@ -115,6 +130,9 @@ struct Light
 		l.range = range;
 		l.innerCutoff = innerDeg;
 		l.outerCutoff = outerDeg;
+
+		if (hasShadow)	l.shadowMapIndex = 0;
+
 		return l;
 	}
 };

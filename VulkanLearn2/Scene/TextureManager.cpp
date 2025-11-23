@@ -90,6 +90,7 @@ void TextureManager::CreateTextureImageDescriptor()
 	textureImageElementInfo.pImmutableSamplers = nullptr;
 	textureImageElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	textureImageElementInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	textureImageElementInfo.useBindless = true;
 
 	// Tạo Descriptor
 	std::vector<VkDescriptorImageInfo> descImageInfos;
@@ -102,17 +103,6 @@ void TextureManager::CreateTextureImageDescriptor()
 		descImageInfo.sampler = m_Sampler;
 		descImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		descImageInfo.imageView = textureImage->textureImage->GetHandles().imageView;
-
-		descImageInfos.push_back(descImageInfo);
-	}
-
-	// Những Descriptor trống để thành imageview 0 tránh báo lỗi.
-	for (size_t i = m_Handles.allTextureImageLoaded.size(); i < DESCRIPTOR_COUNT; i++)
-	{
-		VkDescriptorImageInfo descImageInfo{};
-		descImageInfo.sampler = m_Sampler;
-		descImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		descImageInfo.imageView = m_Handles.allTextureImageLoaded[0]->textureImage->GetHandles().imageView;
 
 		descImageInfos.push_back(descImageInfo);
 	}

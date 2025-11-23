@@ -81,9 +81,9 @@ Application::Application()
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
 	m_TextureManager = new TextureManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler->getSampler());
 	m_MaterialManager = new MaterialManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_TextureManager);
-	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, &m_AllSceneLights, MAX_FRAMES_IN_FLIGHT);
+	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler, &m_AllSceneLights, MAX_FRAMES_IN_FLIGHT);
 
-	m_BunnyGirl = new RenderObject("Resources/bunnyGirl.assbin", m_MeshManager, m_MaterialManager);
+	m_BunnyGirl = new RenderObject("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
 	m_Swimsuit = new RenderObject("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
 	m_BunnyGirl->SetRotation({ -90, 0, 0 });
 	m_Swimsuit->SetRotation({ -90, 0, 0 });
@@ -585,7 +585,8 @@ void Application::CreateSceneLights()
 		20.0f,                         // Intensity: Thấp hơn đèn chính một chút để tạo bóng khối
 		30.0f,
 		20.0f,
-		30.0f
+		30.0f,
+		true
 	);
 
 	m_AllSceneLights.push_back(m_Light0);

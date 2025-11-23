@@ -6,6 +6,7 @@
 struct SamplerHandles
 {
 	VkSampler sampler = VK_NULL_HANDLE;
+	VkSampler shadowSampler = VK_NULL_HANDLE;
 };
 
 // Class quản lý việc tạo và hủy một VkSampler.
@@ -19,6 +20,9 @@ public:
 
 	// Lấy ra VkSampler handle.
 	const VkSampler& getSampler() const { return m_Handles.sampler; };
+
+	// Lấy ra Shadow Sampler
+	const VkSampler& getShadowSampler() const { return m_Handles.shadowSampler; }
 
 private:
 	// --- Tham chiếu Vulkan ---

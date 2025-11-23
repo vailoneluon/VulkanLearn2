@@ -41,6 +41,8 @@ struct BindingElementInfo
 	VkShaderStageFlags    stageFlags;
 	const VkSampler*      pImmutableSamplers = nullptr;
 
+	bool				  useBindless = false;
+
 	uint32_t imageDescriptorUpdateInfoCount = 0;
 	ImageDescriptorUpdateInfo* pImageDescriptorUpdates = nullptr;
 

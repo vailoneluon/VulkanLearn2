@@ -51,6 +51,9 @@ void VulkanDescriptor::CreateSetLayout(const std::vector<BindingElementInfo>& bi
 	std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
 	layoutBindings.reserve(bindingInfos.size());
 
+	bool hasBindless = false;
+	std::vector<VkDescriptorBindingFlags> bindingFlags;
+
 	for (const auto& bindingInfo : bindingInfos)
 	{
 		VkDescriptorSetLayoutBinding layoutBinding{};
@@ -61,12 +64,31 @@ void VulkanDescriptor::CreateSetLayout(const std::vector<BindingElementInfo>& bi
 		layoutBinding.stageFlags = bindingInfo.stageFlags;
 
 		layoutBindings.push_back(layoutBinding);
+
+		if (bindingInfo.useBindless)
+		{
+			hasBindless = true;
+			bindingFlags.push_back(VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
+		}
+		else
+		{
+			bindingFlags.push_back(0);
+		}
 	}
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	layoutInfo.bindingCount = static_cast<uint32_t>(layoutBindings.size());
 	layoutInfo.pBindings = layoutBindings.data();
+
+	VkDescriptorSetLayoutBindingFlagsCreateInfo flagInfo{};
+	if (hasBindless)
+	{
+		flagInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+		flagInfo.bindingCount = bindingFlags.size();
+		flagInfo.pBindingFlags = bindingFlags.data();
+		layoutInfo.pNext = &flagInfo;
+	}
 
 	VK_CHECK(vkCreateDescriptorSetLayout(m_VulkanHandles.device, &layoutInfo, nullptr, &m_Handles.descriptorSetLayout), "LỖI: Tạo descriptor set layout thất bại!");
 }
@@ -127,8 +149,6 @@ void VulkanDescriptor::WriteBufferSets(int updateCount, const BufferDescriptorUp
 		descriptorSetWrite.dstBinding = bindingInfo.binding;
 		descriptorSetWrite.descriptorType = bindingInfo.descriptorType;
 		descriptorSetWrite.dstArrayElement = pBufferBindingInfo[i].firstArrayElement;
-		/*descriptorSetWrite.descriptorCount = pBufferBindingInfo[i].bufferInfoCount;
-		descriptorSetWrite.pBufferInfo = pBufferBindingInfo[i].bufferInfos;*/
 		descriptorSetWrite.descriptorCount = pBufferBindingInfo[i].bufferInfos.size();
 		descriptorSetWrite.pBufferInfo =  pBufferBindingInfo[i].bufferInfos.data();
 
