@@ -564,7 +564,7 @@ void Application::CreateSceneLights()
 
 	// --- ĐÈN 1: Bên TRÁI (Left) ---
 	// Vị trí: Bên trái (-3), Trên cao (4), Phía trước (4) -> Chiếu chéo xuống
-	glm::vec3 posLeft = glm::vec3(-3.0f, 4.0f, 4.0f);   
+	glm::vec3 posLeft = glm::vec3(-3.0f, 4.0f, 4.0f);      
 	glm::vec3 dirLeft = glm::normalize(targetPosition - posLeft);
 
 	m_Light0 = Light::CreateSpot(

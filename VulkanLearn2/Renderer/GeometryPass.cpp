@@ -224,6 +224,7 @@ void GeometryPass::CreatePipeline(const GeometryPassCreateInfo& geometryInfo)
 	pipelineInfo.vertexShaderFilePath = geometryInfo.vertShaderFilePath;
 	pipelineInfo.depthFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 	pipelineInfo.stencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	pipelineInfo.cullingMode = VK_CULL_MODE_BACK_BIT;
 
 	std::vector<VkFormat> renderingColorAttachments = { 
 		VK_FORMAT_B8G8R8A8_SRGB,					// Albedo

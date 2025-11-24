@@ -199,11 +199,25 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	// 7. Giai đoạn Depth/Stencil: Cấu hình kiểm tra chiều sâu.
 	VkPipelineDepthStencilStateCreateInfo depthStencil{};
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthStencil.depthTestEnable = VK_TRUE;
-	depthStencil.depthWriteEnable = VK_TRUE;
+	depthStencil.depthTestEnable = pipelineInfo->depthFormat != VK_FORMAT_UNDEFINED;
+	depthStencil.depthWriteEnable = pipelineInfo->depthFormat != VK_FORMAT_UNDEFINED;
 	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
-	depthStencil.stencilTestEnable = VK_FALSE;
+	depthStencil.stencilTestEnable = pipelineInfo->stencilFormat != VK_FORMAT_UNDEFINED;
+	
+	// Cấu hình cho mặt trước (Front Face)
+	VkStencilOpState stencilState{};
+	stencilState.compareOp = VK_COMPARE_OP_ALWAYS;   // QUAN TRỌNG NHẤT: Luôn luôn cho phép vẽ (Pass)
+	stencilState.failOp = VK_STENCIL_OP_KEEP;        // Nếu test tạch (không bao giờ xảy ra ở đây): Giữ nguyên
+	stencilState.depthFailOp = VK_STENCIL_OP_KEEP;   // Nếu depth test tạch: Giữ nguyên
+	stencilState.passOp = VK_STENCIL_OP_KEEP;        // Nếu vẽ thành công: Giữ nguyên giá trị cũ trong buffer
+	stencilState.compareMask = 0xFF; // Cho phép đọc tất cả các bit (an toàn)
+	stencilState.writeMask = 0xFF;   // Cho phép ghi tất cả các bit (nếu cần)
+	stencilState.reference = 0;      // Giá trị tham chiếu (không quan trọng lắm vì dùng ALWAYS)
+
+	// Gán cấu hình
+	depthStencil.front = stencilState;
+	depthStencil.back = stencilState; // Áp dụng giống hệt cho mặt sau
 
 
 	VkPipelineColorBlendAttachmentState colorBlendAttachment{};

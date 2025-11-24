@@ -121,6 +121,7 @@ void BrightFilterPass::CreatePipeline(const BrightFilterPassCreateInfo& brightFi
 	pipelineInfo.vertexShaderFilePath = brightFilterInfo.vertShaderFilePath;
 	pipelineInfo.depthFormat = VK_FORMAT_UNDEFINED;
 	pipelineInfo.stencilFormat = VK_FORMAT_UNDEFINED;
+	pipelineInfo.cullingMode = VK_CULL_MODE_NONE;
 
 	std::vector<VkFormat> renderingColorAttachments = { VK_FORMAT_R16G16B16A16_SFLOAT };
 	pipelineInfo.renderingColorAttachments = &renderingColorAttachments;
