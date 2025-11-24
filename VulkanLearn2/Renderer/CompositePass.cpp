@@ -178,6 +178,8 @@ void CompositePass::CreatePipeline(const CompositePassCreateInfo& compositeInfo)
 	pipelineInfo.swapchainHandles = compositeInfo.vulkanSwapchainHandles;
 	pipelineInfo.fragmentShaderFilePath = compositeInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = compositeInfo.vertShaderFilePath;
+	pipelineInfo.depthFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	pipelineInfo.stencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
 	std::vector<VkFormat> renderingColorAttachments = { VK_FORMAT_B8G8R8A8_SRGB };
 	pipelineInfo.renderingColorAttachments = &renderingColorAttachments;

@@ -9,6 +9,7 @@ struct UniformBufferObject;
 struct PushConstantData;
 class MaterialManager;
 class LightManager;
+class ShadowMapPass;
 
 // Classes
 class Window;
@@ -136,6 +137,7 @@ private:
 	// Mỗi pass là một bước trong chuỗi render pipeline.
 
 	GeometryPass* m_GeometryPass;			// Pass 1: Vẽ các đối tượng 3D vào một texture (render-to-texture).
+	ShadowMapPass* m_ShadowMapPass;
 	LightingPass* m_LightingPass;
 	BrightFilterPass* m_BrightFilterPass;	// Pass 2: Lọc ra các vùng có độ sáng cao từ kết quả của Geometry Pass.
 	BlurPass* m_BlurHPass;					// Pass 3: Áp dụng hiệu ứng mờ theo chiều ngang (Horizontal Blur).

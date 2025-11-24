@@ -201,6 +201,8 @@ void LightingPass::CreatePipeline(const LightingPassCreateInfo& lightingInfo)
 	pipelineInfo.swapchainHandles = lightingInfo.vulkanSwapchainHandles;
 	pipelineInfo.fragmentShaderFilePath = lightingInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = lightingInfo.vertShaderFilePath;
+	pipelineInfo.depthFormat = VK_FORMAT_UNDEFINED;
+	pipelineInfo.stencilFormat = VK_FORMAT_UNDEFINED;
 
 	std::vector<VkFormat> renderingColorAttachments = { VK_FORMAT_R16G16B16A16_SFLOAT };
 	pipelineInfo.renderingColorAttachments = &renderingColorAttachments;

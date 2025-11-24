@@ -12,7 +12,7 @@ VulkanPipeline::VulkanPipeline(const VulkanPipelineCreateInfo* pipelineInfo)
 	VkShaderModule fragShaderModule = CreateShaderModule(pipelineInfo->fragmentShaderFilePath);
 
 	// Tạo Pipeline Layout, định nghĩa các descriptor set và push constant mà pipeline sẽ sử dụng.
-	CreatePipelineLayout(*pipelineInfo->descriptors);
+	CreatePipelineLayout(*pipelineInfo->descriptors, pipelineInfo->pushConstantDataSize);
 
 	// Tạo Graphics Pipeline với tất cả các cấu hình cần thiết.
 	CreateGraphicsPipeline(pipelineInfo, vertShaderModule, fragShaderModule);
@@ -65,7 +65,7 @@ VkShaderModule VulkanPipeline::CreateShaderModule(const std::string& shaderFileP
 	return shaderModule;
 }
 
-void VulkanPipeline::CreatePipelineLayout(const std::vector<VulkanDescriptor*>& descriptors)
+void VulkanPipeline::CreatePipelineLayout(const std::vector<VulkanDescriptor*>& descriptors, VkDeviceSize pushConstantDataSize)
 {
 	// Sắp xếp các descriptor set layout theo chỉ số set (set index) để đảm bảo thứ tự đúng.
 	std::map<uint32_t, VkDescriptorSetLayout> sortedLayouts;
@@ -85,7 +85,7 @@ void VulkanPipeline::CreatePipelineLayout(const std::vector<VulkanDescriptor*>& 
 	VkPushConstantRange pushConstantRange{};
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(PushConstantData);
+	pushConstantRange.size = pushConstantDataSize;
 
 	// Tạo Pipeline Layout.
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -187,6 +187,8 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	rasterizer.cullMode = pipelineInfo->cullingMode;
 	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = pipelineInfo->enableDepthBias;
+	rasterizer.depthBiasConstantFactor = 1.25f;
+	rasterizer.depthBiasSlopeFactor = 1.75f;
 
 	// 6. Giai đoạn Multisampling: Cấu hình cho MSAA.
 	VkPipelineMultisampleStateCreateInfo multisampling{};

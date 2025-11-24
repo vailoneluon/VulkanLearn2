@@ -119,6 +119,8 @@ void BrightFilterPass::CreatePipeline(const BrightFilterPassCreateInfo& brightFi
 	pipelineInfo.swapchainHandles = brightFilterInfo.vulkanSwapchainHandles;
 	pipelineInfo.fragmentShaderFilePath = brightFilterInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = brightFilterInfo.vertShaderFilePath;
+	pipelineInfo.depthFormat = VK_FORMAT_UNDEFINED;
+	pipelineInfo.stencilFormat = VK_FORMAT_UNDEFINED;
 
 	std::vector<VkFormat> renderingColorAttachments = { VK_FORMAT_R16G16B16A16_SFLOAT };
 	pipelineInfo.renderingColorAttachments = &renderingColorAttachments;

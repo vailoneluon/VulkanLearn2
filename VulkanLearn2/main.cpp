@@ -25,6 +25,8 @@
 #include "Scene/TextureManager.h"
 #include "Scene/MaterialManager.h"
 #include "Scene\LightManager.h"
+#include "Renderer/ShadowMapPass.h"
+
 
 
 
@@ -132,6 +134,7 @@ Application::~Application()
 
 	// 1. Giải phóng các Render Pass.
 	delete(m_GeometryPass);
+	delete(m_ShadowMapPass);
 	delete(m_LightingPass);
 	delete(m_BrightFilterPass);
 	delete(m_BlurVPass);
@@ -382,6 +385,7 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 
 	// Thực thi tuần tự các render pass.
 	m_GeometryPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
+	//m_ShadowMapPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_LightingPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BrightFilterPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BlurHPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
@@ -619,6 +623,20 @@ void Application::CreateRenderPasses()
 	geometryInfo.uniformBuffers = &m_RTT_UniformBuffers;
 	m_GeometryPass = new GeometryPass(geometryInfo);
 
+	// Shadow Map Pass
+	ShadowMapPassCreateInfo shadowInfo{};
+	shadowInfo.BackgroundColor = BACKGROUND_COLOR;
+	shadowInfo.fragShaderFilePath = "Shaders/ShadowMap_Shader.frag.spv";
+	shadowInfo.vertShaderFilePath = "Shaders/ShadowMap_Shader.vert.spv";
+	shadowInfo.lightManager = m_LightManager;
+	shadowInfo.MAX_FRAMES_IN_FLIGHT = MAX_FRAMES_IN_FLIGHT;
+	shadowInfo.meshManager = m_MeshManager;
+	shadowInfo.MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT;
+	shadowInfo.renderObjects = &m_RenderObjects;
+	shadowInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
+	shadowInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
+
+	m_ShadowMapPass = new ShadowMapPass(shadowInfo);
 	// --- 2. Lighting Pass ---
 	// Thực hiện tính toán ánh sáng bằng cách sử dụng G-Buffer.
 	LightingPassCreateInfo lightingInfo{};

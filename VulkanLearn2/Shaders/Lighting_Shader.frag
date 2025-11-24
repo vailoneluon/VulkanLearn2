@@ -18,6 +18,7 @@ struct Light {
     vec4 direction;  // xyz: Dir, w: Range
     vec4 color;      // rgb: Color, w: Intensity
     vec4 params;     // x: Inner, y: Outer, z: ShadowIdx, w: Radius
+    mat4 lightSpaceMatrix;
 };
 
 layout(std430, set = 1, binding = 0) readonly buffer LightBuffer {

@@ -31,11 +31,12 @@ struct VulkanPipelineCreateInfo
 	bool useVertexInput = true;
 
 	VkExtent2D viewportExtent = {0, 0};
-	VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
-	VkFormat stencilFormat = VK_FORMAT_S8_UINT;
+	VkFormat depthFormat = VK_FORMAT_UNDEFINED;
+	VkFormat stencilFormat = VK_FORMAT_UNDEFINED;
 
 	bool enableDepthBias = false;
 	VkCullModeFlags cullingMode = VK_CULL_MODE_BACK_BIT;
+	VkDeviceSize pushConstantDataSize = sizeof(PushConstantData);
 };
 
 
@@ -67,7 +68,7 @@ private:
 	VkShaderModule CreateShaderModule(const std::string& shaderFilePath);
 
 	// Tạo pipeline layout từ danh sách các descriptor set layout.
-	void CreatePipelineLayout(const std::vector<VulkanDescriptor*>& descriptors);
+	void CreatePipelineLayout(const std::vector<VulkanDescriptor*>& descriptors, VkDeviceSize pushConstantDataSize);
 
 	// Hàm chính để tạo Graphics Pipeline.
 	void CreateGraphicsPipeline(

@@ -263,9 +263,13 @@ void VulkanImage::TransitionLayout(
 	// Cấu hình subresourceRange dựa trên layout mới.
 	// Nếu là depth/stencil attachment, sử dụng VK_IMAGE_ASPECT_DEPTH_BIT.
 	// TODO: Cần kiểm tra định dạng có stencil component hay không để thêm VK_IMAGE_ASPECT_STENCIL_BIT.
-	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 	{
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	}
+	else if(newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL || oldLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+	{
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 	}
 	else
 	{

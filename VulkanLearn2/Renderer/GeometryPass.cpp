@@ -222,6 +222,8 @@ void GeometryPass::CreatePipeline(const GeometryPassCreateInfo& geometryInfo)
 	pipelineInfo.swapchainHandles = geometryInfo.vulkanSwapchainHandles;
 	pipelineInfo.fragmentShaderFilePath = geometryInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = geometryInfo.vertShaderFilePath;
+	pipelineInfo.depthFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	pipelineInfo.stencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
 	std::vector<VkFormat> renderingColorAttachments = { 
 		VK_FORMAT_B8G8R8A8_SRGB,					// Albedo

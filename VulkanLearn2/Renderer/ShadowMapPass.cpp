@@ -76,21 +76,23 @@ void ShadowMapPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 void ShadowMapPass::CreatePipeline(const ShadowMapPassCreateInfo& shadowMapInfo)
 {
 	VulkanPipelineCreateInfo pipelineInfo{};
-	pipelineInfo.cullingMode = VK_CULL_MODE_BACK_BIT;
+	pipelineInfo.cullingMode = VK_CULL_MODE_FRONT_BIT;
 	pipelineInfo.depthFormat = VK_FORMAT_D32_SFLOAT;
+	pipelineInfo.stencilFormat = VK_FORMAT_UNDEFINED;
 	pipelineInfo.descriptors = &m_Handles.descriptors;
 	pipelineInfo.enableDepthBias = true;
 	pipelineInfo.fragmentShaderFilePath = shadowMapInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = shadowMapInfo.vertShaderFilePath;
-	pipelineInfo.msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+	pipelineInfo.msaaSamples = shadowMapInfo.MSAA_SAMPLES;
 
-	std::vector<VkFormat> colorAttachments = { VK_FORMAT_D32_SFLOAT };
-	pipelineInfo.renderingColorAttachments = &colorAttachments;
+	pipelineInfo.renderingColorAttachments = nullptr;
 
 	pipelineInfo.swapchainHandles = shadowMapInfo.vulkanSwapchainHandles;
 	pipelineInfo.useVertexInput = true;
 	pipelineInfo.vulkanHandles = shadowMapInfo.vulkanHandles;
 	pipelineInfo.viewportExtent = { m_LightManager->GetShadowSize(), m_LightManager->GetShadowSize() };
+
+	pipelineInfo.pushConstantDataSize = sizeof(ShadowMapPushConstantData);
 
 	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
 }
