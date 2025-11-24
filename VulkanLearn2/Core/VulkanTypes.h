@@ -57,3 +57,10 @@ struct PushConstantData
 	alignas(16) glm::mat4 model;
 	alignas(16) uint32_t materialIndex;
 };
+
+
+struct ShadowMapPushConstantData
+{
+	alignas(16) glm::mat4 model;
+	alignas(16) glm::mat4 lightMatrix;
+};

@@ -115,6 +115,8 @@
     <None Include="Shaders\RTT_Shader.vert">
       <FileType>Document</FileType>
     </None>
+    <None Include="Shaders\ShadowMap_Shader.frag" />
+    <None Include="Shaders\ShadowMap_Shader.vert" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Images\image.jpg" />

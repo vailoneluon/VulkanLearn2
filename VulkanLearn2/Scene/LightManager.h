@@ -15,6 +15,9 @@ public:
 	~LightManager();
 
 	const std::vector<VulkanDescriptor*>& GetDescriptors() const { return m_LightBufferDescriptors; }
+	const std::vector<GPULight>& GetAllGpuLights(uint32_t currentFrame) const { return m_AllSceneGpuLights; }
+	const std::vector<VulkanImage*>& GetShadowMappingImage(uint32_t currentFrame) const { return m_ShadowMappingImages[currentFrame]; }
+	const uint32_t GetShadowSize() const { return SHADOW_SIZE; }
 
 
 private:
