@@ -27,7 +27,7 @@ private:
 
 	uint32_t m_MaxFramesInFlight;
 
-	const uint32_t SHADOW_SIZE = 1024;
+	const uint32_t SHADOW_SIZE = 2048;
 	const uint32_t MAX_SHADOW_DESCRIPTOR = 256;
 
 	std::vector<GPULight> m_AllSceneGpuLights;

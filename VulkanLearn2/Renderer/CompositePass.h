@@ -28,7 +28,6 @@ struct CompositePassCreateInfo
 
 	VkClearColorValue BackgroundColor;
 	VulkanImage* mainColorImage;       // Attachment màu (MSAA) để vẽ.
-	VulkanImage* mainDepthStencilImage; // Attachment depth/stencil.
 };
 
 /**
@@ -70,7 +69,6 @@ private:
 	// --- Tài nguyên dành riêng cho pass ---
 	std::vector<VulkanDescriptor*> m_TextureDescriptors; // Descriptors cho 2 ảnh đầu vào.
 	VulkanImage* m_MainColorImage;
-	VulkanImage* m_MainDepthStencilImage;
 
 	// --- Hàm khởi tạo ---
 	void CreateDescriptor(const std::vector<VulkanImage*>& inputTextures0, const std::vector<VulkanImage*>& inputTextures1, const VulkanSampler* vulkanSampler);

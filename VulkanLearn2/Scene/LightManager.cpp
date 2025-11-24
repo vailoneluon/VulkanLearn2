@@ -216,7 +216,7 @@ void LightManager::UpdateLightSpaceMatrices()
 	// Trong thực tế, bạn sẽ cần tính toán frustum của camera để tối ưu hóa shadow map cho đèn directional.
 	float nearPlane = 0.1f; // Khoảng nhìn gần của đèn
 	float farPlane = 100.0f; // Khoảng nhìn xa của đèn
-	float orthoSize = 20.0f; // Kích thước của frustum orthographic
+	float orthoSize = 5.0f; // Kích thước của frustum orthographic
 
 	for (auto& light : m_AllSceneGpuLights)
 	{

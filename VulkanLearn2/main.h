@@ -67,6 +67,7 @@ private:
 	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
 	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)
+	const uint32_t MODEL_ROTATE_SPEED = 10;
 
 	// --- Trạng thái Ứng dụng ---
 	int m_CurrentFrame = 0; // Index của frame hiện tại đang được xử lý (từ 0 đến MAX_FRAMES_IN_FLIGHT - 1)
@@ -106,7 +107,6 @@ private:
 
 	// --- Composite Pass (Tổng hợp cuối cùng) ---
 	VulkanImage* m_Main_ColorImage;						// Attachment màu (MSAA) cho Composite Pass.
-	VulkanImage* m_Main_DepthStencilImage;				// Attachment depth/stencil (MSAA) cho Composite Pass.
 
 	// --- Post-Processing (Bloom Effect) ---
 	std::vector<VulkanImage*> m_LitSceneImages;
@@ -125,6 +125,7 @@ private:
 	// --- Dữ liệu Light
 	Light m_Light0;
 	Light m_Light1;
+	Light m_Light2;
 	std::vector<Light> m_AllSceneLights; 
 
 	// --- Dữ liệu cho Shader ---

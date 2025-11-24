@@ -108,7 +108,7 @@ void ShadowMapPass::DrawSceneObject(VkCommandBuffer cmdBuffer, const GPULight& c
 			m_PushConstantData.model = renderObject->GetModelMatrix();
 			m_PushConstantData.lightMatrix = currentLight.lightSpaceMatrix;
 
-			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), &m_PushConstantData);
+			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowMapPushConstantData), &m_PushConstantData);
 
 			// --- Ghi Lệnh Vẽ ---
 			// Vẽ mesh hiện tại bằng cách sử dụng các offset trong buffer chung.

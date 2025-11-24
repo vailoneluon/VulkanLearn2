@@ -186,7 +186,6 @@ Application::~Application()
 	{
 		delete(image);
 	}
-	delete(m_Main_DepthStencilImage);
 	delete(m_Main_ColorImage);
 
 	// 5. Giải phóng các đối tượng trong Scene.
@@ -355,11 +354,11 @@ void Application::UpdateRenderObjectTransforms()
 
 	// Cập nhật transform cho các đối tượng.
 	m_BunnyGirl->SetPosition({ 1, 0, 0 });
-	m_BunnyGirl->Rotate(glm::vec3(0, deltaTime * 30.0f, 0)); 
+	m_BunnyGirl->Rotate(glm::vec3(0, deltaTime * MODEL_ROTATE_SPEED, 0)); 
 	m_BunnyGirl->Scale({ 0.05f, 0.05f, 0.05f });
 
 	m_Swimsuit->SetPosition({ -1, 0, 0 });
-	m_Swimsuit->Rotate(glm::vec3(0, deltaTime * -30.0f, 0));
+	m_Swimsuit->Rotate(glm::vec3(0, deltaTime * MODEL_ROTATE_SPEED * -1, 0));
 	m_Swimsuit->Scale({ 0.045f, 0.045f, 0.045f });
 }
 
@@ -385,7 +384,7 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 
 	// Thực thi tuần tự các render pass.
 	m_GeometryPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
-	//m_ShadowMapPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
+	m_ShadowMapPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_LightingPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BrightFilterPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BlurHPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
@@ -520,8 +519,6 @@ void Application::CreateFrameBufferImages()
 	mainDepthMSAA_CVI.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	mainDepthMSAA_CVI.mipLevels = 1;
 
-	m_Main_DepthStencilImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), mainDepthMSAA_CI, mainDepthMSAA_CVI);
-
 	// =================================================================================================
 	// III. TÀI NGUYÊN HẬU XỬ LÝ (POST-PROCESSING, KHÔNG-MSAA)
 	// =================================================================================================
@@ -557,46 +554,60 @@ void Application::CreateFrameBufferImages()
 
 void Application::CreateSceneLights()
 {
-
 	// --- CẤU HÌNH CHUNG ---
 	// Điểm nhắm (Target): Nhắm vào giữa không trung nơi đặt 2 model (độ cao ~2.5)
-	glm::vec3 targetPosition = glm::vec3(0.0f, 2.5f, 0.0f);
+	glm::vec3 targetPosition = glm::vec3(0.0f, 2.0f, 0.0f); // Adjust target slightly lower
 
-	// --- ĐÈN 1: Bên TRÁI (Left) ---
-	// Vị trí: Bên trái (-3), Trên cao (4), Phía trước (4) -> Chiếu chéo xuống
-	glm::vec3 posLeft = glm::vec3(-3.0f, 4.0f, 4.0f);      
-	glm::vec3 dirLeft = glm::normalize(targetPosition - posLeft);
-
-	m_Light0 = Light::CreateSpot(
-		posLeft,
-		dirLeft,
-		glm::vec3(1.0f, 0.9f, 0.8f),    // Màu Vàng Ấm (Warm) - Tạo cảm giác nắng/đèn sợi đốt
-		20.0f,                         // Intensity: Cao để tạo Bloom lấp lánh
-		30.0f,                          // Range: Tầm xa
-		20.0f,                          // Inner Cutoff: Góc chiếu sáng nhất
-		30.0f                           // Outer Cutoff: Góc mờ dần
+	// --- ĐÈN 0: Spot Light (Xanh Dương) ---
+	// Vị trí: Trên, bên trái, chiếu xuống trung tâm.
+	glm::vec3 posLight0 = glm::vec3(-3.0f, 5.0f, 0.0f);
+	glm::vec3 dirLight0 = glm::normalize(targetPosition - posLight0);
+	 
+m_Light0 = Light::CreateSpot(
+		posLight0,
+		dirLight0,
+		glm::vec3(0.0f, 0.0f, 1.0f),    // Màu Xanh Dương
+		10.0f,                          // Cường độ
+		30.0f,                          // Tầm xa
+		20.0f,                          // Inner Cutoff
+		30.0f,                          // Outer Cutoff
+		true                            // Có đổ bóng
 	);
 
-	// --- ĐÈN 2: Bên PHẢI (Right) ---
-	// Vị trí: Bên phải (3), Trên cao (4), Phía trước (4) -> Chiếu chéo xuống đối diện
-	glm::vec3 posRight = glm::vec3(3.0f, 4.0f, 4.0f);
-	glm::vec3 dirRight = glm::normalize(targetPosition - posRight);
+	// --- ĐÈN 1: Spot Light (Đỏ) ---
+	// Vị trí: Trên, trước, bên phải, chiếu xuống trung tâm. 
+	glm::vec3 posLight1 = glm::vec3(3.0f, 5.0f, 3.0f);
+	glm::vec3 dirLight1 = glm::normalize(targetPosition - posLight1);
 	     
-	m_Light1 = Light::CreateSpot(
-		posRight,
-		dirRight,
-		glm::vec3(0.8f, 0.9f, 1.0f),    // Màu Xanh Lạnh (Cool) - Tạo tương phản nghệ thuật
-		20.0f,                         // Intensity: Thấp hơn đèn chính một chút để tạo bóng khối
+m_Light1 = Light::CreateSpot(
+		posLight1,
+		dirLight1,
+		glm::vec3(1.0f, 0.0f, 0.0f),    // Màu Đỏ
+		10.0f,                          // Cường độ
 		30.0f,
 		20.0f,
 		30.0f,
-		true
+		true                         // Có đổ bóng
 	);
 
+	// --- ĐÈN 2: Directional Light (Trắng) ---
+	// Hướng: Khoảng 30 độ so với trục Y âm (hướng xuống), hơi từ phía trước-phải.
+	// x = sin(30) * sin(45) = 0.5 * 0.707 = 0.3535
+	// y = -cos(30) = -0.866
+	// z = sin(30) * cos(45) = 0.5 * 0.707 = 0.3535
+	glm::vec3 dirLight2Direction = glm::normalize(glm::vec3(0.3535f, -0.866f, 0.3535f));
+	m_Light2 = Light::CreateDirectional(
+		dirLight2Direction,
+		glm::vec3(1.0f, 1.0f, 1.0f),    // Màu trắng
+		30.0f,                          // Cường độ
+		true                            // Có đổ bóng
+	);
+
+	m_AllSceneLights.clear(); // Xóa các đèn cũ trước khi thêm mới
 	m_AllSceneLights.push_back(m_Light0);
 	m_AllSceneLights.push_back(m_Light1);
+	m_AllSceneLights.push_back(m_Light2);
 }
-
 /**
  * @brief Tạo các đối tượng render pass.
  * Mỗi pass đóng gói một pipeline và logic để thực thi một bước render cụ thể.
@@ -709,7 +720,6 @@ void Application::CreateRenderPasses()
 	compositeInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv";
 	compositeInfo.BackgroundColor = BACKGROUND_COLOR;
 	compositeInfo.mainColorImage = m_Main_ColorImage;
-	compositeInfo.mainDepthStencilImage = m_Main_DepthStencilImage;
 	compositeInfo.inputTextures0 = &m_LitSceneImages;       // Input 1: Ảnh scene đã chiếu sáng.
 	compositeInfo.inputTextures1 = &m_BrightImages;        // Input 2: Ảnh bloom đã xử lý.
 	compositeInfo.vulkanSampler = m_VulkanSampler;
