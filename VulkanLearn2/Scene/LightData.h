@@ -1,7 +1,10 @@
 #pragma once
 #include <glm/glm.hpp>
 
-// Enum cho dễ đọc code
+// =================================================================================================
+// Enum: LightType
+// Mô tả: Các loại nguồn sáng được hỗ trợ.
+// =================================================================================================
 enum class LightType : int
 {
 	Directional = 0,
@@ -9,20 +12,25 @@ enum class LightType : int
 	Spot = 2
 };
 
-// ---------------------------------------------------------
-// 1. GPU LIGHT (Data thuần túy, Pack theo vec4 alignment)
-// ---------------------------------------------------------
+// =================================================================================================
+// Struct: GPULight
+// Mô tả: Cấu trúc dữ liệu ánh sáng được gửi lên GPU (SSBO).
+//        Dữ liệu được pack chặt chẽ theo alignment của vec4 (16 bytes) để tối ưu hóa bộ nhớ.
+// =================================================================================================
 struct GPULight
 {
 	glm::vec4 position;   // xyz: Pos, w: Type
 	glm::vec4 direction;  // xyz: Dir, w: Range
 	glm::vec4 color;      // rgb: Color, w: Intensity
 	glm::vec4 params;     // x: Inner, y: Outer, z: ShadowIdx, w: Radius
+	alignas(16) glm::mat4 lightSpaceMatrix; // Ma trận để chuyển từ world-space sang light-space
 };
 
-// ---------------------------------------------------------
-// 2. CPU LIGHT (Tường minh, Dễ dùng, Có Builder pattern)
-// ---------------------------------------------------------
+// =================================================================================================
+// Struct: Light
+// Mô tả: Cấu trúc dữ liệu ánh sáng trên CPU.
+//        Dễ đọc, dễ sử dụng và cung cấp các hàm helper (Builder pattern) để tạo đèn.
+// =================================================================================================
 struct Light
 {
 	// --- Định danh ---
@@ -42,11 +50,19 @@ struct Light
 
 	// --- Thông số PBR / Shadow ---
 	float sourceRadius = 0.0f; // Kích thước bóng đèn (cho PBR Specular)
+	
+	// Mặc định là -1 nếu hasShadow = false
+	// Khởi tạo là 0 nếu hasShadow = true
+	// Trong LightManager tính toán để lưu shadowMapIndex thành id của ShadowMap trong shader.
 	int shadowMapIndex = -1;   // -1 là không có bóng đổ
+	glm::mat4 m_LightSpaceMatrix{ 1.0f }; // Ma trận không gian ánh sáng (View * Projection từ góc nhìn của đèn)
+
 
 	// =========================================================
 	// HÀM CHUYỂN ĐỔI (QUAN TRỌNG NHẤT)
 	// =========================================================
+	
+	// Chuyển đổi dữ liệu từ CPU struct sang GPU struct.
 	GPULight ToGPU() const
 	{
 		GPULight gpu{};
@@ -75,6 +91,9 @@ struct Light
 
 		gpu.params = glm::vec4(innerCos, outerCos, (float)shadowMapIndex, sourceRadius);
 
+		// Row 4-7: Light Space Matrix
+		gpu.lightSpaceMatrix = m_LightSpaceMatrix;
+
 		return gpu;
 	}
 
@@ -82,17 +101,20 @@ struct Light
 	// HELPER FUNCTIONS (BUILDER) - Giúp khởi tạo nhanh
 	// =========================================================
 
-	static Light CreateDirectional(const glm::vec3& dir, const glm::vec3& col, float intensity)
+	static Light CreateDirectional(const glm::vec3& dir, const glm::vec3& col, float intensity, bool hasShadow = false)
 	{
 		Light l;
 		l.type = LightType::Directional;
 		l.direction = dir;
 		l.color = col;
 		l.intensity = intensity;
+
+		if (hasShadow)	l.shadowMapIndex = 0;
+
 		return l;
 	}
 
-	static Light CreatePoint(const glm::vec3& pos, const glm::vec3& col, float intensity, float range, float radius = 0.05f)
+	static Light CreatePoint(const glm::vec3& pos, const glm::vec3& col, float intensity, float range, float radius = 0.05f, bool hasShadow = false)
 	{
 		Light l;
 		l.type = LightType::Point;
@@ -101,10 +123,13 @@ struct Light
 		l.intensity = intensity;
 		l.range = range;
 		l.sourceRadius = radius;
+
+		if (hasShadow)	l.shadowMapIndex = 0;
+
 		return l;
 	}
 
-	static Light CreateSpot(const glm::vec3& pos, const glm::vec3& dir, const glm::vec3& col, float intensity, float range, float innerDeg, float outerDeg)
+	static Light CreateSpot(const glm::vec3& pos, const glm::vec3& dir, const glm::vec3& col, float intensity, float range, float innerDeg, float outerDeg, bool hasShadow = false)
 	{
 		Light l;
 		l.type = LightType::Spot;
@@ -115,6 +140,9 @@ struct Light
 		l.range = range;
 		l.innerCutoff = innerDeg;
 		l.outerCutoff = outerDeg;
+
+		if (hasShadow)	l.shadowMapIndex = 0;
+
 		return l;
 	}
 };

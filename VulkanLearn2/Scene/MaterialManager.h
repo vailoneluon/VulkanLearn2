@@ -6,7 +6,10 @@ class VulkanCommandManager;
 class TextureManager;
 class VulkanDescriptor;
 
-
+// =================================================================================================
+// Struct: MaterialData
+// Mô tả: Dữ liệu vật liệu được gửi lên GPU (std140/std430 layout).
+// =================================================================================================
 struct MaterialData
 {
 	// Index trỏ vào mảng texture (TextureManager)
@@ -21,6 +24,10 @@ struct MaterialData
 	alignas(4) uint32_t _padding2;
 };
 
+// =================================================================================================
+// Struct: MaterialRawData
+// Mô tả: Dữ liệu thô của vật liệu (đường dẫn file texture) trước khi load.
+// =================================================================================================
 struct MaterialRawData
 {
 	std::string diffuseMapFileName = "";
@@ -31,24 +38,40 @@ struct MaterialRawData
 	std::string occulusionMapFileName = "";
 };
 
+// =================================================================================================
+// Struct: MaterialManagerHandles
+// Mô tả: Struct chứa các handle và dữ liệu nội bộ của MaterialManager.
+// =================================================================================================
 struct MaterialManagerHandles
 {
 	std::vector<MaterialData> allMaterials;
 	VulkanDescriptor* descriptor;
 };
 
+// =================================================================================================
+// Class: MaterialManager
+// Mô tả: 
+//      Quản lý việc tạo, lưu trữ và descriptor cho các vật liệu trong scene.
+//      Tương tác với TextureManager để load các texture cần thiết.
+// =================================================================================================
 class MaterialManager
 {
 public:
+	// Constructor: Khởi tạo MaterialManager.
 	MaterialManager(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager, TextureManager* textureManager);
 	~MaterialManager();
 
+	// Getter: Lấy các handle nội bộ.
 	const MaterialManagerHandles& GetHandles() const { return m_Handles; }
 
+	// Load một vật liệu từ dữ liệu thô.
+	// Trả về index của vật liệu trong buffer.
 	uint32_t LoadMaterial(const MaterialRawData& materialRawData);
 
-
+	// Getter: Lấy descriptor set chứa buffer vật liệu.
 	VulkanDescriptor* GetDescriptor();
+	
+	// Hoàn tất quá trình thiết lập: tạo buffer và descriptor cho tất cả vật liệu.
 	void Finalize();
 private:
 	const VulkanHandles& m_VulkanHandles;

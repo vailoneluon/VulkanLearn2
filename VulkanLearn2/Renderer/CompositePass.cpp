@@ -13,12 +13,8 @@ CompositePass::CompositePass(const CompositePassCreateInfo& compositeInfo) :
 	m_VulkanSwapchainHandles(compositeInfo.vulkanSwapchainHandles),
 	m_SwapchainExtent(compositeInfo.vulkanSwapchainHandles->swapChainExtent),
 	m_BackgroundColor(compositeInfo.BackgroundColor),
-	m_MainColorImage(compositeInfo.mainColorImage),
-	m_MainDepthStencilImage(compositeInfo.mainDepthStencilImage)
+	m_MainColorImage(compositeInfo.mainColorImage)
 {
-	// Xóa bỏ comment cũ không còn dùng
-	// m_TextureDescriptors(compositeInfo.textureDescriptors),
-
 	CreateDescriptor(*compositeInfo.inputTextures0, *compositeInfo.inputTextures1, compositeInfo.vulkanSampler);
 	CreatePipeline(compositeInfo);
 }
@@ -39,14 +35,6 @@ void CompositePass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 		0, 1);
 
-	// Chuyển layout của attachment depth/stencil (MSAA) để có thể ghi vào.
-	VulkanImage::TransitionLayout(
-		*cmdBuffer, m_MainDepthStencilImage->GetHandles().image, 1,
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-		0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-		0, 1);
-
 	// Chuyển layout của swapchain image để nó có thể nhận kết quả resolve từ attachment màu (MSAA).
 	VulkanImage::TransitionLayout(
 		*cmdBuffer, m_VulkanSwapchainHandles->swapchainImages[imageIndex], 1,
@@ -64,27 +52,14 @@ void CompositePass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 	colorAttachment.imageView = m_VulkanSwapchainHandles->swapchainImageViews[imageIndex];
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // Không cần lưu ảnh MSAA sau khi resolve.
-	// Cấu hình resolve: kết quả từ ảnh MSAA sẽ được resolve (làm mịn) và ghi vào swapchain image.
-	/*colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	colorAttachment.resolveImageView = m_VulkanSwapchainHandles->swapchainImageViews[imageIndex];
-	colorAttachment.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;*/
-
-	// Cấu hình attachment depth/stencil.
-	VkRenderingAttachmentInfo depthStencilAttachment{};
-	depthStencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	depthStencilAttachment.clearValue.depthStencil = { 1.0f, 0 };
-	depthStencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	depthStencilAttachment.imageView = m_MainDepthStencilImage->GetHandles().imageView;
-	depthStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	depthStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
 	// Cấu hình thông tin cho dynamic rendering.
 	VkRenderingInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 	renderingInfo.colorAttachmentCount = 1;
 	renderingInfo.pColorAttachments = &colorAttachment;
-	renderingInfo.pDepthAttachment = &depthStencilAttachment;
-	renderingInfo.pStencilAttachment = &depthStencilAttachment;
+	renderingInfo.pDepthAttachment = nullptr;
+	renderingInfo.pStencilAttachment = nullptr;
 	renderingInfo.layerCount = 1;
 	renderingInfo.renderArea.extent = m_SwapchainExtent;
 	renderingInfo.renderArea.offset = { 0, 0 };
@@ -108,9 +83,6 @@ void CompositePass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 		0, 1);
 }
 
-/**
- * @brief Tạo descriptor set cho hai ảnh đầu vào (scene và bloom).
- */
 void CompositePass::CreateDescriptor(const std::vector<VulkanImage*>& inputTextures0, const std::vector<VulkanImage*>& inputTextures1, const VulkanSampler* vulkanSampler)
 {
 	m_TextureDescriptors.resize(inputTextures0.size());
@@ -165,9 +137,6 @@ void CompositePass::CreateDescriptor(const std::vector<VulkanImage*>& inputTextu
 	}
 }
 
-/**
- * @brief Tạo pipeline đồ họa cho CompositePass.
- */
 void CompositePass::CreatePipeline(const CompositePassCreateInfo& compositeInfo)
 {
 	VulkanPipelineCreateInfo pipelineInfo{};
@@ -178,6 +147,9 @@ void CompositePass::CreatePipeline(const CompositePassCreateInfo& compositeInfo)
 	pipelineInfo.swapchainHandles = compositeInfo.vulkanSwapchainHandles;
 	pipelineInfo.fragmentShaderFilePath = compositeInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = compositeInfo.vertShaderFilePath;
+	pipelineInfo.depthFormat = VK_FORMAT_UNDEFINED;
+	pipelineInfo.stencilFormat = VK_FORMAT_UNDEFINED;
+	pipelineInfo.cullingMode = VK_CULL_MODE_NONE;
 
 	std::vector<VkFormat> renderingColorAttachments = { VK_FORMAT_B8G8R8A8_SRGB };
 	pipelineInfo.renderingColorAttachments = &renderingColorAttachments;
@@ -185,9 +157,6 @@ void CompositePass::CreatePipeline(const CompositePassCreateInfo& compositeInfo)
 	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
 }
 
-/**
- * @brief Bind descriptor set của frame hiện tại vào command buffer.
- */
 void CompositePass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t currentFrame)
 {
 	vkCmdBindDescriptorSets(
@@ -200,9 +169,6 @@ void CompositePass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t c
 	);
 }
 
-/**
- * @brief Ghi lệnh vẽ một quad toàn màn hình.
- */
 void CompositePass::DrawQuad(const VkCommandBuffer* cmdBuffer)
 {
 	vkCmdDraw(*cmdBuffer, 6, 1, 0, 0);

@@ -151,7 +151,7 @@ uint32_t MaterialManager::LoadMaterial(const MaterialRawData& materialRawData)
 	// Thêm vật liệu đã cấu hình vào danh sách tất cả các vật liệu được quản lý.
 	m_Handles.allMaterials.push_back(material);
 	// Trả về chỉ số của vật liệu vừa được thêm vào.
-	return m_Handles.allMaterials.size() - 1;
+	return static_cast<uint32_t>(m_Handles.allMaterials.size() - 1);
 }
 
 VulkanDescriptor* MaterialManager::GetDescriptor()

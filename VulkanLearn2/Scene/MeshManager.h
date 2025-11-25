@@ -3,13 +3,15 @@
 #include "Core/VulkanContext.h"
 #include "Core/VulkanBuffer.h"
 
-
 // Forward declarations
 class VulkanCommandManager;
 struct Mesh;
 struct MeshData;
 
-// Struct chứa các buffer và dữ liệu CPU cho tất cả các mesh được quản lý.
+// =================================================================================================
+// Struct: MeshManagerHandles
+// Mô tả: Struct chứa các buffer và dữ liệu CPU cho tất cả các mesh được quản lý.
+// =================================================================================================
 struct MeshManagerHandles
 {
 	VulkanBuffer* vertexBuffer = nullptr;
@@ -20,12 +22,17 @@ struct MeshManagerHandles
 	std::vector<uint32_t> allIndices;
 };
 
-// Class quản lý việc tổng hợp dữ liệu mesh từ nhiều model khác nhau
-// vào một Vertex Buffer và một Index Buffer duy nhất.
-// Việc này giúp tối ưu hóa hiệu năng render bằng cách giảm số lượng lệnh bind buffer.
+// =================================================================================================
+// Class: MeshManager
+// Mô tả: 
+//      Quản lý việc tổng hợp dữ liệu mesh từ nhiều model khác nhau
+//      vào một Vertex Buffer và một Index Buffer duy nhất.
+//      Việc này giúp tối ưu hóa hiệu năng render bằng cách giảm số lượng lệnh bind buffer.
+// =================================================================================================
 class MeshManager
 {
 public:
+	// Constructor: Khởi tạo MeshManager.
 	MeshManager(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager);
 	~MeshManager();
 

@@ -25,6 +25,8 @@
 #include "Scene/TextureManager.h"
 #include "Scene/MaterialManager.h"
 #include "Scene\LightManager.h"
+#include "Renderer/ShadowMapPass.h"
+
 
 
 
@@ -81,7 +83,7 @@ Application::Application()
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
 	m_TextureManager = new TextureManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler->getSampler());
 	m_MaterialManager = new MaterialManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_TextureManager);
-	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, &m_AllSceneLights, MAX_FRAMES_IN_FLIGHT);
+	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler, &m_AllSceneLights, MAX_FRAMES_IN_FLIGHT);
 
 	m_BunnyGirl = new RenderObject("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
 	m_Swimsuit = new RenderObject("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
@@ -132,6 +134,7 @@ Application::~Application()
 
 	// 1. Giải phóng các Render Pass.
 	delete(m_GeometryPass);
+	delete(m_ShadowMapPass);
 	delete(m_LightingPass);
 	delete(m_BrightFilterPass);
 	delete(m_BlurVPass);
@@ -149,7 +152,7 @@ Application::~Application()
 	delete(m_LightManager);
 
 	// 3. Giải phóng Buffers (ví dụ: uniform buffers).
-	for (auto& uniformBuffer : m_RTT_UniformBuffers)
+	for (auto& uniformBuffer : m_Geometry_UniformBuffers)
 	{
 		delete(uniformBuffer);
 	}
@@ -183,8 +186,7 @@ Application::~Application()
 	{
 		delete(image);
 	}
-	delete(m_Main_DepthStencilImage);
-	delete(m_Main_ColorImage);
+	delete(m_Composite_ColorImage);
 
 	// 5. Giải phóng các đối tượng trong Scene.
 	for (auto& renderObject : m_RenderObjects)
@@ -258,7 +260,7 @@ void Application::DrawFrame()
 
 	// --- 4. CẬP NHẬT DỮ LIỆU ĐỘNG ---
 	// Cập nhật dữ liệu sẽ thay đổi mỗi frame, ví dụ như ma trận camera, vị trí đối tượng.
-	UpdateRTT_Uniforms();
+	Update_Geometry_Uniforms();
 	UpdateRenderObjectTransforms();
 
 	// --- 5. GHI COMMAND BUFFER ---
@@ -318,22 +320,22 @@ void Application::DrawFrame()
  * @brief Cập nhật Uniform Buffer Object (UBO) với ma trận camera hiện tại.
  * Dữ liệu này được sử dụng trong Geometry Pass để định vị camera trong không gian 3D.
  */
-void Application::UpdateRTT_Uniforms()
+void Application::Update_Geometry_Uniforms()
 {
-    glm::vec3 cameraPos = glm::vec3(0.0f, 3.0f, 4.0f); // Define camera position
+    glm::vec3 cameraPos = glm::vec3(0.0f, 3.0f, 5.0f); // Define camera position
 
 	// Thiết lập ma trận view (camera nhìn từ đâu, nhìn vào đâu).
-	m_RTT_Ubo.view = glm::lookAt(cameraPos, glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    m_RTT_Ubo.viewPos = cameraPos; // Set camera position for lighting calculations
+	m_Geometry_Ubo.view = glm::lookAt(cameraPos, glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    m_Geometry_Ubo.viewPos = cameraPos; // Set camera position for lighting calculations
 
 	// Thiết lập ma trận projection (phối cảnh).
-	m_RTT_Ubo.proj = glm::perspective(glm::radians(45.0f), m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
+	m_Geometry_Ubo.proj = glm::perspective(glm::radians(45.0f), m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
 
 	// Vulkan có hệ tọa độ Y ngược với OpenGL, cần lật lại ma trận projection.
-	m_RTT_Ubo.proj[1][1] *= -1;
+	m_Geometry_Ubo.proj[1][1] *= -1;
 
 	// Tải dữ liệu UBO mới lên buffer của GPU cho frame hiện tại.
-	m_RTT_UniformBuffers[m_CurrentFrame]->UploadData(&m_RTT_Ubo, sizeof(m_RTT_Ubo), 0);
+	m_Geometry_UniformBuffers[m_CurrentFrame]->UploadData(&m_Geometry_Ubo, sizeof(m_Geometry_Ubo), 0);
 }
 
 /**
@@ -352,11 +354,11 @@ void Application::UpdateRenderObjectTransforms()
 
 	// Cập nhật transform cho các đối tượng.
 	m_BunnyGirl->SetPosition({ 1, 0, 0 });
-	m_BunnyGirl->Rotate(glm::vec3(0, deltaTime * 30.0f, 0)); 
+	m_BunnyGirl->Rotate(glm::vec3(0, deltaTime * MODEL_ROTATE_SPEED, 0)); 
 	m_BunnyGirl->Scale({ 0.05f, 0.05f, 0.05f });
 
 	m_Swimsuit->SetPosition({ -1, 0, 0 });
-	m_Swimsuit->Rotate(glm::vec3(0, deltaTime * -30.0f, 0));
+	m_Swimsuit->Rotate(glm::vec3(0, deltaTime * MODEL_ROTATE_SPEED * -1, 0));
 	m_Swimsuit->Scale({ 0.045f, 0.045f, 0.045f });
 }
 
@@ -382,6 +384,7 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 
 	// Thực thi tuần tự các render pass.
 	m_GeometryPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
+	m_ShadowMapPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_LightingPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BrightFilterPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 	m_BlurHPass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
@@ -499,7 +502,7 @@ void Application::CreateFrameBufferImages()
 	mainColorMSAA_CVI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 	mainColorMSAA_CVI.mipLevels = 1;
 
-	m_Main_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), mainColorMSAA_CI, mainColorMSAA_CVI);
+	m_Composite_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), mainColorMSAA_CI, mainColorMSAA_CVI);
 
 	// --- 5. Main Pass: Depth/Stencil (MSAA) ---
 	VulkanImageCreateInfo mainDepthMSAA_CI{};
@@ -515,8 +518,6 @@ void Application::CreateFrameBufferImages()
 	mainDepthMSAA_CVI.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
 	mainDepthMSAA_CVI.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	mainDepthMSAA_CVI.mipLevels = 1;
-
-	m_Main_DepthStencilImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), mainDepthMSAA_CI, mainDepthMSAA_CVI);
 
 	// =================================================================================================
 	// III. TÀI NGUYÊN HẬU XỬ LÝ (POST-PROCESSING, KHÔNG-MSAA)
@@ -553,45 +554,36 @@ void Application::CreateFrameBufferImages()
 
 void Application::CreateSceneLights()
 {
+	// --- KEY LIGHT: Directional Light (Trắng) ---
+	glm::vec3 dirLightMain = glm::normalize(glm::vec3(0.4f, .2f, -0.6f));
 
-	// --- CẤU HÌNH CHUNG ---
-	// Điểm nhắm (Target): Nhắm vào giữa không trung nơi đặt 2 model (độ cao ~2.5)
-	glm::vec3 targetPosition = glm::vec3(0.0f, 2.5f, 0.0f);
-
-	// --- ĐÈN 1: Bên TRÁI (Left) ---
-	// Vị trí: Bên trái (-3), Trên cao (4), Phía trước (4) -> Chiếu chéo xuống
-	glm::vec3 posLeft = glm::vec3(-3.0f, 4.0f, 4.0f);   
-	glm::vec3 dirLeft = glm::normalize(targetPosition - posLeft);
-
-	m_Light0 = Light::CreateSpot(
-		posLeft,
-		dirLeft,
-		glm::vec3(1.0f, 0.9f, 0.8f),    // Màu Vàng Ấm (Warm) - Tạo cảm giác nắng/đèn sợi đốt
-		20.0f,                         // Intensity: Cao để tạo Bloom lấp lánh
-		30.0f,                          // Range: Tầm xa
-		20.0f,                          // Inner Cutoff: Góc chiếu sáng nhất
-		30.0f                           // Outer Cutoff: Góc mờ dần
+	Light light0 = Light::CreateDirectional(
+		dirLightMain,
+		glm::vec3(1.0f, 0.95f, 0.9f),   // Trắng hơi ấm → rất đẹp cho da/model
+		4.0f,                           // Cường độ vừa phải
+		true                            // Có đổ bóng
 	);
 
-	// --- ĐÈN 2: Bên PHẢI (Right) ---
-	// Vị trí: Bên phải (3), Trên cao (4), Phía trước (4) -> Chiếu chéo xuống đối diện
-	glm::vec3 posRight = glm::vec3(3.0f, 4.0f, 4.0f);
-	glm::vec3 dirRight = glm::normalize(targetPosition - posRight);
-	     
-	m_Light1 = Light::CreateSpot(
-		posRight,
-		dirRight,
-		glm::vec3(0.8f, 0.9f, 1.0f),    // Màu Xanh Lạnh (Cool) - Tạo tương phản nghệ thuật
-		20.0f,                         // Intensity: Thấp hơn đèn chính một chút để tạo bóng khối
-		30.0f,
-		20.0f,
-		30.0f
+	// --- FILL/RIM LIGHT: Spot Light (Xanh dương nhạt) ---
+	glm::vec3 targetPosition = glm::vec3(0, 2, 0);
+	glm::vec3 posSpot = glm::vec3(2.0f, 3.0f, 2.0f);
+	glm::vec3 dirSpot = glm::normalize(targetPosition - posSpot);
+
+	Light light1 = Light::CreateSpot(
+		posSpot,
+		dirSpot,
+		glm::vec3(0.25f, 0.35f, 0.45f),  // Xanh dương nhẹ → tạo chiều sâu
+		100.0f,                            // Cường độ nhỏ hơn đèn chính
+		100.0f,                           // Range vừa đủ
+		20.0f,                           // Inner cutoff mềm
+		40.0f,                           // Outer cutoff mượt
+		true
 	);
 
-	m_AllSceneLights.push_back(m_Light0);
-	m_AllSceneLights.push_back(m_Light1);
+	m_AllSceneLights.clear(); // Xóa các đèn cũ trước khi thêm mới
+	m_AllSceneLights.push_back(light0);
+	m_AllSceneLights.push_back(light1);
 }
-
 /**
  * @brief Tạo các đối tượng render pass.
  * Mỗi pass đóng gói một pipeline và logic để thực thi một bước render cụ thể.
@@ -613,11 +605,25 @@ void Application::CreateRenderPasses()
 	geometryInfo.renderObjects = &m_RenderObjects;
 	geometryInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	geometryInfo.MSAA_SAMPLES = MSAA_SAMPLES;
-	geometryInfo.fragShaderFilePath = "Shaders/RTT_Shader.frag.spv";
-	geometryInfo.vertShaderFilePath = "Shaders/RTT_Shader.vert.spv";
-	geometryInfo.uniformBuffers = &m_RTT_UniformBuffers;
+	geometryInfo.fragShaderFilePath = "Shaders/Geometry_Shader.frag.spv";
+	geometryInfo.vertShaderFilePath = "Shaders/Geometry_Shader.vert.spv";
+	geometryInfo.uniformBuffers = &m_Geometry_UniformBuffers;
 	m_GeometryPass = new GeometryPass(geometryInfo);
 
+	// Shadow Map Pass
+	ShadowMapPassCreateInfo shadowInfo{};
+	shadowInfo.BackgroundColor = BACKGROUND_COLOR;
+	shadowInfo.fragShaderFilePath = "Shaders/ShadowMap_Shader.frag.spv";
+	shadowInfo.vertShaderFilePath = "Shaders/ShadowMap_Shader.vert.spv";
+	shadowInfo.lightManager = m_LightManager;
+	shadowInfo.MAX_FRAMES_IN_FLIGHT = MAX_FRAMES_IN_FLIGHT;
+	shadowInfo.meshManager = m_MeshManager;
+	shadowInfo.MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT;
+	shadowInfo.renderObjects = &m_RenderObjects;
+	shadowInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
+	shadowInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
+
+	m_ShadowMapPass = new ShadowMapPass(shadowInfo);
 	// --- 2. Lighting Pass ---
 	// Thực hiện tính toán ánh sáng bằng cách sử dụng G-Buffer.
 	LightingPassCreateInfo lightingInfo{};
@@ -626,14 +632,14 @@ void Application::CreateRenderPasses()
 	lightingInfo.MSAA_SAMPLES = MSAA_SAMPLES;
 	lightingInfo.MAX_FRAMES_IN_FLIGHT = MAX_FRAMES_IN_FLIGHT;
 	lightingInfo.fragShaderFilePath = "Shaders/Lighting_Shader.frag.spv";
-	lightingInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv";
+	lightingInfo.vertShaderFilePath = "Shaders/PostProcess_Shader.vert.spv";
 	lightingInfo.BackgroundColor = BACKGROUND_COLOR;
 	lightingInfo.outputImages = &m_LitSceneImages;
 	lightingInfo.gAlbedoTextures = &m_Geometry_AlbedoImages;
 	lightingInfo.gNormalTextures = &m_Geometry_NormalImages; 
 	lightingInfo.gPositionTextures = &m_Geometry_PositionImages;
 	lightingInfo.sceneLightDescriptors = &m_LightManager->GetDescriptors();
-	lightingInfo.uniformBuffers = &m_RTT_UniformBuffers; // Pass camera UBO
+	lightingInfo.uniformBuffers = &m_Geometry_UniformBuffers; // Pass camera UBO
 	lightingInfo.vulkanSampler = m_VulkanSampler;
 	m_LightingPass = new LightingPass(lightingInfo);
 
@@ -645,7 +651,7 @@ void Application::CreateRenderPasses()
 	brightFilterInfo.MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Post-processing không cần MSAA.
 	brightFilterInfo.MAX_FRAMES_IN_FLIGHT = MAX_FRAMES_IN_FLIGHT;
 	brightFilterInfo.fragShaderFilePath = "Shaders/Bright_Shader.frag.spv";
-	brightFilterInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv"; // Dùng chung vertex shader vẽ quad.
+	brightFilterInfo.vertShaderFilePath = "Shaders/PostProcess_Shader.vert.spv"; // Dùng chung vertex shader vẽ quad.
 	brightFilterInfo.BackgroundColor = BACKGROUND_COLOR;
 	brightFilterInfo.outputImage = &m_BrightImages;
 	brightFilterInfo.inputTextures = &m_LitSceneImages; // Input là ảnh đã được chiếu sáng.
@@ -659,7 +665,7 @@ void Application::CreateRenderPasses()
 	blurHInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
 	blurHInfo.MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT;
 	blurHInfo.fragShaderFilePath = "Shaders/BlurH_Shader.frag.spv";
-	blurHInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv";
+	blurHInfo.vertShaderFilePath = "Shaders/PostProcess_Shader.vert.spv";
 	blurHInfo.BackgroundColor = BACKGROUND_COLOR;
 	blurHInfo.outputImages = &m_TempBlurImages; // Ghi kết quả vào ảnh tạm.
 	blurHInfo.inputTextures = &m_BrightImages; // Input là ảnh các vùng sáng.
@@ -673,7 +679,7 @@ void Application::CreateRenderPasses()
 	blurVInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
 	blurVInfo.MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT;
 	blurVInfo.fragShaderFilePath = "Shaders/BlurV_Shader.frag.spv";
-	blurVInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv";
+	blurVInfo.vertShaderFilePath = "Shaders/PostProcess_Shader.vert.spv";
 	blurVInfo.BackgroundColor = BACKGROUND_COLOR;
 	blurVInfo.outputImages = &m_BrightImages; // Ghi đè kết quả vào ảnh chứa vùng sáng.
 	blurVInfo.inputTextures = &m_TempBlurImages; // Input là ảnh đã blur ngang.
@@ -686,11 +692,10 @@ void Application::CreateRenderPasses()
 	compositeInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	compositeInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
 	compositeInfo.MSAA_SAMPLES = MSAA_SAMPLES;
-	compositeInfo.fragShaderFilePath = "Shaders/Main_Shader.frag.spv";
-	compositeInfo.vertShaderFilePath = "Shaders/Main_Shader.vert.spv";
+	compositeInfo.fragShaderFilePath = "Shaders/Composite_Shader.frag.spv";
+	compositeInfo.vertShaderFilePath = "Shaders/PostProcess_Shader.vert.spv";
 	compositeInfo.BackgroundColor = BACKGROUND_COLOR;
-	compositeInfo.mainColorImage = m_Main_ColorImage;
-	compositeInfo.mainDepthStencilImage = m_Main_DepthStencilImage;
+	compositeInfo.mainColorImage = m_Composite_ColorImage;
 	compositeInfo.inputTextures0 = &m_LitSceneImages;       // Input 1: Ảnh scene đã chiếu sáng.
 	compositeInfo.inputTextures1 = &m_BrightImages;        // Input 2: Ảnh bloom đã xử lý.
 	compositeInfo.vulkanSampler = m_VulkanSampler;
@@ -704,7 +709,7 @@ void Application::CreateRenderPasses()
  */
 void Application::CreateUniformBuffers()
 {
-	m_RTT_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	m_Geometry_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -717,7 +722,7 @@ void Application::CreateUniformBuffers()
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Tạo buffer với VMA_MEMORY_USAGE_CPU_TO_GPU để CPU có thể ghi dữ liệu trực tiếp.
-		m_RTT_UniformBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, VMA_MEMORY_USAGE_CPU_TO_GPU);
+		m_Geometry_UniformBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	}
 }
 

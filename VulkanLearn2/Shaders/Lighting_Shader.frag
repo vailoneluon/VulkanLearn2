@@ -11,18 +11,23 @@ layout(set = 0, binding = 1) uniform sampler2D gNormal;
 layout(set = 0, binding = 2) uniform sampler2D gPosition;
 
 // =========================================================================
-// SET 1: SCENE LIGHTS (SSBO)
+// SET 1: SCENE LIGHTS & SHADOWS
 // =========================================================================
 struct Light {
-    vec4 position;   // xyz: Pos, w: Type (0: Dir, 1: Point, 2: Spot)
-    vec4 direction;  // xyz: Dir, w: Range
-    vec4 color;      // rgb: Color, w: Intensity
-    vec4 params;     // x: Inner, y: Outer, z: ShadowIdx, w: Radius
+    vec4 position;       // xyz: Pos, w: Type (0: Dir, 1: Point, 2: Spot)
+    vec4 direction;      // xyz: Dir, w: Range
+    vec4 color;          // rgb: Color, w: Intensity
+    vec4 params;         // x: Inner, y: Outer, z: ShadowIdx, w: Radius
+    mat4 lightSpaceMatrix;
 };
 
 layout(std430, set = 1, binding = 0) readonly buffer LightBuffer {
     Light lights[];
 } lightBuffer;
+
+// Bindless Shadow Maps array
+// Using sampler2DShadow for hardware PCF/comparison
+layout(set = 1, binding = 1) uniform sampler2DShadow shadowMaps[256]; 
 
 // =========================================================================
 // SET 2: CAMERA DATA (UBO)
@@ -79,17 +84,47 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-// Attenuation function (Inverse Square Law)
+// Attenuation function (Inverse Square Law with Windowing)
 float CalculateAttenuation(float distance, float range) {
     if(distance >= range) return 0.0;
-
+    
     float attenuation = 1.0 / (distance * distance + 1.0);
-
     float distDivRange = distance / range;
     float distDivRange4 = distDivRange * distDivRange * distDivRange * distDivRange; // ^4
     float window = clamp(1.0 - distDivRange4, 0.0, 1.0);
     
     return attenuation * window * window;
+}
+
+// =========================================================================
+// SHADOW CALCULATION
+// =========================================================================
+float CalculateShadow(vec4 fragPosLightSpace, int shadowIdx, vec3 normal, vec3 lightDir)
+{
+    // 1. Perspective divide (standard for projection)
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+
+    // 2. Transform to [0,1] range
+    // Vulkan's Z is [0,1], but XY is [-1,1] in clip space.
+    // However, the depth texture coordinate system is [0,1].
+    projCoords.xy = projCoords.xy * 0.5 + 0.5;
+
+    // 3. Keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
+    if(projCoords.z > 1.0)
+        return 1.0;
+
+    // 4. Calculate Bias to prevent Shadow Acne
+    // Bias increases as the slope (angle) increases.
+    float bias = max(0.005 * (1.0 - dot(normal, lightDir)), 0.0005);
+    
+    // 5. Sample Shadow Map
+    // 'texture' on a sampler2DShadow automatically performs the depth comparison.
+    // It takes a vec3(u, v, d) where 'd' is the reference value to compare against.
+    // Returns 1.0 if (d < storedDepth), 0.0 otherwise (or interpolated if filtering is on).
+    // We subtract bias from our depth to fix acne.
+    float shadow = texture(shadowMaps[shadowIdx], vec3(projCoords.xy, projCoords.z - bias));
+
+    return shadow;
 }
 
 void main() 
@@ -99,16 +134,15 @@ void main()
     vec4 normalMetallicSample  = texture(gNormal, inUV);
     vec4 positionAOSample      = texture(gPosition, inUV);
 
-
-    // Check for background pixels
+    // Check for invalid normal/background (assuming normal length is ~1.0 for valid pixels)
     if (length(normalMetallicSample.rgb) < 0.01) {
-        outColor = vec4(0.0, 0.0, 0.0, 1.0); // Output black background
+        outColor = vec4(0.0, 0.0, 0.0, 1.0); // Background color
         return;
     }
 
-    // --- 2. Assign PBR material properties from G-Buffer ---
-	vec3 Albedo     = albedoRoughnessSample.rgb; // sRGB to Linear
-	float roughness = max(albedoRoughnessSample.a, 0.01); 
+    // --- 2. Assign PBR material properties ---
+    vec3 Albedo     = albedoRoughnessSample.rgb; 
+    float roughness = max(albedoRoughnessSample.a, 0.05); // Clamp roughness to prevent artifacts
 
     vec3 N          = normalize(normalMetallicSample.rgb);
     float metallic  = normalMetallicSample.a;
@@ -124,6 +158,7 @@ void main()
 
     // --- 4. Loop through all lights ---
     uint numLights = lightBuffer.lights.length();
+    
     for(uint i = 0; i < numLights; ++i) {
         Light light = lightBuffer.lights[i];
         int type = int(light.position.w);
@@ -147,32 +182,46 @@ void main()
             }
         }
 
+        // Optimization: skip if light has no effect
         if (attenuation <= 0.0) continue;
 
+        // --- Shadow Calculation ---
+        float shadowVisibility = 1.0; // Default to fully lit (no shadow)
+        
+        // Check if light has a shadow map assigned (index > -0.5)
+        if (light.params.z > -0.5) {
+            int shadowIdx = int(light.params.z);
+            vec4 fragPosLightSpace = light.lightSpaceMatrix * vec4(WorldPos, 1.0);
+            shadowVisibility = CalculateShadow(fragPosLightSpace, shadowIdx, N, L);
+        }
+
+        // --- PBR Calculation ---
         vec3 H = normalize(V + L);
         vec3 radiance = lightColor * attenuation;
 
-        // --- Cook-Torrance BRDF ---
-        float NDF = DistributionGGX(N, H, roughness);   
+        // Cook-Torrance BRDF
+        float NDF = DistributionGGX(N, H, roughness);
         float G   = GeometrySmith(N, V, L, roughness);      
         vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);
-           
-        vec3 numerator    = NDF * G * F; 
+
+        vec3 numerator    = NDF * G * F;
         float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
         vec3 specular = numerator / denominator;
-        
+
         vec3 kS = F;
         vec3 kD = vec3(1.0) - kS;
-        kD *= 1.0 - metallic;	  
+        kD *= 1.0 - metallic;
 
         float NdotL = max(dot(N, L), 0.0);        
-        Lo += (kD * Albedo / PI + specular) * radiance * NdotL; 
+        
+        // Combine everything
+        // Shadow only affects the direct light contribution (Diffuse + Specular)
+        Lo += (kD * Albedo / PI + specular) * radiance * NdotL * shadowVisibility;
     }   
     
     // --- 5. Final Assembly ---
     vec3 ambient = vec3(0.03) * Albedo * ao;
     vec3 color = ambient + Lo;
-
 
     outColor = vec4(color, 1.0);
 }

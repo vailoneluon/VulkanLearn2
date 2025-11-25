@@ -3,12 +3,6 @@
 #include "VulkanBuffer.h"
 #include "VulkanCommandManager.h"
 
-/**
- * @brief Constructor cho image chung (ví dụ: depth buffer, color attachment).
- * @param vulkanHandles Tham chiếu đến các handle Vulkan chung của ứng dụng.
- * @param imageCI Thông tin tạo VkImage.
- * @param imageViewCI Thông tin tạo VkImageView.
- */
 VulkanImage::VulkanImage(const VulkanHandles& vulkanHandles, const VulkanImageCreateInfo& imageCI, const VulkanImageViewCreateInfo& imageViewCI)
 	: m_VulkanHandles(vulkanHandles)
 {
@@ -16,12 +10,6 @@ VulkanImage::VulkanImage(const VulkanHandles& vulkanHandles, const VulkanImageCr
 	CreateImageView(imageViewCI);
 }
 
-/**
- * @brief Constructor để tải texture từ file.
- * @param vulkanHandles Tham chiếu đến các handle Vulkan chung của ứng dụng.
- * @param filePath Đường dẫn đến file ảnh.
- * @param createMipmaps Có tạo mipmap cho texture hay không.
- */
 VulkanImage::VulkanImage(const VulkanHandles& vulkanHandles, const char* filePath, VkFormat imageFormat, bool createMipmaps)
 	: m_VulkanHandles(vulkanHandles)
 {
@@ -49,9 +37,6 @@ VulkanImage::VulkanImage(const VulkanHandles& vulkanHandles, const char* filePat
 	CreateImageView(imageViewCI);
 }
 
-/**
- * @brief Destructor, giải phóng VkImageView, VkImage và bộ nhớ đã cấp phát.
- */
 VulkanImage::~VulkanImage()
 {
 	// Hủy VkImageView.
@@ -60,10 +45,6 @@ VulkanImage::~VulkanImage()
 	vmaDestroyImage(m_VulkanHandles.allocator, m_Handles.image, m_Handles.allocation);
 }
 
-/**
- * @brief Tạo một VkImage dựa trên thông tin cung cấp.
- * @param imageCI Thông tin tạo VkImage.
- */
 void VulkanImage::CreateImage(const VulkanImageCreateInfo& imageCI)
 {
 	VkImageCreateInfo imageInfo{};
@@ -91,10 +72,6 @@ void VulkanImage::CreateImage(const VulkanImageCreateInfo& imageCI)
 		"Lỗi: Không thể tạo Vulkan Image!");
 }
 
-/**
- * @brief Tạo một VkImageView dựa trên thông tin cung cấp.
- * @param imageViewCI Thông tin tạo VkImageView.
- */
 void VulkanImage::CreateImageView(const VulkanImageViewCreateInfo& imageViewCI)
 {
 	VkImageViewCreateInfo viewInfo{};
@@ -111,17 +88,12 @@ void VulkanImage::CreateImageView(const VulkanImageViewCreateInfo& imageViewCI)
 	VK_CHECK(vkCreateImageView(m_VulkanHandles.device, &viewInfo, nullptr, &m_Handles.imageView), "Lỗi: Tạo VkImageView thất bại!");
 }
 
-/**
- * @brief Tải dữ liệu pixel từ file ảnh vào bộ nhớ RAM.
- * @param filePath Đường dẫn đến file ảnh.
- * @param createMipmaps Có tạo mipmap cho texture hay không.
- */
 void VulkanImage::LoadImageDataFromFile(const char* filePath, bool createMipmaps)
 {
 	// Kiểm tra file có tồn tại không.
 	if (!std::filesystem::exists(filePath))
 	{
-		throw std::runtime_error("Error: Image file not found: " + std::string(filePath));
+		throw std::runtime_error("Lỗi: Không tìm thấy file ảnh: " + std::string(filePath));
 	}
 
 	// Đặt cờ để lật ảnh theo chiều dọc vì Vulkan có hệ tọa độ Y ngược với nhiều API khác (ví dụ: OpenGL).
@@ -132,7 +104,7 @@ void VulkanImage::LoadImageDataFromFile(const char* filePath, bool createMipmaps
 	// Kiểm tra việc đọc file có thành công không.
 	if (!pixels)
 	{
-		throw std::runtime_error("Error: Failed to load image data from file: " + std::string(filePath) + ". File may be corrupt or in an unsupported format.");
+		throw std::runtime_error("Lỗi: Không thể tải dữ liệu ảnh từ file: " + std::string(filePath) + ". File có thể bị hỏng hoặc định dạng không hỗ trợ.");
 	}
 
 	//std::cout << "Loaded Image: " << filePath << std::endl;
@@ -152,13 +124,6 @@ void VulkanImage::LoadImageDataFromFile(const char* filePath, bool createMipmaps
 	}
 }
 
-/**
- * @brief Tải dữ liệu pixel từ RAM lên VkImage thông qua một staging buffer.
- * @param cmdManager Con trỏ tới CommandManager để thực hiện các lệnh sao chép và chuyển đổi layout.
- * @param cmdBuffer Command buffer hiện tại để ghi các lệnh Vulkan.
- * @return Con trỏ tới staging buffer đã tạo. Caller có trách nhiệm giải phóng staging buffer này
- *         sau khi command buffer đã thực thi xong trên GPU.
- */
 VulkanBuffer* VulkanImage::UploadTextureData(VulkanCommandManager* cmdManager, VkCommandBuffer& cmdBuffer)
 {
 	// --- 1. Tạo Staging Buffer ---
@@ -229,20 +194,6 @@ VulkanBuffer* VulkanImage::UploadTextureData(VulkanCommandManager* cmdManager, V
 	return stagingBuffer;
 }
 
-/**
- * @brief Chuyển đổi layout của một image bằng pipeline barrier.
- * @param cmdBuffer Command buffer để ghi lệnh barrier.
- * @param image VkImage cần chuyển đổi layout.
- * @param totalMipLevels Tổng số mipmap level của image.
- * @param oldLayout Layout hiện tại của image.
- * @param newLayout Layout mong muốn sau khi chuyển đổi.
- * @param srcStage Các giai đoạn pipeline nguồn mà barrier sẽ chờ.
- * @param dstStage Các giai đoạn pipeline đích mà barrier sẽ mở khóa.
- * @param srcAccessMask Các quyền truy cập nguồn mà barrier sẽ chờ.
- * @param dstAccessMask Các quyền truy cập đích mà barrier sẽ mở khóa.
- * @param baseMipLevel Mipmap level bắt đầu áp dụng barrier.
- * @param levelCount Số lượng mipmap level áp dụng barrier (0 có nghĩa là tất cả các level từ baseMipLevel).
- */
 void VulkanImage::TransitionLayout(
 	const VkCommandBuffer& cmdBuffer,const VkImage& image, uint32_t totalMipLevels,
 	VkImageLayout oldLayout, VkImageLayout newLayout,
@@ -263,9 +214,13 @@ void VulkanImage::TransitionLayout(
 	// Cấu hình subresourceRange dựa trên layout mới.
 	// Nếu là depth/stencil attachment, sử dụng VK_IMAGE_ASPECT_DEPTH_BIT.
 	// TODO: Cần kiểm tra định dạng có stencil component hay không để thêm VK_IMAGE_ASPECT_STENCIL_BIT.
-	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 	{
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	}
+	else if(newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL || oldLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+	{
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 	}
 	else
 	{
@@ -288,14 +243,6 @@ void VulkanImage::TransitionLayout(
 	);
 }
 
-/**
- * @brief Tạo mipmap cho VkImage đã cho.
- * @param cmdBuffer Command buffer để ghi các lệnh tạo mipmap.
- * @param image VkImage cần tạo mipmap.
- * @param width Chiều rộng của mip level gốc (level 0).
- * @param height Chiều cao của mip level gốc (level 0).
- * @param mipLevels Tổng số mipmap level cần tạo.
- */
 void VulkanImage::GenerateMipmaps(VkCommandBuffer& cmdBuffer, VkImage image, uint32_t width, uint32_t height, uint32_t mipLevels)
 {
 	// TODO: Đảm bảo physical device hỗ trợ blitting với linear filter.

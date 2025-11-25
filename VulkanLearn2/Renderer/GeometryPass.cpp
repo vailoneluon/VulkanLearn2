@@ -21,7 +21,6 @@ GeometryPass::GeometryPass(const GeometryPassCreateInfo& geometryInfo) :
 	m_BackgroundColor(geometryInfo.BackgroundColor),
 	m_SwapchainExtent(geometryInfo.vulkanSwapchainHandles->swapChainExtent),
 	m_RenderObjects(geometryInfo.renderObjects),
-	//m_PushConstantData(geometryInfo.pushConstantData), // Removed
 	m_VulkanHandles(geometryInfo.vulkanHandles),
 	m_AlbedoImages(geometryInfo.albedoImages),
 	m_NormalImages(geometryInfo.normalImages),
@@ -160,12 +159,6 @@ void GeometryPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex
 		0, 1);
 }
 
-/**
- * @brief Tạo các descriptor set cho GeometryPass.
- * Pass này sử dụng hai set:
- * - Set 0: Chứa mảng các texture (từ TextureManager).
- * - Set 1: Chứa Uniform Buffer Object (UBO) với thông tin camera.
- */
 void GeometryPass::CreateDescriptor(const std::vector<VulkanBuffer*>& uniformBuffers)
 {
 	// Set 0: Texture array descriptor (được tạo và quản lý bởi TextureManager).
@@ -208,10 +201,6 @@ void GeometryPass::CreateDescriptor(const std::vector<VulkanBuffer*>& uniformBuf
 	m_Handles.descriptors.push_back(m_MaterialManager->GetDescriptor());
 }
 
-/**
- * @brief Tạo pipeline đồ họa cho GeometryPass.
- * Pipeline này được cấu hình để nhận dữ liệu vertex đầu vào.
- */
 void GeometryPass::CreatePipeline(const GeometryPassCreateInfo& geometryInfo)
 {
 	VulkanPipelineCreateInfo pipelineInfo{};
@@ -222,6 +211,9 @@ void GeometryPass::CreatePipeline(const GeometryPassCreateInfo& geometryInfo)
 	pipelineInfo.swapchainHandles = geometryInfo.vulkanSwapchainHandles;
 	pipelineInfo.fragmentShaderFilePath = geometryInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = geometryInfo.vertShaderFilePath;
+	pipelineInfo.depthFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	pipelineInfo.stencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	pipelineInfo.cullingMode = VK_CULL_MODE_BACK_BIT;
 
 	std::vector<VkFormat> renderingColorAttachments = { 
 		VK_FORMAT_B8G8R8A8_SRGB,					// Albedo
@@ -233,9 +225,6 @@ void GeometryPass::CreatePipeline(const GeometryPassCreateInfo& geometryInfo)
 	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
 }
 
-/**
- * @brief Bind các descriptor set cần thiết cho GeometryPass.
- */
 void GeometryPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t currentFrame)
 {
 	// Bind Set 0: Mảng các texture.
@@ -266,10 +255,6 @@ void GeometryPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t cu
 	);
 }
 
-/**
- * @brief Ghi lệnh vẽ cho tất cả các đối tượng trong scene.
- * Duyệt qua từng đối tượng và từng mesh của đối tượng đó để vẽ.
- */
 void GeometryPass::DrawSceneObject(VkCommandBuffer cmdBuffer)
 {
 	for (const auto& renderObject : *m_RenderObjects)

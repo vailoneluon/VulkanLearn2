@@ -37,9 +37,33 @@ VulkanSampler::VulkanSampler(const VulkanHandles& vulkanHandles):
 	samplerInfo.unnormalizedCoordinates = VK_FALSE;
 
 	VK_CHECK(vkCreateSampler(m_VulkanHandles.device, &samplerInfo, nullptr, &m_Handles.sampler), "LỖI: Tạo sampler thất bại!");
+
+	// --- Cấu hình Shadow Sampler ---
+	// Shadow sampler cần bộ lọc tuyến tính (VK_FILTER_LINEAR) và chế độ so sánh depth.
+	// Nó cũng nên có chế độ địa chỉ là CLAMP_TO_BORDER với màu border là trắng (1.0)
+	// để các pixel nằm ngoài vùng shadow map không tạo bóng.
+	VkSamplerCreateInfo shadowSamplerInfo{};
+	shadowSamplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	shadowSamplerInfo.minFilter = VK_FILTER_LINEAR;
+	shadowSamplerInfo.magFilter = VK_FILTER_LINEAR;
+	shadowSamplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER; // Clamp để xử lý các vùng ngoài shadow map
+	shadowSamplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	shadowSamplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	shadowSamplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE; // Pixel ngoài sẽ là trắng (không đổ bóng)
+	shadowSamplerInfo.anisotropyEnable = VK_FALSE; // Không cần anisotropic cho shadow map
+	shadowSamplerInfo.compareEnable = VK_TRUE;     // Bật chế độ so sánh depth
+	shadowSamplerInfo.compareOp = VK_COMPARE_OP_LESS; // So sánh depth: nếu < giá trị sampler thì không đổ bóng
+	shadowSamplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	shadowSamplerInfo.mipLodBias = 0.0f;
+	shadowSamplerInfo.minLod = 0.0f;
+	shadowSamplerInfo.maxLod = 1.0f; // Chỉ dùng mip level 0 (hoặc tối thiểu) cho shadow map
+	shadowSamplerInfo.unnormalizedCoordinates = VK_FALSE;
+
+	VK_CHECK(vkCreateSampler(m_VulkanHandles.device, &shadowSamplerInfo, nullptr, &m_Handles.shadowSampler), "LỖI: Tạo shadow sampler thất bại!");
 }
 
 VulkanSampler::~VulkanSampler()
 {
+	vkDestroySampler(m_VulkanHandles.device, m_Handles.shadowSampler, nullptr);
 	vkDestroySampler(m_VulkanHandles.device, m_Handles.sampler, nullptr);
 }

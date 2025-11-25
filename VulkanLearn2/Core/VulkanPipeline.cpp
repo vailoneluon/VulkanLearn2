@@ -12,17 +12,10 @@ VulkanPipeline::VulkanPipeline(const VulkanPipelineCreateInfo* pipelineInfo)
 	VkShaderModule fragShaderModule = CreateShaderModule(pipelineInfo->fragmentShaderFilePath);
 
 	// Tạo Pipeline Layout, định nghĩa các descriptor set và push constant mà pipeline sẽ sử dụng.
-	CreatePipelineLayout(*pipelineInfo->descriptors);
+	CreatePipelineLayout(*pipelineInfo->descriptors, pipelineInfo->pushConstantDataSize);
 
 	// Tạo Graphics Pipeline với tất cả các cấu hình cần thiết.
-	CreateGraphicsPipeline(
-		pipelineInfo->swapchainHandles,
-		pipelineInfo->msaaSamples,
-		vertShaderModule,
-		fragShaderModule,
-		pipelineInfo->renderingColorAttachments,
-		pipelineInfo->useVertexInput
-	);
+	CreateGraphicsPipeline(pipelineInfo, vertShaderModule, fragShaderModule);
 
 	// Sau khi pipeline đã được tạo, các shader module không còn cần thiết và có thể được hủy.
 	vkDestroyShaderModule(m_VulkanHandles.device, fragShaderModule, nullptr);
@@ -72,7 +65,7 @@ VkShaderModule VulkanPipeline::CreateShaderModule(const std::string& shaderFileP
 	return shaderModule;
 }
 
-void VulkanPipeline::CreatePipelineLayout(const std::vector<VulkanDescriptor*>& descriptors)
+void VulkanPipeline::CreatePipelineLayout(const std::vector<VulkanDescriptor*>& descriptors, VkDeviceSize pushConstantDataSize)
 {
 	// Sắp xếp các descriptor set layout theo chỉ số set (set index) để đảm bảo thứ tự đúng.
 	std::map<uint32_t, VkDescriptorSetLayout> sortedLayouts;
@@ -92,7 +85,7 @@ void VulkanPipeline::CreatePipelineLayout(const std::vector<VulkanDescriptor*>& 
 	VkPushConstantRange pushConstantRange{};
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(PushConstantData);
+	pushConstantRange.size = pushConstantDataSize;
 
 	// Tạo Pipeline Layout.
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -106,12 +99,9 @@ void VulkanPipeline::CreatePipelineLayout(const std::vector<VulkanDescriptor*>& 
 }
 
 void VulkanPipeline::CreateGraphicsPipeline(
-	const SwapchainHandles* swapchainHandles,
-	VkSampleCountFlagBits msaaSamples,
+	const VulkanPipelineCreateInfo* pipelineInfo,
 	VkShaderModule vertShaderModule,
-	VkShaderModule fragShaderModule,
-	std::vector<VkFormat>* renderingColorAttachments,
-	bool useVertexInput)
+	VkShaderModule fragShaderModule)
 {
 	// 1. Giai đoạn Shader
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -136,7 +126,7 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
 	// Main pipeline dùng trực tiếp đỉnh trong shader không có vertex Input
-	if (useVertexInput)
+	if (pipelineInfo->useVertexInput)
 	{
 		vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexBindingDescs.size());
 		vertexInputInfo.pVertexBindingDescriptions = vertexBindingDescs.data();
@@ -162,14 +152,23 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = (float)swapchainHandles->swapChainExtent.width;
-	viewport.height = (float)swapchainHandles->swapChainExtent.height;
+	
+	if (pipelineInfo->viewportExtent.width == 0 || pipelineInfo->viewportExtent.height == 0)
+	{
+		viewport.width = (float)pipelineInfo->swapchainHandles->swapChainExtent.width;
+		viewport.height = (float)pipelineInfo->swapchainHandles->swapChainExtent.height;
+	}
+	else
+	{
+		viewport.width = pipelineInfo->viewportExtent.width;
+		viewport.height = pipelineInfo->viewportExtent.height;
+	}
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
-	scissor.extent = swapchainHandles->swapChainExtent;
+	scissor.extent = {(uint32_t)viewport.width, (uint32_t)viewport.height};
 
 	VkPipelineViewportStateCreateInfo viewportState{};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -185,37 +184,64 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
-	rasterizer.cullMode = VK_CULL_MODE_NONE; // Tạm thời không cull mặt nào
+	rasterizer.cullMode = pipelineInfo->cullingMode;
 	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	rasterizer.depthBiasEnable = VK_FALSE;
+	rasterizer.depthBiasEnable = pipelineInfo->enableDepthBias;
+	rasterizer.depthBiasConstantFactor = 1.25f;
+	rasterizer.depthBiasSlopeFactor = 1.75f;
 
 	// 6. Giai đoạn Multisampling: Cấu hình cho MSAA.
 	VkPipelineMultisampleStateCreateInfo multisampling{};
 	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multisampling.sampleShadingEnable = VK_FALSE;
-	multisampling.rasterizationSamples = msaaSamples;
+	multisampling.rasterizationSamples = pipelineInfo->msaaSamples;
 
 	// 7. Giai đoạn Depth/Stencil: Cấu hình kiểm tra chiều sâu.
 	VkPipelineDepthStencilStateCreateInfo depthStencil{};
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthStencil.depthTestEnable = VK_TRUE;
-	depthStencil.depthWriteEnable = VK_TRUE;
+	depthStencil.depthTestEnable = pipelineInfo->depthFormat != VK_FORMAT_UNDEFINED;
+	depthStencil.depthWriteEnable = pipelineInfo->depthFormat != VK_FORMAT_UNDEFINED;
 	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
-	depthStencil.stencilTestEnable = VK_FALSE;
+	depthStencil.stencilTestEnable = pipelineInfo->stencilFormat != VK_FORMAT_UNDEFINED;
+	
+	// Cấu hình cho mặt trước (Front Face)
+	VkStencilOpState stencilState{};
+	stencilState.compareOp = VK_COMPARE_OP_ALWAYS;   // QUAN TRỌNG NHẤT: Luôn luôn cho phép vẽ (Pass)
+	stencilState.failOp = VK_STENCIL_OP_KEEP;        // Nếu test tạch (không bao giờ xảy ra ở đây): Giữ nguyên
+	stencilState.depthFailOp = VK_STENCIL_OP_KEEP;   // Nếu depth test tạch: Giữ nguyên
+	stencilState.passOp = VK_STENCIL_OP_KEEP;        // Nếu vẽ thành công: Giữ nguyên giá trị cũ trong buffer
+	stencilState.compareMask = 0xFF; // Cho phép đọc tất cả các bit (an toàn)
+	stencilState.writeMask = 0xFF;   // Cho phép ghi tất cả các bit (nếu cần)
+	stencilState.reference = 0;      // Giá trị tham chiếu (không quan trọng lắm vì dùng ALWAYS)
 
-	// 8. Giai đoạn Color Blending: Cấu hình cách màu sắc được ghi vào framebuffer.
+	// Gán cấu hình
+	depthStencil.front = stencilState;
+	depthStencil.back = stencilState; // Áp dụng giống hệt cho mặt sau
+
+
 	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	colorBlendAttachment.blendEnable = VK_FALSE;
 
-	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(renderingColorAttachments->size(), colorBlendAttachment);
-
+	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
 	VkPipelineColorBlendStateCreateInfo colorBlending{};
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	colorBlending.logicOpEnable = VK_FALSE;
-	colorBlending.attachmentCount = colorBlendAttachments.size();
-	colorBlending.pAttachments = colorBlendAttachments.data();
+
+	// Xử lý an toàn cho trường hợp không có color attachment
+	if (pipelineInfo->renderingColorAttachments && !pipelineInfo->renderingColorAttachments->empty())
+	{
+		colorBlendAttachments.resize(pipelineInfo->renderingColorAttachments->size(), colorBlendAttachment);
+		colorBlending.attachmentCount = static_cast<uint32_t>(colorBlendAttachments.size());
+		colorBlending.pAttachments = colorBlendAttachments.data();
+	}
+	else
+	{
+		colorBlending.attachmentCount = 0;
+		colorBlending.pAttachments = nullptr;
+	}
+
 
 	// 9. Dynamic State: Không sử dụng dynamic state cho viewport và scissor nữa.
 	// pDynamicState được set là nullptr.
@@ -223,32 +249,51 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	// 10. Cấu hình Dynamic Rendering
 	// Thay vì gắn pipeline vào một VkRenderPass cố định, chúng ta cung cấp thông tin
 	// về định dạng của các attachment mà pipeline này sẽ render tới.
-	VkFormat depthStencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
 	VkPipelineRenderingCreateInfo renderingCreatInfo{};
 	renderingCreatInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-	renderingCreatInfo.colorAttachmentCount = renderingColorAttachments->size();
-	renderingCreatInfo.pColorAttachmentFormats = renderingColorAttachments->data();
-	renderingCreatInfo.depthAttachmentFormat = depthStencilFormat;
-	renderingCreatInfo.stencilAttachmentFormat = depthStencilFormat;
+	
+	// Xử lý an toàn cho trường hợp không có color attachment
+	if (pipelineInfo->renderingColorAttachments && !pipelineInfo->renderingColorAttachments->empty())
+	{
+		renderingCreatInfo.colorAttachmentCount = static_cast<uint32_t>(pipelineInfo->renderingColorAttachments->size());
+		renderingCreatInfo.pColorAttachmentFormats = pipelineInfo->renderingColorAttachments->data();
+	}
+	else
+	{
+		renderingCreatInfo.colorAttachmentCount = 0;
+		renderingCreatInfo.pColorAttachmentFormats = nullptr;
+	}
+	renderingCreatInfo.depthAttachmentFormat = pipelineInfo->depthFormat;
+	renderingCreatInfo.stencilAttachmentFormat = pipelineInfo->stencilFormat;
 
 	// 11. Tổng hợp và tạo Graphics Pipeline
-	VkGraphicsPipelineCreateInfo pipelineInfo{};
-	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipelineInfo.stageCount = 2;
-	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.pVertexInputState = &vertexInputInfo;
-	pipelineInfo.pInputAssemblyState = &inputAssembly;
-	pipelineInfo.pViewportState = &viewportState;
-	pipelineInfo.pRasterizationState = &rasterizer;
-	pipelineInfo.pMultisampleState = &multisampling;
-	pipelineInfo.pDepthStencilState = &depthStencil;
-	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = nullptr; // Không có state động
-	pipelineInfo.layout = m_Handles.pipelineLayout;
-	pipelineInfo.subpass = 0;
-	pipelineInfo.renderPass = nullptr;	 // Sử dụng Dynamic Rendering nên không cần.
-	pipelineInfo.pNext = &renderingCreatInfo; // Sử dụng Dynamic Rendering
+	VkGraphicsPipelineCreateInfo graphicPipelineInfo{};
+	graphicPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	graphicPipelineInfo.stageCount = 2;
+	graphicPipelineInfo.pStages = shaderStages;
+	graphicPipelineInfo.pVertexInputState = &vertexInputInfo;
+	graphicPipelineInfo.pInputAssemblyState = &inputAssembly;
+	graphicPipelineInfo.pViewportState = &viewportState;
+	graphicPipelineInfo.pRasterizationState = &rasterizer;
+	graphicPipelineInfo.pMultisampleState = &multisampling;
+	graphicPipelineInfo.pDepthStencilState = &depthStencil;
 
-	VK_CHECK(vkCreateGraphicsPipelines(m_VulkanHandles.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Handles.pipeline), "LỖI: Tạo graphics pipeline thất bại!");
+	// Chỉ set pColorBlendState nếu có color attachments
+	if (renderingCreatInfo.colorAttachmentCount > 0)
+	{
+		graphicPipelineInfo.pColorBlendState = &colorBlending;
+	}
+	else
+	{
+		graphicPipelineInfo.pColorBlendState = nullptr;
+	}
+
+	graphicPipelineInfo.pDynamicState = nullptr; // Không có state động
+	graphicPipelineInfo.layout = m_Handles.pipelineLayout;
+	graphicPipelineInfo.subpass = 0;
+	graphicPipelineInfo.renderPass = nullptr;	 // Sử dụng Dynamic Rendering nên không cần.
+	graphicPipelineInfo.pNext = &renderingCreatInfo; // Sử dụng Dynamic Rendering
+
+	VK_CHECK(vkCreateGraphicsPipelines(m_VulkanHandles.device, VK_NULL_HANDLE, 1, &graphicPipelineInfo, nullptr, &m_Handles.pipeline), "LỖI: Tạo graphics pipeline thất bại!");
 }

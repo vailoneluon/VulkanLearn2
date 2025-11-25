@@ -2,7 +2,11 @@
 #include "VulkanContext.h"
 #include <vector>
 
-// Struct chứa thông tin chi tiết về khả năng của swapchain trên một physical device.
+// =================================================================================================
+// Struct: SwapchainSupportDetails
+// Mô tả: Chứa thông tin chi tiết về khả năng của swapchain trên một physical device.
+//        Bao gồm capabilities (min/max image count, extent), danh sách các formats và present modes hỗ trợ.
+// =================================================================================================
 struct SwapchainSupportDetails
 {
 	VkSurfaceCapabilitiesKHR capabilities;
@@ -13,12 +17,18 @@ struct SwapchainSupportDetails
 	VkSurfaceFormatKHR chosenFormat;
 	VkPresentModeKHR chosenPresentMode;
 
-	// Các hàm helper để chọn ra format và present mode tốt nhất từ danh sách có sẵn.
+	// Helper: Chọn ra format tốt nhất từ danh sách có sẵn (ưu tiên SRGB).
 	void ChooseSurfaceFormatKHR();
+
+	// Helper: Chọn ra present mode tốt nhất từ danh sách có sẵn (ưu tiên Mailbox).
 	void ChoosePresentModeKHR();
 };
 
-// Struct chứa các handle và thông tin của swapchain.
+// =================================================================================================
+// Struct: SwapchainHandles
+// Mô tả: Chứa các handle và thông tin của swapchain.
+//        Bao gồm VkSwapchainKHR, các VkImage và VkImageView tương ứng.
+// =================================================================================================
 struct SwapchainHandles
 {
 	uint32_t swapchainImageCount = 0;
@@ -31,15 +41,26 @@ struct SwapchainHandles
 	std::vector<VkImage> swapchainImages;
 };
 
-// Class quản lý việc tạo và hủy một VkSwapchainKHR và các VkImageView tương ứng.
-// Swapchain là một chuỗi các image được dùng để trình chiếu lên màn hình.
+// =================================================================================================
+// Class: VulkanSwapchain
+// Mô tả: 
+//      Quản lý việc tạo và hủy một VkSwapchainKHR và các VkImageView tương ứng.
+//      Swapchain là một chuỗi các image được dùng để trình chiếu lên màn hình.
+//      Class này chịu trách nhiệm chọn format, present mode và extent phù hợp cho swapchain.
+// =================================================================================================
 class VulkanSwapchain
 {
 public:
+	// Constructor: Khởi tạo swapchain.
+	// Tham số:
+	//      vulkanHandles: Tham chiếu đến các handle Vulkan chung.
+	//      window: Con trỏ đến cửa sổ GLFW.
 	VulkanSwapchain(const VulkanHandles& vulkanHandles, GLFWwindow* window);
+
+	// Destructor: Hủy swapchain và các image view.
 	~VulkanSwapchain();
 
-	// Lấy các handle nội bộ.
+	// Getter: Lấy các handle nội bộ.
 	const SwapchainHandles& getHandles() const { return m_Handles; }
 
 private:
@@ -51,12 +72,16 @@ private:
 	SwapchainHandles m_Handles;
 
 	// --- Hàm helper private ---
-	// Truy vấn các thông tin chi tiết về khả năng hỗ trợ swapchain.
+	
+	// Helper: Truy vấn các thông tin chi tiết về khả năng hỗ trợ swapchain.
 	void QuerySwapchainSupportDetails(VkPhysicalDevice physDevice, VkSurfaceKHR surface);
-	// Chọn kích thước (extent) cho swapchain.
+
+	// Helper: Chọn kích thước (extent) cho swapchain dựa trên kích thước cửa sổ.
 	void ChooseSwapchainExtent();
 
-	// Các hàm tạo tài nguyên chính.
+	// Helper: Tạo VkSwapchainKHR.
 	void CreateSwapchain();
+
+	// Helper: Tạo VkImageView cho từng image trong swapchain.
 	void CreateSwapchainImageViews();
 };

@@ -14,10 +14,10 @@ class MeshManager;
 class RenderObject;
 class MaterialManager;
 
-/**
- * @struct GeometryPassCreateInfo
- * @brief Cấu trúc chứa tất cả thông tin cần thiết để khởi tạo một GeometryPass.
- */
+// =================================================================================================
+// Struct: GeometryPassCreateInfo
+// Mô tả: Cấu trúc chứa tất cả thông tin cần thiết để khởi tạo một GeometryPass.
+// =================================================================================================
 struct GeometryPassCreateInfo
 {
 	const VulkanHandles* vulkanHandles;
@@ -44,32 +44,40 @@ struct GeometryPassCreateInfo
 	const std::vector<VulkanImage*>* positionImages;
 };
 
-/**
- * @struct GeometryPassHandles
- * @brief Chứa các handle nội bộ được quản lý bởi GeometryPass.
- */
+// =================================================================================================
+// Struct: GeometryPassHandles
+// Mô tả: Chứa các handle nội bộ được quản lý bởi GeometryPass.
+// =================================================================================================
 struct GeometryPassHandles
 {
 	VulkanPipeline* pipeline;
 	std::vector<VulkanDescriptor*> descriptors;
 };
 
-/**
- * @class GeometryPass
- * @brief Thực hiện bước render chính của scene 3D (Render-To-Texture - RTT).
- *
- * Pass này chịu trách nhiệm vẽ tất cả các đối tượng hình học (RenderObject) trong scene.
- * Nó sử dụng MSAA để khử răng cưa, vẽ vào một cặp attachment màu và depth (MSAA),
- * sau đó resolve kết quả vào một ảnh không-MSAA. Ảnh này sẽ trở thành đầu vào
- * cho chuỗi post-processing.
- */
+// =================================================================================================
+// Class: GeometryPass
+// Mô tả: 
+//      Thực hiện bước render chính của scene 3D (Render-To-Texture - RTT).
+//      Pass này chịu trách nhiệm vẽ tất cả các đối tượng hình học (RenderObject) trong scene.
+//      Nó sử dụng MSAA để khử răng cưa, vẽ vào một cặp attachment màu và depth (MSAA),
+//      sau đó resolve kết quả vào một ảnh không-MSAA. Ảnh này sẽ trở thành đầu vào
+//      cho chuỗi post-processing.
+// =================================================================================================
 class GeometryPass : public IRenderPass
 {
 public:
+	// Constructor: Khởi tạo GeometryPass với các thông tin cấu hình.
 	GeometryPass(const GeometryPassCreateInfo& geometryInfo);
 	~GeometryPass();
 
+	// Getter: Lấy các handle nội bộ.
 	const GeometryPassHandles& GetHandles() const { return m_Handles; }
+	
+	// Thực thi pass render.
+	// Tham số:
+	//      cmdBuffer: Command buffer để ghi lệnh.
+	//      imageIndex: Chỉ số của swapchain image hiện tại.
+	//      currentFrame: Chỉ số của frame đang xử lý (cho synchronization).
 	void Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex, uint32_t currentFrame) override;
 
 private:
@@ -94,10 +102,18 @@ private:
 
 
 	// --- Hàm khởi tạo ---
+	
+	// Helper: Tạo descriptor sets.
 	void CreateDescriptor(const std::vector<VulkanBuffer*>& uniformBuffers);
+	
+	// Helper: Tạo pipeline đồ họa.
 	void CreatePipeline(const GeometryPassCreateInfo& geometryInfo);
 
 	// --- Hàm thực thi ---
+	
+	// Helper: Bind các descriptor set trước khi vẽ.
 	void BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t currentFrame);
+	
+	// Helper: Ghi lệnh vẽ cho các đối tượng trong scene.
 	void DrawSceneObject(VkCommandBuffer cmdBuffer);
 };

@@ -3,6 +3,11 @@
 #include <chrono>
 #include <string>
 
+// =================================================================================================
+// Class: ScopeTimer
+// Mô tả: Tiện ích đo thời gian thực thi của một scope (RAII).
+//        Tự động in thời gian ra console khi object bị hủy.
+// =================================================================================================
 class ScopeTimer
 {
 public:

@@ -77,10 +77,6 @@ void BlurPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex, ui
 		0, 1);
 }
 
-/**
- * @brief Tạo descriptor set cho ảnh đầu vào.
- * Mỗi frame-in-flight sẽ có một descriptor set riêng, trỏ đến ảnh đầu vào tương ứng của frame đó.
- */
 void BlurPass::CreateDescriptor(const std::vector<VulkanImage*>& inputTextures, const VulkanSampler* vulkanSampler)
 {
 	m_TextureDescriptors.resize(inputTextures.size());
@@ -117,10 +113,6 @@ void BlurPass::CreateDescriptor(const std::vector<VulkanImage*>& inputTextures, 
 	}
 }
 
-/**
- * @brief Tạo pipeline đồ họa cho BlurPass.
- * Pipeline này không có vertex input và được cấu hình để vẽ một quad toàn màn hình.
- */
 void BlurPass::CreatePipeline(const BlurPassCreateInfo& blurInfo)
 {
 	VulkanPipelineCreateInfo pipelineInfo{};
@@ -131,6 +123,9 @@ void BlurPass::CreatePipeline(const BlurPassCreateInfo& blurInfo)
 	pipelineInfo.swapchainHandles = blurInfo.vulkanSwapchainHandles;
 	pipelineInfo.fragmentShaderFilePath = blurInfo.fragShaderFilePath;
 	pipelineInfo.vertexShaderFilePath = blurInfo.vertShaderFilePath;
+	pipelineInfo.depthFormat = VK_FORMAT_UNDEFINED;
+	pipelineInfo.stencilFormat = VK_FORMAT_UNDEFINED;
+	pipelineInfo.cullingMode = VK_CULL_MODE_NONE;
 
 	std::vector<VkFormat> renderingColorAttachments = { VK_FORMAT_R16G16B16A16_SFLOAT };
 	pipelineInfo.renderingColorAttachments = &renderingColorAttachments;
@@ -138,9 +133,6 @@ void BlurPass::CreatePipeline(const BlurPassCreateInfo& blurInfo)
 	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
 }
 
-/**
- * @brief Bind descriptor set của frame hiện tại vào command buffer.
- */
 void BlurPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t currentFrame)
 {
 	vkCmdBindDescriptorSets(
@@ -153,9 +145,6 @@ void BlurPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t curren
 	);
 }
 
-/**
- * @brief Ghi lệnh vẽ một quad toàn màn hình (2 tam giác, 6 đỉnh).
- */
 void BlurPass::DrawQuad(const VkCommandBuffer* cmdBuffer)
 {
 	vkCmdDraw(*cmdBuffer, 6, 1, 0, 0);
