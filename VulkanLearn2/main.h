@@ -67,8 +67,8 @@ private:
 	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
 	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)
-	const uint32_t MODEL_ROTATE_SPEED = 10;
-
+	const uint32_t MODEL_ROTATE_SPEED = 30;
+	
 	// --- Trạng thái Ứng dụng ---
 	int m_CurrentFrame = 0; // Index của frame hiện tại đang được xử lý (từ 0 đến MAX_FRAMES_IN_FLIGHT - 1)
 
@@ -106,7 +106,7 @@ private:
 
 
 	// --- Composite Pass (Tổng hợp cuối cùng) ---
-	VulkanImage* m_Main_ColorImage;						// Attachment màu (MSAA) cho Composite Pass.
+	VulkanImage* m_Composite_ColorImage;						// Attachment màu (MSAA) cho Composite Pass.
 
 	// --- Post-Processing (Bloom Effect) ---
 	std::vector<VulkanImage*> m_LitSceneImages;
@@ -123,14 +123,11 @@ private:
 	std::vector<RenderObject*> m_RenderObjects;			// Danh sách tất cả các đối tượng cần được render trong scene.
 
 	// --- Dữ liệu Light
-	Light m_Light0;
-	Light m_Light1;
-	Light m_Light2;
 	std::vector<Light> m_AllSceneLights; 
 
 	// --- Dữ liệu cho Shader ---
-	UniformBufferObject m_RTT_Ubo{};					// Struct chứa dữ liệu cho Uniform Buffer (ma trận View, Projection).
-	std::vector<VulkanBuffer*> m_RTT_UniformBuffers;	// Các uniform buffer cho camera, một buffer cho mỗi frame-in-flight.
+	UniformBufferObject m_Geometry_Ubo{};					// Struct chứa dữ liệu cho Uniform Buffer (ma trận View, Projection).
+	std::vector<VulkanBuffer*> m_Geometry_UniformBuffers;	// Các uniform buffer cho camera, một buffer cho mỗi frame-in-flight.
 
 	// =================================================================================================
 	// SECTION: CÁC RENDER PASS
@@ -157,7 +154,7 @@ private:
 	void CreateUniformBuffers();
 
 	// --- Nhóm hàm cập nhật mỗi frame ---
-	void UpdateRTT_Uniforms();
+	void Update_Geometry_Uniforms();
 	void UpdateRenderObjectTransforms();
 
 	// --- Nhóm hàm vẽ và ghi command buffer ---

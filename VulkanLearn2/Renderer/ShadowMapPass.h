@@ -15,10 +15,10 @@ class MeshManager;
 class RenderObject;
 class MaterialManager;
 
-/**
- * @struct GeometryPassCreateInfo
- * @brief Cấu trúc chứa tất cả thông tin cần thiết để khởi tạo một GeometryPass.
- */
+// =================================================================================================
+// Struct: ShadowMapPassCreateInfo
+// Mô tả: Cấu trúc chứa tất cả thông tin cần thiết để khởi tạo một ShadowMapPass.
+// =================================================================================================
 struct ShadowMapPassCreateInfo
 {
 	const VulkanHandles* vulkanHandles;
@@ -38,20 +38,34 @@ struct ShadowMapPassCreateInfo
 	VkClearColorValue BackgroundColor;
 };
 
+// =================================================================================================
+// Struct: ShadowMapHandles
+// Mô tả: Chứa các handle nội bộ được quản lý bởi ShadowMapPass.
+// =================================================================================================
 struct ShadowMapHandles
 {
 	VulkanPipeline* pipeline;
 	std::vector<VulkanDescriptor*> descriptors;
 };
 
-
+// =================================================================================================
+// Class: ShadowMapPass
+// Mô tả: 
+//      Thực hiện render scene từ góc nhìn của đèn để tạo shadow map.
+//      Pass này sẽ render độ sâu của scene vào một depth texture (shadow map).
+//      Dữ liệu này sau đó được dùng trong LightingPass để tính toán bóng đổ.
+// =================================================================================================
 class ShadowMapPass : public IRenderPass
 {
 public:
+	// Constructor: Khởi tạo ShadowMapPass với các thông tin cấu hình.
 	ShadowMapPass(const ShadowMapPassCreateInfo& shadowInfo);
 	~ShadowMapPass();
 
+	// Getter: Lấy các handle nội bộ.
 	const ShadowMapHandles& GetHandles() const { return m_Handles; }
+	
+	// Thực thi pass render.
 	void Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex, uint32_t currentFrame) override;
 
 private:
@@ -66,6 +80,13 @@ private:
 	const std::vector<RenderObject*>* m_RenderObjects;
 	VkClearColorValue m_BackgroundColor;
 
+	// --- Hàm khởi tạo ---
+	
+	// Helper: Tạo pipeline đồ họa.
 	void CreatePipeline(const ShadowMapPassCreateInfo& shadowMapInfo);
+	
+	// --- Hàm thực thi ---
+	
+	// Helper: Vẽ các đối tượng trong scene.
 	void DrawSceneObject(VkCommandBuffer cmdBuffer, const GPULight& currentLight);
 };

@@ -10,10 +10,10 @@ class VulkanDescriptor;
 class VulkanSampler;
 class VulkanBuffer;
 
-/**
- * @struct LightingPassCreateInfo
- * @brief Cấu trúc chứa tất cả thông tin cần thiết để khởi tạo một LightingPass.
- */
+// =================================================================================================
+// Struct: LightingPassCreateInfo
+// Mô tả: Cấu trúc chứa tất cả thông tin cần thiết để khởi tạo một LightingPass.
+// =================================================================================================
 struct LightingPassCreateInfo
 {
 	const VulkanHandles* vulkanHandles;
@@ -22,47 +22,53 @@ struct LightingPassCreateInfo
 	VkSampleCountFlagBits MSAA_SAMPLES;
 	uint32_t MAX_FRAMES_IN_FLIGHT;
 
-	// G-Buffer Inputs
+	// --- G-Buffer Inputs ---
 	const std::vector<VulkanImage*>* gAlbedoTextures;
 	const std::vector<VulkanImage*>* gNormalTextures;
 	const std::vector<VulkanImage*>* gPositionTextures;
 
-	// Lighting Inputs
+	// --- Lighting Inputs ---
 	const std::vector<VulkanDescriptor*>* sceneLightDescriptors;
 	const std::vector<VulkanBuffer*>* uniformBuffers; // Camera UBO for viewPos
 
+	// --- Shaders ---
 	std::string fragShaderFilePath;
 	std::string vertShaderFilePath;
 
+	// --- Output ---
 	VkClearColorValue BackgroundColor;
 	const std::vector<VulkanImage*>* outputImages;   // Ảnh đầu ra đã được chiếu sáng.
 };
 
-/**
- * @struct LightingPassHandles
- * @brief Chứa các handle nội bộ được quản lý bởi LightingPass.
- */
+// =================================================================================================
+// Struct: LightingPassHandles
+// Mô tả: Chứa các handle nội bộ được quản lý bởi LightingPass.
+// =================================================================================================
 struct LightingPassHandles
 {
 	VulkanPipeline* pipeline;
 	std::vector<VulkanDescriptor*> descriptors;
 };
 
-/**
- * @class LightingPass
- * @brief Thực hiện tính toán ánh sáng dựa trên dữ liệu từ G-Buffer.
- *
- * Pass này nhận các aauh G-Buffer (Albedo, Normal, Position) làm đầu vào,
- * thực hiện các phép tính ánh sáng trong fragment shader và ghi kết quả đã được chiếu sáng
- * vào một ảnh đầu ra.
- */
+// =================================================================================================
+// Class: LightingPass
+// Mô tả: 
+//      Thực hiện tính toán ánh sáng dựa trên dữ liệu từ G-Buffer.
+//      Pass này nhận các ảnh G-Buffer (Albedo, Normal, Position) làm đầu vào,
+//      thực hiện các phép tính ánh sáng trong fragment shader và ghi kết quả đã được chiếu sáng
+//      vào một ảnh đầu ra.
+// =================================================================================================
 class LightingPass : public IRenderPass
 {
 public:
+	// Constructor: Khởi tạo LightingPass với các thông tin cấu hình.
 	LightingPass(const LightingPassCreateInfo& lightingInfo);
 	~LightingPass();
 
+	// Thực thi pass render.
 	void Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex, uint32_t currentFrame) override;
+	
+	// Getter: Lấy các handle nội bộ.
 	const LightingPassHandles& GetHandles() const { return m_Handles; }
 
 private:
@@ -80,6 +86,8 @@ private:
 	const std::vector<VulkanImage*>* m_OutputImages;      // Ảnh đầu ra.
 
 	// --- Hàm khởi tạo ---
+	
+	// Helper: Tạo descriptor sets.
 	void CreateDescriptor(
 		const std::vector<VulkanImage*>& gAlbedoTextures,
 		const std::vector<VulkanImage*>& gNormalTextures,
@@ -87,9 +95,15 @@ private:
 		const VulkanSampler* vulkanSampler,
 		const std::vector<VulkanBuffer*>& uniformBuffers
 	);
+	
+	// Helper: Tạo pipeline đồ họa.
 	void CreatePipeline(const LightingPassCreateInfo& lightingInfo);
 
 	// --- Hàm thực thi ---
+	
+	// Helper: Bind các descriptor set trước khi vẽ.
 	void BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t currentFrame);
+	
+	// Helper: Vẽ một hình chữ nhật full-screen để chạy fragment shader.
 	void DrawQuad(VkCommandBuffer cmdBuffer);
 };

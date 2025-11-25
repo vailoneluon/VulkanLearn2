@@ -10,7 +10,10 @@ class VulkanImage;
 class VulkanDescriptor;
 
 
-// Struct chứa thông tin về một texture đã được quản lý bởi Manager.
+// =================================================================================================
+// Struct: TextureImage
+// Mô tả: Struct chứa thông tin về một texture đã được quản lý bởi Manager.
+// =================================================================================================
 struct TextureImage
 {
 	uint32_t id;
@@ -19,7 +22,10 @@ struct TextureImage
 	~TextureImage();
 };
 
-// Struct chứa tất cả các handle và dữ liệu nội bộ của TextureManager.
+// =================================================================================================
+// Struct: TextureManagerHandles
+// Mô tả: Struct chứa tất cả các handle và dữ liệu nội bộ của TextureManager.
+// =================================================================================================
 struct TextureManagerHandles
 {
 	std::vector<TextureImage*> allTextureImageLoaded;
@@ -28,15 +34,20 @@ struct TextureManagerHandles
 	VulkanDescriptor* textureImageDescriptor;
 };
 
-// Class quản lý việc tải, lưu trữ và truy cập tất cả các texture trong scene.
-// Đảm bảo mỗi file ảnh chỉ được tải lên GPU một lần.
+// =================================================================================================
+// Class: TextureManager
+// Mô tả: 
+//      Quản lý việc tải, lưu trữ và truy cập tất cả các texture trong scene.
+//      Đảm bảo mỗi file ảnh chỉ được tải lên GPU một lần.
+// =================================================================================================
 class TextureManager
 {
 public:
+	// Constructor: Khởi tạo TextureManager.
 	TextureManager(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager, const VkSampler& sampler);
 	~TextureManager();
 
-	// Lấy ra descriptor set chứa mảng các texture.
+	// Getter: Lấy ra descriptor set chứa mảng các texture.
 	VulkanDescriptor* getDescriptor() const { return m_Handles.textureImageDescriptor; };
 
 	// --- Texture ID của các texture mặc định sử dụng khi mesh không có hoặc load lỗi.
@@ -63,10 +74,8 @@ private:
 	// --- Dữ liệu nội bộ ---
 	TextureManagerHandles m_Handles;
 
-	
-
 	// Hiện tại chưa sử dụng Bindless Descriptor nên cần 1 số lượng để khởi tạo
-	const uint32_t DESCRIPTOR_COUNT = 256;
+	static const uint32_t MAX_IMAGE_DESCRIPTORS = 4096;
 
 	// --- Hàm helper private ---
 	TextureImage* CreateNewTextureImage(const std::string& imageFilePath, VkFormat imageFormat);

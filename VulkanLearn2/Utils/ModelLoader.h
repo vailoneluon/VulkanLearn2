@@ -14,7 +14,10 @@ struct Mesh;
 class MeshManager;
 class MaterialManager;
 
-// Struct chứa dữ liệu thô của một mesh (đỉnh, chỉ số, và đường dẫn texture).
+// =================================================================================================
+// Struct: MeshData
+// Mô tả: Struct chứa dữ liệu thô của một mesh (đỉnh, chỉ số, và đường dẫn texture).
+// =================================================================================================
 struct MeshData
 {
 	std::vector<Vertex> vertices;
@@ -22,7 +25,10 @@ struct MeshData
 	MaterialRawData materialRawData;
 };
 
-// Class tiện ích để tải dữ liệu model từ file bằng thư viện Assimp.
+// =================================================================================================
+// Class: ModelLoader
+// Mô tả: Class tiện ích để tải dữ liệu model từ file bằng thư viện Assimp.
+// =================================================================================================
 class ModelLoader
 {
 public:

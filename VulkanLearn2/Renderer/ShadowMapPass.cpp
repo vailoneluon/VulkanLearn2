@@ -27,6 +27,8 @@ void ShadowMapPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 	{
 		if (light.params.z != -1)
 		{
+			// --- 1. Chuyển đổi Layout cho Shadow Map ---
+			// Chuyển layout của shadow map sang DEPTH_ATTACHMENT_OPTIMAL để có thể ghi vào.
 			VulkanImage::TransitionLayout(
 				*cmdBuffer, m_LightManager->GetShadowMappingImage(currentFrame)[light.params.z]->GetHandles().image, 1,
 				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
@@ -34,6 +36,7 @@ void ShadowMapPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 				0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
 				0, 1);
 
+			// --- 2. Thiết lập và Bắt đầu Dynamic Rendering ---
 			VkRenderingAttachmentInfo depthAttachment{};
 			depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 			depthAttachment.clearValue.depthStencil = { 1.0f, 0 };
@@ -54,6 +57,7 @@ void ShadowMapPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 
 			vkCmdBeginRendering(*cmdBuffer, &renderingInfo);
 			
+			// --- 3. Thực hiện Vẽ ---
 			vkCmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Handles.pipeline->getHandles().pipeline);
 			VkDeviceSize offset = 0;
 			vkCmdBindVertexBuffers(*cmdBuffer, 0, 1, &m_MeshManager->getVertexBuffer(), &offset);
@@ -63,6 +67,8 @@ void ShadowMapPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 
 			vkCmdEndRendering(*cmdBuffer);
 
+			// --- 4. Chuyển đổi Layout sau khi Render ---
+			// Chuyển layout của shadow map sang SHADER_READ_ONLY_OPTIMAL để có thể đọc từ shader (trong LightingPass).
 			VulkanImage::TransitionLayout(
 				*cmdBuffer, m_LightManager->GetShadowMappingImage(currentFrame)[light.params.z]->GetHandles().image, 1,
 				VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -76,7 +82,7 @@ void ShadowMapPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 void ShadowMapPass::CreatePipeline(const ShadowMapPassCreateInfo& shadowMapInfo)
 {
 	VulkanPipelineCreateInfo pipelineInfo{};
-	pipelineInfo.cullingMode = VK_CULL_MODE_FRONT_BIT;
+	pipelineInfo.cullingMode = VK_CULL_MODE_FRONT_BIT; // Cull front face để tránh peter panning
 	pipelineInfo.depthFormat = VK_FORMAT_D32_SFLOAT;
 	pipelineInfo.stencilFormat = VK_FORMAT_UNDEFINED;
 	pipelineInfo.descriptors = &m_Handles.descriptors;

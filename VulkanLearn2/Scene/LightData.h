@@ -1,7 +1,10 @@
 #pragma once
 #include <glm/glm.hpp>
 
-// Enum cho dễ đọc code
+// =================================================================================================
+// Enum: LightType
+// Mô tả: Các loại nguồn sáng được hỗ trợ.
+// =================================================================================================
 enum class LightType : int
 {
 	Directional = 0,
@@ -9,9 +12,11 @@ enum class LightType : int
 	Spot = 2
 };
 
-// ---------------------------------------------------------
-// 1. GPU LIGHT (Data thuần túy, Pack theo vec4 alignment)
-// ---------------------------------------------------------
+// =================================================================================================
+// Struct: GPULight
+// Mô tả: Cấu trúc dữ liệu ánh sáng được gửi lên GPU (SSBO).
+//        Dữ liệu được pack chặt chẽ theo alignment của vec4 (16 bytes) để tối ưu hóa bộ nhớ.
+// =================================================================================================
 struct GPULight
 {
 	glm::vec4 position;   // xyz: Pos, w: Type
@@ -21,9 +26,11 @@ struct GPULight
 	alignas(16) glm::mat4 lightSpaceMatrix; // Ma trận để chuyển từ world-space sang light-space
 };
 
-// ---------------------------------------------------------
-// 2. CPU LIGHT (Tường minh, Dễ dùng, Có Builder pattern)
-// ---------------------------------------------------------
+// =================================================================================================
+// Struct: Light
+// Mô tả: Cấu trúc dữ liệu ánh sáng trên CPU.
+//        Dễ đọc, dễ sử dụng và cung cấp các hàm helper (Builder pattern) để tạo đèn.
+// =================================================================================================
 struct Light
 {
 	// --- Định danh ---
@@ -43,6 +50,7 @@ struct Light
 
 	// --- Thông số PBR / Shadow ---
 	float sourceRadius = 0.0f; // Kích thước bóng đèn (cho PBR Specular)
+	
 	// Mặc định là -1 nếu hasShadow = false
 	// Khởi tạo là 0 nếu hasShadow = true
 	// Trong LightManager tính toán để lưu shadowMapIndex thành id của ShadowMap trong shader.
@@ -53,6 +61,8 @@ struct Light
 	// =========================================================
 	// HÀM CHUYỂN ĐỔI (QUAN TRỌNG NHẤT)
 	// =========================================================
+	
+	// Chuyển đổi dữ liệu từ CPU struct sang GPU struct.
 	GPULight ToGPU() const
 	{
 		GPULight gpu{};

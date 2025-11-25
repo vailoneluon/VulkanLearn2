@@ -70,9 +70,6 @@ void BrightFilterPass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageI
 		0, 1);
 }
 
-/**
- * @brief Tạo descriptor set cho ảnh đầu vào (ảnh scene).
- */
 void BrightFilterPass::CreateDescriptor(const std::vector<VulkanImage*>& textureImages, const VulkanSampler* vulkanSampler)
 {
 	m_TextureDescriptors.resize(textureImages.size());
@@ -106,9 +103,6 @@ void BrightFilterPass::CreateDescriptor(const std::vector<VulkanImage*>& texture
 	}
 }
 
-/**
- * @brief Tạo pipeline đồ họa cho BrightFilterPass.
- */
 void BrightFilterPass::CreatePipeline(const BrightFilterPassCreateInfo& brightFilterInfo)
 {
 	VulkanPipelineCreateInfo pipelineInfo{};
@@ -129,9 +123,6 @@ void BrightFilterPass::CreatePipeline(const BrightFilterPassCreateInfo& brightFi
 	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
 }
 
-/**
- * @brief Bind descriptor set của frame hiện tại vào command buffer.
- */
 void BrightFilterPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t currentFrame)
 {
 	vkCmdBindDescriptorSets(
@@ -144,9 +135,6 @@ void BrightFilterPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_
 	);
 }
 
-/**
- * @brief Ghi lệnh vẽ một quad toàn màn hình.
- */
 void BrightFilterPass::DrawQuad(VkCommandBuffer cmdBuffer)
 {
 	vkCmdDraw(cmdBuffer, 6, 1, 0, 0);

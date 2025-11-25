@@ -102,19 +102,11 @@
       <FileType>Document</FileType>
     </None>
     <None Include="Shaders\compile.bat" />
+    <None Include="Shaders\Composite_Shader.frag" />
+    <None Include="Shaders\Geometry_Shader.frag" />
+    <None Include="Shaders\Geometry_Shader.vert" />
     <None Include="Shaders\Lighting_Shader.frag" />
-    <None Include="Shaders\Main_Shader.frag">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Shaders\Main_Shader.vert">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Shaders\RTT_Shader.frag">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Shaders\RTT_Shader.vert">
-      <FileType>Document</FileType>
-    </None>
+    <None Include="Shaders\PostProcess_Shader.vert" />
     <None Include="Shaders\ShadowMap_Shader.frag" />
     <None Include="Shaders\ShadowMap_Shader.vert" />
   </ItemGroup>

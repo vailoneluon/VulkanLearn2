@@ -15,9 +15,6 @@ CompositePass::CompositePass(const CompositePassCreateInfo& compositeInfo) :
 	m_BackgroundColor(compositeInfo.BackgroundColor),
 	m_MainColorImage(compositeInfo.mainColorImage)
 {
-	// Xóa bỏ comment cũ không còn dùng
-	// m_TextureDescriptors(compositeInfo.textureDescriptors),
-
 	CreateDescriptor(*compositeInfo.inputTextures0, *compositeInfo.inputTextures1, compositeInfo.vulkanSampler);
 	CreatePipeline(compositeInfo);
 }
@@ -86,9 +83,6 @@ void CompositePass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 		0, 1);
 }
 
-/**
- * @brief Tạo descriptor set cho hai ảnh đầu vào (scene và bloom).
- */
 void CompositePass::CreateDescriptor(const std::vector<VulkanImage*>& inputTextures0, const std::vector<VulkanImage*>& inputTextures1, const VulkanSampler* vulkanSampler)
 {
 	m_TextureDescriptors.resize(inputTextures0.size());
@@ -143,9 +137,6 @@ void CompositePass::CreateDescriptor(const std::vector<VulkanImage*>& inputTextu
 	}
 }
 
-/**
- * @brief Tạo pipeline đồ họa cho CompositePass.
- */
 void CompositePass::CreatePipeline(const CompositePassCreateInfo& compositeInfo)
 {
 	VulkanPipelineCreateInfo pipelineInfo{};
@@ -166,9 +157,6 @@ void CompositePass::CreatePipeline(const CompositePassCreateInfo& compositeInfo)
 	m_Handles.pipeline = new VulkanPipeline(&pipelineInfo);
 }
 
-/**
- * @brief Bind descriptor set của frame hiện tại vào command buffer.
- */
 void CompositePass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t currentFrame)
 {
 	vkCmdBindDescriptorSets(
@@ -181,9 +169,6 @@ void CompositePass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t c
 	);
 }
 
-/**
- * @brief Ghi lệnh vẽ một quad toàn màn hình.
- */
 void CompositePass::DrawQuad(const VkCommandBuffer* cmdBuffer)
 {
 	vkCmdDraw(*cmdBuffer, 6, 1, 0, 0);

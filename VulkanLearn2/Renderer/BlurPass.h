@@ -9,11 +9,11 @@ class VulkanImage;
 class VulkanDescriptor;
 class VulkanSampler;
 
-/**
- * @struct BlurPassCreateInfo
- * @brief Cấu trúc chứa tất cả thông tin cần thiết để khởi tạo một BlurPass.
- * Đóng gói các phụ thuộc như Vulkan handles, ảnh đầu vào/đầu ra, và shader.
- */
+// =================================================================================================
+// Struct: BlurPassCreateInfo
+// Mô tả: Cấu trúc chứa tất cả thông tin cần thiết để khởi tạo một BlurPass.
+//        Đóng gói các phụ thuộc như Vulkan handles, ảnh đầu vào/đầu ra, và shader.
+// =================================================================================================
 struct BlurPassCreateInfo
 {
 	const VulkanHandles* vulkanHandles;
@@ -30,32 +30,36 @@ struct BlurPassCreateInfo
 	const std::vector<VulkanImage*>* outputImages;	// Ảnh đầu ra để ghi kết quả đã làm mờ.
 };
 
-/**
- * @struct BlurPassHandles
- * @brief Chứa các handle nội bộ được quản lý bởi BlurPass.
- */
+// =================================================================================================
+// Struct: BlurPassHandles
+// Mô tả: Chứa các handle nội bộ được quản lý bởi BlurPass.
+// =================================================================================================
 struct BlurPassHandles
 {
 	VulkanPipeline* pipeline;						// Pipeline đồ họa dành riêng cho pass này.
 	std::vector<VulkanDescriptor*> descriptors;		// Danh sách các descriptor set (một cho mỗi frame-in-flight).
 };
 
-/**
- * @class BlurPass
- * @brief Thực hiện một bước làm mờ Gaussian (theo chiều ngang hoặc dọc) trên một ảnh đầu vào.
- *
- * Pass này vẽ một quad toàn màn hình và áp dụng shader làm mờ. Nó nhận một ảnh đầu vào,
- * đọc từ nó bằng sampler, và ghi kết quả đã làm mờ vào một ảnh đầu ra.
- * Thường được sử dụng hai lần liên tiếp (một lần cho chiều ngang, một lần cho chiều dọc)
- * để tạo hiệu ứng blur hoàn chỉnh.
- */
+// =================================================================================================
+// Class: BlurPass
+// Mô tả: 
+//      Thực hiện một bước làm mờ Gaussian (theo chiều ngang hoặc dọc) trên một ảnh đầu vào.
+//      Pass này vẽ một quad toàn màn hình và áp dụng shader làm mờ. Nó nhận một ảnh đầu vào,
+//      đọc từ nó bằng sampler, và ghi kết quả đã làm mờ vào một ảnh đầu ra.
+//      Thường được sử dụng hai lần liên tiếp (một lần cho chiều ngang, một lần cho chiều dọc)
+//      để tạo hiệu ứng blur hoàn chỉnh.
+// =================================================================================================
 class BlurPass : public IRenderPass
 {
 public:
+	// Constructor: Khởi tạo BlurPass với các thông tin cấu hình.
 	BlurPass(const BlurPassCreateInfo& blurInfo);
 	~BlurPass();
 
+	// Thực thi pass render.
 	void Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageIndex, uint32_t currentFrame) override;
+	
+	// Getter: Lấy các handle nội bộ.
 	const BlurPassHandles& GetHandles() const { return m_Handles; }
 
 private:
@@ -71,11 +75,19 @@ private:
 	const std::vector<VulkanImage*>* m_OutputImages;     // Ảnh đầu ra.
 
 	// --- Hàm khởi tạo ---
+	
+	// Helper: Tạo descriptor sets.
 	void CreateDescriptor(const std::vector<VulkanImage*>& inputTextures, const VulkanSampler* vulkanSampler);
+	
+	// Helper: Tạo pipeline đồ họa.
 	void CreatePipeline(const BlurPassCreateInfo& blurInfo);
 
 	// --- Hàm thực thi ---
+	
+	// Helper: Bind các descriptor set trước khi vẽ.
 	void BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t currentFrame);
+	
+	// Helper: Vẽ một hình chữ nhật full-screen để chạy fragment shader.
 	void DrawQuad(const VkCommandBuffer* cmdBuffer);
 };
 

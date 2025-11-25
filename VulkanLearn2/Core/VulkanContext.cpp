@@ -92,11 +92,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::DebugCallback(
 {
 	std::string message = "Validation Layer: " + std::string(pCallbackData->pMessage);
 
-	// Suppress specific Steam-related validation layer messages
+	// Bỏ qua các thông báo cụ thể liên quan đến Steam overlay để tránh spam log.
 	if (std::string(pCallbackData->pMessage).find("Failed to open JSON file E:\\Steam\\SteamOverlayVulkanLayer64.json") != std::string::npos ||
 		std::string(pCallbackData->pMessage).find("Failed to open JSON file E:\\Steam\\SteamFossilizeVulkanLayer64.json") != std::string::npos)
 	{
-		return VK_FALSE; // Suppress these specific messages
+		return VK_FALSE; 
 	}
 
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
@@ -145,7 +145,7 @@ void VulkanContext::ChoosePhysicalDevice()
 
 	if (m_Handles.physicalDevice == VK_NULL_HANDLE)
 	{
-		throw std::runtime_error("LỖI: Không tìm thấy GPU nào phù hợp yêu cầu!");
+		throw std::runtime_error("LỖỖI: Không tìm thấy GPU nào phù hợp yêu cầu!");
 	}
 }
 
@@ -183,6 +183,8 @@ void VulkanContext::CreateLogicalDevice()
 	VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
 	descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
 	descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+	descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+	descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
 	descriptorIndexingFeatures.pNext = &dynamicRenderingFT; // Nối chuỗi với dynamic rendering feature
 
 	// Thông tin để tạo logical device.
@@ -210,7 +212,7 @@ void VulkanContext::CreateVMAAllocator()
 	allocatorInfo.instance = m_Handles.instance;
 	allocatorInfo.physicalDevice = m_Handles.physicalDevice;
 
-	VK_CHECK(vmaCreateAllocator(&allocatorInfo, &m_Handles.allocator), "FAILED TO CREATE VMA ALLOCATOR");
+	VK_CHECK(vmaCreateAllocator(&allocatorInfo, &m_Handles.allocator), "LỖI: Tạo VMA Allocator thất bại!");
 }
 
 bool VulkanContext::isPhysicalDeviceSuitable(VkPhysicalDevice physDevice)

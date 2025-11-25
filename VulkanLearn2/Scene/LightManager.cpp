@@ -184,7 +184,7 @@ void LightManager::CreateShadowMappingTexture(uint32_t maxFramesInFlight)
 
 				VulkanImage* shadowImage = new VulkanImage(m_VulkanHandles, imageInfo, imageViewInfo);
 
-				light.params.z = m_ShadowMappingImages[i].size();
+				light.params.z = static_cast<float>(m_ShadowMappingImages[i].size());
 				m_ShadowMappingImages[i].push_back(shadowImage);
 			}
 		}

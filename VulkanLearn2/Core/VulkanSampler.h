@@ -2,26 +2,37 @@
 #include "VulkanContext.h"
 
 
-// Struct chứa handle nội bộ của VulkanSampler.
+// =================================================================================================
+// Struct: SamplerHandles
+// Mô tả: Chứa handle nội bộ của VulkanSampler.
+//        Bao gồm VkSampler chính và VkSampler cho shadow mapping.
+// =================================================================================================
 struct SamplerHandles
 {
 	VkSampler sampler = VK_NULL_HANDLE;
 	VkSampler shadowSampler = VK_NULL_HANDLE;
 };
 
-// Class quản lý việc tạo và hủy một VkSampler.
-// Sampler được dùng trong shader để đọc dữ liệu từ texture (image).
-// Nó định nghĩa cách texture được lọc (filtering) và xử lý tọa độ (addressing).
+// =================================================================================================
+// Class: VulkanSampler
+// Mô tả: 
+//      Quản lý việc tạo và hủy một VkSampler.
+//      Sampler được dùng trong shader để đọc dữ liệu từ texture (image).
+//      Nó định nghĩa cách texture được lọc (filtering) và xử lý tọa độ (addressing).
+// =================================================================================================
 class VulkanSampler
 {
 public:
+	// Constructor: Khởi tạo sampler và shadow sampler.
+	// Tham số:
+	//      vulkanHandles: Tham chiếu đến các handle Vulkan chung.
 	VulkanSampler(const VulkanHandles& vulkanHandles);
 	~VulkanSampler();
 
-	// Lấy ra VkSampler handle.
+	// Getter: Lấy ra VkSampler handle.
 	const VkSampler& getSampler() const { return m_Handles.sampler; };
 
-	// Lấy ra Shadow Sampler
+	// Getter: Lấy ra Shadow Sampler
 	const VkSampler& getShadowSampler() const { return m_Handles.shadowSampler; }
 
 private:

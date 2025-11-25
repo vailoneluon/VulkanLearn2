@@ -3,7 +3,9 @@
 #include <string>
 #include <sstream>
 #include <iostream>
+#include "Log.h"
 
+// Macro để kích hoạt breakpoint khi debug
 #ifdef _MSC_VER
 #define DEBUG_BREAK() __debugbreak()
 #elif defined(__GNUC__) || defined(__clang__)
@@ -12,6 +14,11 @@
 #define DEBUG_BREAK() std::abort()
 #endif
 
+// =================================================================================================
+// Class: VulkanError
+// Mô tả: Exception class tùy chỉnh cho các lỗi Vulkan.
+//        Tự động log lỗi và break khi ở chế độ debug.
+// =================================================================================================
 class VulkanError : public std::runtime_error
 {
 public:
@@ -33,9 +40,10 @@ private:
 	}
 };
 
+// Macro tiện ích để ném ngoại lệ VulkanError kèm thông tin file/line
 #define showError(msg) throw VulkanError(msg, __FILE__, __LINE__)
 
-// Wrapper cho Vulkan result check
+// Macro tiện ích để kiểm tra VkResult và ném lỗi nếu thất bại
 #define VK_CHECK(result, msg) \
     if (result != VK_SUCCESS) { \
         showError(std::string(msg) + " (VkResult: " + std::to_string(result) + ")"); \

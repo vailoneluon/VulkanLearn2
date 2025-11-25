@@ -86,7 +86,7 @@ void TextureManager::CreateTextureImageDescriptor()
 	// texture bằng một index (kiểu bindless). Nó hiệu quả hơn việc re-bind descriptor set
 	// nhưng giới hạn tổng số texture là 256.
 	//textureImageElementInfo.descriptorCount = m_Handles.allTextureImageLoaded.size();
-	textureImageElementInfo.descriptorCount = DESCRIPTOR_COUNT;
+	textureImageElementInfo.descriptorCount = MAX_IMAGE_DESCRIPTORS;
 	textureImageElementInfo.pImmutableSamplers = nullptr;
 	textureImageElementInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	textureImageElementInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -94,7 +94,7 @@ void TextureManager::CreateTextureImageDescriptor()
 
 	// Tạo Descriptor
 	std::vector<VkDescriptorImageInfo> descImageInfos;
-	descImageInfos.reserve(DESCRIPTOR_COUNT);
+	descImageInfos.reserve(MAX_IMAGE_DESCRIPTORS);
 
 	// Chuẩn bị một mảng các VkDescriptorImageInfo, mỗi cái trỏ đến một image view.
 	for (const auto& textureImage : m_Handles.allTextureImageLoaded)

@@ -13,7 +13,7 @@ layout(location = 1) out vec4 outNormalMetallic;    // .rgb = Normal, .a = Metal
 layout(location = 2) out vec4 outPositionAO;        // .rgb = Position, .a = Ambient Occlusion
 
 // Bindless texture array
-layout(set = 0, binding = 0) uniform sampler2D texSampler[256];
+layout(set = 0, binding = 0) uniform sampler2D texSampler[4096];
 
 // Material data SSBO
 struct MaterialData {
