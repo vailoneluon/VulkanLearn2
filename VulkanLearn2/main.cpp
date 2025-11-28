@@ -88,6 +88,14 @@ Application::Application()
 	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_Scene, m_VulkanSampler, MAX_FRAMES_IN_FLIGHT);
 
 	// --- Khởi tạo Scene & Entities ---
+
+	m_MainCamera = m_Scene->CreateEntity("Main Camera");
+	auto& mainCameraData = m_Scene->GetRegistry().emplace<CameraComponent>(m_MainCamera);
+	mainCameraData.AspectRatio = m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height;
+	
+	auto& cameraTransform = m_Scene->GetRegistry().get<TransformComponent>(m_MainCamera);
+	cameraTransform.Position = glm::vec3(0.0f, 3.0f, 5.0f);
+	cameraTransform.Rotation = glm::vec3(-11.0f, -90, 0);
 	
 	// 1. Tải tài nguyên Model (chỉ tải một lần)
 	m_AnimeGirlModel = new Model("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
@@ -339,20 +347,17 @@ void Application::DrawFrame()
  */
 void Application::Update_Geometry_Uniforms()
 {
-    glm::vec3 cameraPos = glm::vec3(0.0f, 3.0f, 5.0f); // Define camera position
+	auto view = m_Scene->GetRegistry().view<TransformComponent, CameraComponent>();
+	view.each([&](auto e, const TransformComponent& transform, const CameraComponent& camera) 
+		{
+			if (camera.IsPrimary == false) return;
 
-	// Thiết lập ma trận view (camera nhìn từ đâu, nhìn vào đâu).
-	m_Geometry_Ubo.view = glm::lookAt(cameraPos, glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    m_Geometry_Ubo.viewPos = cameraPos; // Set camera position for lighting calculations
+			m_Geometry_Ubo.view = transform.GetViewMatrix();
+			m_Geometry_Ubo.proj = camera.GetProjectionMatrix();
+			m_Geometry_Ubo.viewPos = transform.Position;
 
-	// Thiết lập ma trận projection (phối cảnh).
-	m_Geometry_Ubo.proj = glm::perspective(glm::radians(45.0f), m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
-
-	// Vulkan có hệ tọa độ Y ngược với OpenGL, cần lật lại ma trận projection.
-	m_Geometry_Ubo.proj[1][1] *= -1;
-
-	// Tải dữ liệu UBO mới lên buffer của GPU cho frame hiện tại.
-	m_Geometry_UniformBuffers[m_CurrentFrame]->UploadData(&m_Geometry_Ubo, sizeof(m_Geometry_Ubo), 0);
+			m_Geometry_UniformBuffers[m_CurrentFrame]->UploadData(&m_Geometry_Ubo, sizeof(m_Geometry_Ubo), 0);
+		});
 }
 
 /**

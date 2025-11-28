@@ -120,6 +120,7 @@ private:
 	// =================================================================================================
 
 	// --- Dữ liệu Scene ---
+	entt::entity m_MainCamera;
 	Model* m_AnimeGirlModel;	// Tài nguyên Model được tải một lần và dùng chung.
 	entt::entity m_Girl1;		// Entity đại diện cho cô gái 1.
 	entt::entity m_Girl2;		// Entity đại diện cho cô gái 2.

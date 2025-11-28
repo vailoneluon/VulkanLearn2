@@ -121,10 +121,10 @@ void ShadowMapPass::DrawSceneObject(VkCommandBuffer cmdBuffer, const GPULight& c
 			{
 				// --- Cập nhật Push Constants ---
 				// Gửi dữ liệu cho từng lần vẽ (per-draw data) như ma trận model và ID texture.
-				m_PushConstantData.model = GetTransformMatrix(transformComponent);
+				m_PushConstantData.model = transformComponent.GetTransformMatrix();
 				m_PushConstantData.lightMatrix = currentLight.lightSpaceMatrix;
 
-				vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), &m_PushConstantData);
+				vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowMapPushConstantData), &m_PushConstantData);
 
 				// --- Ghi Lệnh Vẽ ---
 				vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);

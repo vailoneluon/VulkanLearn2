@@ -275,7 +275,7 @@ void GeometryPass::DrawSceneObject(VkCommandBuffer cmdBuffer)
 			{
 				// --- Cập nhật Push Constants ---
 				// Gửi dữ liệu cho từng lần vẽ (per-draw data) như ma trận model và ID texture.
-				m_PushConstantData.model = GetTransformMatrix(transformComponent);
+				m_PushConstantData.model = transformComponent.GetTransformMatrix();
 				m_PushConstantData.materialIndex = mesh->materialIndex;
 
 				vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), &m_PushConstantData);
