@@ -79,6 +79,7 @@
     <ClInclude Include="Renderer\IRenderPass.h" />
     <ClInclude Include="Renderer\LightingPass.h" />
     <ClInclude Include="Renderer\ShadowMapPass.h" />
+    <ClInclude Include="Scene\CameraSystem.h" />
     <ClInclude Include="Scene\Component.h" />
     <ClInclude Include="Scene\LightData.h" />
     <ClInclude Include="Scene\LightManager.h" />

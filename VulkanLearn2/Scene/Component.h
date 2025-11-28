@@ -51,18 +51,24 @@ struct LightComponent
 
 struct CameraComponent
 {
-	float Fov = 45.0f;
-	float Near = 0.01f;
-	float Far = 1000.0f;
-	float AspectRatio = 1.777f;
+	friend class CameraSystem;
+public:
+	glm::mat4 GetProjMatrix() const { return m_ProjMatrix; }
+	glm::mat4 GetViewMatrix() const { return m_ViewMatrix; }
+	bool IsPrimary()		  const { return m_IsPrimary; }
+	
+	void SetFov(float fov)				{ m_Fov = fov;				m_IsProjDirty = true; }
+	void SetAspectRatio(float ratio)	{ m_AspectRatio = ratio;	m_IsProjDirty = true; }
 
-	bool IsPrimary = true;
+private:
+	mutable bool m_IsProjDirty = true;
 
-	glm::mat4 GetProjectionMatrix() const
-	{
-		glm::mat4 proj = glm::perspective(Fov, AspectRatio, Near, Far);
-		proj[1][1] *= -1;
+	float m_Fov = 45.0f;
+	float m_Near = 0.01f;
+	float m_Far = 1000.0f;
+	float m_AspectRatio = 1.777f;
+	bool m_IsPrimary = true;
 
-		return proj;
-	}
+	mutable glm::mat4 m_ProjMatrix = glm::mat4(1.0f);
+	mutable glm::mat4 m_ViewMatrix = glm::mat4(1.0f);
 };

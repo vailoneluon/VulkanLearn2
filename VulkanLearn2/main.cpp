@@ -28,6 +28,7 @@
 #include "Scene/Scene.h"
 #include "Scene/Component.h"
 #include "Scene/TransformSystem.h"
+#include "Scene/CameraSystem.h"
 
 
 
@@ -92,7 +93,7 @@ Application::Application()
 
 	m_MainCamera = m_Scene->CreateEntity("Main Camera");
 	auto& mainCameraData = m_Scene->GetRegistry().emplace<CameraComponent>(m_MainCamera);
-	mainCameraData.AspectRatio = m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height;
+	mainCameraData.SetAspectRatio(m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height);
 	
 	auto& cameraTransform = m_Scene->GetRegistry().get<TransformComponent>(m_MainCamera);
 	cameraTransform.SetPosition({ 0.0f, 3.0f, 5.0f });
@@ -350,10 +351,10 @@ void Application::Update_Geometry_Uniforms()
 	auto view = m_Scene->GetRegistry().view<TransformComponent, CameraComponent>();
 	view.each([&](auto e, const TransformComponent& transform, const CameraComponent& camera) 
 		{
-			if (camera.IsPrimary == false) return;
+			if (camera.IsPrimary() == false) return;
 
-			m_Geometry_Ubo.view = TransformSystem::GetViewMatrix(transform);
-			m_Geometry_Ubo.proj = camera.GetProjectionMatrix();
+			m_Geometry_Ubo.view = camera.GetViewMatrix();
+			m_Geometry_Ubo.proj = camera.GetProjMatrix();
 			m_Geometry_Ubo.viewPos = transform.GetPosition();
 
 			m_Geometry_UniformBuffers[m_CurrentFrame]->UploadData(&m_Geometry_Ubo, sizeof(m_Geometry_Ubo), 0);
@@ -380,6 +381,8 @@ void Application::UpdateRenderObjectTransforms()
 
 	girl1Transform.Rotate({ 0, deltaTime * MODEL_ROTATE_SPEED, 0 });
 	girl2Transform.Rotate({ 0, -deltaTime * MODEL_ROTATE_SPEED, 0 });
+	
+	auto& camera = m_Scene->GetRegistry().get<CameraComponent>(m_MainCamera);
 }
 
 // =================================================================================================
@@ -755,5 +758,6 @@ void Application::Update()
 	UpdateRenderObjectTransforms();
 
 	TransformSystem::UpdateTransformMatrix(m_Scene);
+	CameraSystem::UpdateCameraMatrix(m_Scene);
 }
 
