@@ -62,8 +62,8 @@ private:
 	// =================================================================================================
 	
 	// --- Hằng số Cấu hình ---   
-	const uint32_t WINDOW_WIDTH = 800; 
-	const uint32_t WINDOW_HEIGHT = 600;
+	const uint32_t WINDOW_WIDTH = 1200; 
+	const uint32_t WINDOW_HEIGHT = 1000;
 	//const VkClearColorValue BACKGROUND_COLOR = { 0.1f, 0.1f, 0.2f, 1.0f };
 	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
@@ -125,8 +125,10 @@ private:
 	entt::entity m_Girl2;		// Entity đại diện cho cô gái 2.
 
 
+
 	// --- Dữ liệu Light
-	std::vector<Light> m_AllSceneLights; 
+	entt::entity m_Light1;
+	entt::entity m_Light2;
 
 	// --- Dữ liệu cho Shader ---
 	UniformBufferObject m_Geometry_Ubo{};					// Struct chứa dữ liệu cho Uniform Buffer (ma trận View, Projection).

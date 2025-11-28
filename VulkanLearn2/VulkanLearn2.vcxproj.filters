@@ -87,9 +87,6 @@
     <ClCompile Include="Utils\stb_image.cpp">
       <Filter>Source Files\Utils</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\RenderObject.cpp">
-      <Filter>Source Files\Scene</Filter>
-    </ClCompile>
     <ClCompile Include="Scene\Model.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
@@ -181,9 +178,6 @@
     </ClInclude>
     <ClInclude Include="Utils\DebugTimer.h">
       <Filter>Header Files\Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene\RenderObject.h">
-      <Filter>Header Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Model.h">
       <Filter>Header Files\Scene</Filter>

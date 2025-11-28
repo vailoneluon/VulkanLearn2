@@ -85,7 +85,7 @@ Application::Application()
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
 	m_TextureManager = new TextureManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler->getSampler());
 	m_MaterialManager = new MaterialManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_TextureManager);
-	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler, &m_AllSceneLights, MAX_FRAMES_IN_FLIGHT);
+	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_Scene, m_VulkanSampler, MAX_FRAMES_IN_FLIGHT);
 
 	// --- Khởi tạo Scene & Entities ---
 	
@@ -375,6 +375,7 @@ void Application::UpdateRenderObjectTransforms()
 
 	girl1Transform.Rotation += glm::vec3(0, deltaTime * MODEL_ROTATE_SPEED, 0);
 	girl2Transform.Rotation += glm::vec3(0, -deltaTime * MODEL_ROTATE_SPEED, 0);
+
 }
 
 // =================================================================================================
@@ -565,14 +566,13 @@ void Application::CreateFrameBufferImages()
 	} 
 }
  
-// [main.cpp]
 
 void Application::CreateSceneLights()
 {
 	// --- KEY LIGHT: Directional Light (Trắng) ---
 	glm::vec3 dirLightMain = glm::normalize(glm::vec3(0.4f, .2f, -0.6f));
 
-	Light light0 = Light::CreateDirectional(
+	Light light1 = Light::CreateDirectional(
 		dirLightMain,
 		glm::vec3(1.0f, 0.95f, 0.9f),   // Trắng hơi ấm → rất đẹp cho da/model
 		4.0f,                           // Cường độ vừa phải
@@ -584,8 +584,7 @@ void Application::CreateSceneLights()
 	glm::vec3 posSpot = glm::vec3(2.0f, 3.0f, 2.0f);
 	glm::vec3 dirSpot = glm::normalize(targetPosition - posSpot);
 
-	Light light1 = Light::CreateSpot(
-		posSpot,
+	Light light2 = Light::CreateSpot(
 		dirSpot,
 		glm::vec3(0.25f, 0.35f, 0.45f),  // Xanh dương nhẹ → tạo chiều sâu
 		100.0f,                            // Cường độ nhỏ hơn đèn chính
@@ -595,9 +594,14 @@ void Application::CreateSceneLights()
 		true
 	);
 
-	m_AllSceneLights.clear(); // Xóa các đèn cũ trước khi thêm mới
-	m_AllSceneLights.push_back(light0);
-	m_AllSceneLights.push_back(light1);
+	m_Light1 = m_Scene->CreateEntity("Light1");
+	m_Light2 = m_Scene->CreateEntity("Light2");
+
+	m_Scene->GetRegistry().emplace<LightComponent>(m_Light1, light1, true);
+
+	m_Scene->GetRegistry().emplace<LightComponent>(m_Light2, light2, true);
+	auto& light2Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Light2);
+	light2Transform.Position = posSpot;
 }
 /**
  * @brief Tạo các đối tượng render pass.

@@ -4,16 +4,25 @@
 #include "Core/VulkanDescriptor.h"
 #include "Core/VulkanCommandManager.h"
 #include "Core/VulkanImage.h"
+#include "Scene/Scene.h"
+#include "Component.h"
 
-LightManager::LightManager(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager, const VulkanSampler* sampler, std::vector<Light>* allSceneLights, uint32_t maxFramesInFlight):
+LightManager::LightManager(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager, Scene* scene, const VulkanSampler* sampler, uint32_t maxFramesInFlight):
 	m_VulkanHandles(vulkanHandles),
 	m_CommandManager(commandManager),
+	m_Scene(scene),
 	m_VulkanSampler(sampler),
 	m_MaxFramesInFlight(maxFramesInFlight)
 {
-	for (const auto& light : *allSceneLights)
+	auto view = m_Scene->GetRegistry().view<LightComponent, TransformComponent>();
+
+	for (auto entity : view)
 	{
-		m_AllSceneGpuLights.push_back(light.ToGPU());	
+		const auto& lightComponent = m_Scene->GetRegistry().get<LightComponent>(entity);
+		const auto& transformComponent = m_Scene->GetRegistry().get<TransformComponent>(entity);
+
+		if (lightComponent.IsEnable == false) continue;
+		m_AllSceneGpuLights.push_back(lightComponent.Data.ToGPU(transformComponent.Position));
 	}
 
 	CreateDummyShadowMap();

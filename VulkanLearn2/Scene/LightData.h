@@ -37,7 +37,6 @@ struct Light
 	LightType type;
 
 	// --- Thông số cơ bản ---
-	glm::vec3 position{ 0.0f };
 	glm::vec3 direction{ 0.0f, -1.0f, 0.0f };
 	glm::vec3 color{ 1.0f }; // Màu trắng
 
@@ -63,7 +62,7 @@ struct Light
 	// =========================================================
 	
 	// Chuyển đổi dữ liệu từ CPU struct sang GPU struct.
-	GPULight ToGPU() const
+	GPULight ToGPU(glm::vec3 position) const
 	{
 		GPULight gpu{};
 
@@ -114,11 +113,10 @@ struct Light
 		return l;
 	}
 
-	static Light CreatePoint(const glm::vec3& pos, const glm::vec3& col, float intensity, float range, float radius = 0.05f, bool hasShadow = false)
+	static Light CreatePoint(const glm::vec3& col, float intensity, float range, float radius = 0.05f, bool hasShadow = false)
 	{
 		Light l;
 		l.type = LightType::Point;
-		l.position = pos;
 		l.color = col;
 		l.intensity = intensity;
 		l.range = range;
@@ -129,11 +127,10 @@ struct Light
 		return l;
 	}
 
-	static Light CreateSpot(const glm::vec3& pos, const glm::vec3& dir, const glm::vec3& col, float intensity, float range, float innerDeg, float outerDeg, bool hasShadow = false)
+	static Light CreateSpot(const glm::vec3& dir, const glm::vec3& col, float intensity, float range, float innerDeg, float outerDeg, bool hasShadow = false)
 	{
 		Light l;
 		l.type = LightType::Spot;
-		l.position = pos;
 		l.direction = dir;
 		l.color = col;
 		l.intensity = intensity;
