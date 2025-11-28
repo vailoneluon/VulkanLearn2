@@ -8,43 +8,28 @@ class Model;
 
 struct TransformComponent 
 {
-	glm::vec3 Position{ 0.0f };
-	glm::vec3 Rotation{ 0.0f };
-	glm::vec3 Scale{ 1.0f };
+	friend class TransformSystem;
+public:
 
-	glm::mat4 GetTransformMatrix() const
-	{
-		glm::mat4 mat = glm::mat4(1.0f);
-		mat = glm::translate(mat, Position);
-		mat = glm::rotate(mat, glm::radians(Rotation.z), { 0,0,1 });
-		mat = glm::rotate(mat, glm::radians(Rotation.y), { 0,1,0 });
-		mat = glm::rotate(mat, glm::radians(Rotation.x), { 1,0,0 });
-		mat = glm::scale(mat, Scale);
-		return mat;
-	}
+	glm::vec3 GetPosition()			const	{ return m_Position; }
+	glm::vec3 GetRotation()			const	{ return m_Rotation; }
+	glm::vec3 GetScale()			const	{ return m_Scale; }
+	glm::mat4 GetTransformMatrix()	const	{ return m_TransformMatrix; }
 
-	glm::mat4 GetViewMatrix() const
-	{
-		float yaw = Rotation.y;
-		float pitch = Rotation.x;
+	void SetPosition(glm::vec3 pos)			{ m_Position = pos;		m_IsDirty = true; }
+	void SetRotation(glm::vec3 rotation)	{ m_Rotation = rotation;	m_IsDirty = true; }
+	void SetScale(glm::vec3 scale)			{ m_Scale = scale;		m_IsDirty = true; }
 
-		glm::vec3 front;
-		front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-		front.y = sin(glm::radians(pitch));
-		front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+	void Translate(glm::vec3 positionDelta) { m_Position += positionDelta;	m_IsDirty = true; }
+	void Rotate(glm::vec3 rotateDelta)		{ m_Rotation += rotateDelta;		m_IsDirty = true; }
 
-		// Chuẩn hóa vector để đảm bảo độ dài bằng 1
-		glm::vec3 cameraFront = glm::normalize(front);
+private:
+	glm::vec3 m_Position{ 0.0f };
+	glm::vec3 m_Rotation{ 0.0f };
+	glm::vec3 m_Scale{ 1.0f };
 
-		// 2. Định nghĩa trục Up của thế giới (thường là trục Y dương)
-		glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-		// 3. Tính View Matrix bằng glm::lookAt
-		// Tham số 2 (Target) chính là: Vị trí Camera + Hướng nhìn
-		glm::mat4 viewMatrix = glm::lookAt(Position, Position + cameraFront, worldUp);
-
-		return viewMatrix;
-	}
+	mutable	bool m_IsDirty = true;
+	mutable glm::mat4 m_TransformMatrix = glm::mat4(1.0f);
 };
 
 struct MeshComponent

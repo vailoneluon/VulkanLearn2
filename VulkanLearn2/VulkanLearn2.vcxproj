@@ -87,6 +87,7 @@
     <ClInclude Include="Scene\Model.h" />
     <ClInclude Include="Scene\Scene.h" />
     <ClInclude Include="Scene\TextureManager.h" />
+    <ClInclude Include="Scene\TransformSystem.h" />
     <ClInclude Include="Utils\ErrorHelper.h" />
     <ClInclude Include="Utils\Log.h" />
     <ClInclude Include="Utils\ModelLoader.h" />

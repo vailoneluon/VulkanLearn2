@@ -227,6 +227,9 @@
     <ClInclude Include="Scene\Scene.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\TransformSystem.h">
+      <Filter>Header Files\Scene</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\compile.bat">

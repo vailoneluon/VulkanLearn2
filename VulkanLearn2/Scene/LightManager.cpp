@@ -19,7 +19,7 @@ LightManager::LightManager(const VulkanHandles& vulkanHandles, VulkanCommandMana
 	view.each([&](auto e, const LightComponent& lightComponent, const TransformComponent& transformComponent) 
 		{
 			if (lightComponent.IsEnable == false) return;
-			m_AllSceneGpuLights.push_back(lightComponent.Data.ToGPU(transformComponent.Position));
+			m_AllSceneGpuLights.push_back(lightComponent.Data.ToGPU(transformComponent.GetPosition()));
 		});
 
 	CreateDummyShadowMap();

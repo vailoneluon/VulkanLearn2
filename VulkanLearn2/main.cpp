@@ -27,6 +27,7 @@
 #include "Renderer/ShadowMapPass.h"
 #include "Scene/Scene.h"
 #include "Scene/Component.h"
+#include "Scene/TransformSystem.h"
 
 
 
@@ -94,8 +95,8 @@ Application::Application()
 	mainCameraData.AspectRatio = m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height;
 	
 	auto& cameraTransform = m_Scene->GetRegistry().get<TransformComponent>(m_MainCamera);
-	cameraTransform.Position = glm::vec3(0.0f, 3.0f, 5.0f);
-	cameraTransform.Rotation = glm::vec3(-11.0f, -90, 0);
+	cameraTransform.SetPosition({ 0.0f, 3.0f, 5.0f });
+	cameraTransform.SetRotation({ -11.0f, -90, 0 });
 	
 	// 1. Tải tài nguyên Model (chỉ tải một lần)
 	m_AnimeGirlModel = new Model("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
@@ -107,9 +108,9 @@ Application::Application()
 	
 	// Thiết lập vị trí ban đầu thông qua TransformComponent
 	auto& girl1Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl1);
-	girl1Transform.Position = { 1.0f, 0.0f, 0.0f };
-	girl1Transform.Rotation = { -90.0f, 0.0f, 0.0f };
-	girl1Transform.Scale = { 0.05f, 0.05f, 0.05f };
+	girl1Transform.SetPosition({ 1.0f, 0.0f, 0.0f });
+	girl1Transform.SetRotation({ -90.0f, 0.0f, 0.0f });
+	girl1Transform.SetScale({ 0.05f, 0.05f, 0.05f });
 
 	// 3. Tạo Entity: Girl 2
 	m_Girl2 = m_Scene->CreateEntity("Girl2");
@@ -117,9 +118,9 @@ Application::Application()
 	m_Scene->GetRegistry().emplace<MeshComponent>(m_Girl2, m_AnimeGirlModel, true);
 	
 	auto& girl2Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl2);
-	girl2Transform.Position = { -1.0f, 0.0f, 0.0f };
-	girl2Transform.Rotation = { -90.0f, 0.0f, 0.0f };
-	girl2Transform.Scale = { 0.05f, 0.05f, 0.05f };
+	girl2Transform.SetPosition({ -1.0f, 0.0f, 0.0f });
+	girl2Transform.SetRotation({ -90.0f, 0.0f, 0.0f });
+	girl2Transform.SetScale({ 0.05f, 0.05f, 0.05f });
 
 
 	// Hoàn tất việc tải texture: upload dữ liệu ảnh lên GPU và tạo descriptor set cho texture.
@@ -285,8 +286,7 @@ void Application::DrawFrame()
 
 	// --- 4. CẬP NHẬT DỮ LIỆU ĐỘNG ---
 	// Cập nhật dữ liệu sẽ thay đổi mỗi frame, ví dụ như ma trận camera, vị trí đối tượng.
-	Update_Geometry_Uniforms();
-	UpdateRenderObjectTransforms();
+	Update();
 
 	// --- 5. GHI COMMAND BUFFER ---
 	// Reset và ghi lại command buffer với các lệnh vẽ cho frame hiện tại.
@@ -352,9 +352,9 @@ void Application::Update_Geometry_Uniforms()
 		{
 			if (camera.IsPrimary == false) return;
 
-			m_Geometry_Ubo.view = transform.GetViewMatrix();
+			m_Geometry_Ubo.view = TransformSystem::GetViewMatrix(transform);
 			m_Geometry_Ubo.proj = camera.GetProjectionMatrix();
-			m_Geometry_Ubo.viewPos = transform.Position;
+			m_Geometry_Ubo.viewPos = transform.GetPosition();
 
 			m_Geometry_UniformBuffers[m_CurrentFrame]->UploadData(&m_Geometry_Ubo, sizeof(m_Geometry_Ubo), 0);
 		});
@@ -378,9 +378,8 @@ void Application::UpdateRenderObjectTransforms()
 	auto& girl1Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl1);
 	auto& girl2Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl2);
 
-	girl1Transform.Rotation += glm::vec3(0, deltaTime * MODEL_ROTATE_SPEED, 0);
-	girl2Transform.Rotation += glm::vec3(0, -deltaTime * MODEL_ROTATE_SPEED, 0);
-
+	girl1Transform.Rotate({ 0, deltaTime * MODEL_ROTATE_SPEED, 0 });
+	girl2Transform.Rotate({ 0, -deltaTime * MODEL_ROTATE_SPEED, 0 });
 }
 
 // =================================================================================================
@@ -606,7 +605,7 @@ void Application::CreateSceneLights()
 
 	m_Scene->GetRegistry().emplace<LightComponent>(m_Light2, light2, true);
 	auto& light2Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Light2);
-	light2Transform.Position = posSpot;
+	light2Transform.SetPosition(posSpot);
 }
 /**
  * @brief Tạo các đối tượng render pass.
@@ -748,5 +747,13 @@ void Application::CreateUniformBuffers()
 		// Tạo buffer với VMA_MEMORY_USAGE_CPU_TO_GPU để CPU có thể ghi dữ liệu trực tiếp.
 		m_Geometry_UniformBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	}
+}
+
+void Application::Update()
+{
+	Update_Geometry_Uniforms();
+	UpdateRenderObjectTransforms();
+
+	TransformSystem::UpdateTransformMatrix(m_Scene);
 }
 

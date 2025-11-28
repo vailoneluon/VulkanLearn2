@@ -160,6 +160,7 @@ private:
 	void CreateUniformBuffers();
 
 	// --- Nhóm hàm cập nhật mỗi frame ---
+	void Update();
 	void Update_Geometry_Uniforms();
 	void UpdateRenderObjectTransforms();
 
