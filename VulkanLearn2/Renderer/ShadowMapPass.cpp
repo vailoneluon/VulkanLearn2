@@ -108,28 +108,28 @@ void ShadowMapPass::DrawSceneObject(VkCommandBuffer cmdBuffer, const GPULight& c
 {
 	auto view = m_Scene->GetRegistry().view<TransformComponent, MeshComponent>();
 
-	for (auto entity : view)
-	{
-		const auto& meshComponent = m_Scene->GetRegistry().get<MeshComponent>(entity);
-		if (meshComponent.IsVisible == false) continue;
-		std::vector<Mesh*> meshes = meshComponent.Model->getMeshes();
-
-		const auto&  transformComponent = m_Scene->GetRegistry().get<TransformComponent>(entity);
-		glm::mat4 modelMatrix = GetTransformMatrix(transformComponent);
-
-		for (const auto& mesh : meshes)
+	view.each([&](auto e, const TransformComponent& transformComponent, const MeshComponent& meshComponent)
 		{
-			// --- Cập nhật Push Constants ---
-			// Gửi dữ liệu cho từng lần vẽ (per-draw data) như ma trận model và ID texture.
-			// Đây là cách hiệu quả để gửi một lượng nhỏ dữ liệu thay đổi thường xuyên.
-			m_PushConstantData.model = modelMatrix;
-			m_PushConstantData.lightMatrix = currentLight.lightSpaceMatrix;
+			if (!meshComponent.IsVisible) return;
 
-			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), &m_PushConstantData);
+			std::vector<Mesh*> meshes = meshComponent.Model->getMeshes();
 
-			// --- Ghi Lệnh Vẽ ---
-			// Vẽ mesh hiện tại bằng cách sử dụng các offset trong buffer chung.
-			vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
+			// Tính toán ma trận model từ TransformComponent.
+			// Lưu ý: Logic này nên được chuyển vào một System riêng biệt để tối ưu hóa.
+
+			for (const auto& mesh : meshes)
+			{
+				// --- Cập nhật Push Constants ---
+				// Gửi dữ liệu cho từng lần vẽ (per-draw data) như ma trận model và ID texture.
+				m_PushConstantData.model = GetTransformMatrix(transformComponent);
+				m_PushConstantData.lightMatrix = currentLight.lightSpaceMatrix;
+
+				vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), &m_PushConstantData);
+
+				// --- Ghi Lệnh Vẽ ---
+				vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
+			}
 		}
-	}
+	);
+
 }

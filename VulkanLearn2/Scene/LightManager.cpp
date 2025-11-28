@@ -16,14 +16,11 @@ LightManager::LightManager(const VulkanHandles& vulkanHandles, VulkanCommandMana
 {
 	auto view = m_Scene->GetRegistry().view<LightComponent, TransformComponent>();
 
-	for (auto entity : view)
-	{
-		const auto& lightComponent = m_Scene->GetRegistry().get<LightComponent>(entity);
-		const auto& transformComponent = m_Scene->GetRegistry().get<TransformComponent>(entity);
-
-		if (lightComponent.IsEnable == false) continue;
-		m_AllSceneGpuLights.push_back(lightComponent.Data.ToGPU(transformComponent.Position));
-	}
+	view.each([&](auto e, const LightComponent& lightComponent, const TransformComponent& transformComponent) 
+		{
+			if (lightComponent.IsEnable == false) return;
+			m_AllSceneGpuLights.push_back(lightComponent.Data.ToGPU(transformComponent.Position));
+		});
 
 	CreateDummyShadowMap();
 	CreateShadowMappingTexture(maxFramesInFlight);
