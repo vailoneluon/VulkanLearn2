@@ -11,6 +11,8 @@ build/
 Debug/
 Release/
 
+#External Include Lib
+
 # Shader cache
 *.spv
 *.cache

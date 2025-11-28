@@ -19,13 +19,14 @@
 #include "Renderer/LightingPass.h"
 #include "Utils/DebugTimer.h"
 #include "Utils/ModelLoader.h"
-#include <Scene/RenderObject.h>
 #include "Scene/MeshManager.h"
 #include "Scene/Model.h"
 #include "Scene/TextureManager.h"
 #include "Scene/MaterialManager.h"
 #include "Scene\LightManager.h"
 #include "Renderer/ShadowMapPass.h"
+#include "Scene/Scene.h"
+#include "Scene/Component.h"
 
 
 
@@ -67,6 +68,7 @@ Application::Application()
 	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow());
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
+	m_Scene = new Scene();
 
 	CreateSceneLights();
 
@@ -85,14 +87,32 @@ Application::Application()
 	m_MaterialManager = new MaterialManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_TextureManager);
 	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler, &m_AllSceneLights, MAX_FRAMES_IN_FLIGHT);
 
-	m_BunnyGirl = new RenderObject("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
-	m_Swimsuit = new RenderObject("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
-	m_BunnyGirl->SetRotation({ -90, 0, 0 });
-	m_Swimsuit->SetRotation({ -90, 0, 0 });
-
-	m_RenderObjects.push_back(m_BunnyGirl);
-	m_RenderObjects.push_back(m_Swimsuit);
+	// --- Khởi tạo Scene & Entities ---
 	
+	// 1. Tải tài nguyên Model (chỉ tải một lần)
+	m_AnimeGirlModel = new Model("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
+
+	// 2. Tạo Entity: Girl 1
+	m_Girl1 = m_Scene->CreateEntity("Girl1");
+	// Gắn MeshComponent sử dụng model đã tải
+	m_Scene->GetRegistry().emplace<MeshComponent>(m_Girl1, m_AnimeGirlModel, true);
+	
+	// Thiết lập vị trí ban đầu thông qua TransformComponent
+	auto& girl1Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl1);
+	girl1Transform.Position = { 1.0f, 0.0f, 0.0f };
+	girl1Transform.Rotation = { -90.0f, 0.0f, 0.0f };
+	girl1Transform.Scale = { 0.05f, 0.05f, 0.05f };
+
+	// 3. Tạo Entity: Girl 2
+	m_Girl2 = m_Scene->CreateEntity("Girl2");
+	// Tái sử dụng cùng model cho entity thứ 2
+	m_Scene->GetRegistry().emplace<MeshComponent>(m_Girl2, m_AnimeGirlModel, true);
+	
+	auto& girl2Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl2);
+	girl2Transform.Position = { -1.0f, 0.0f, 0.0f };
+	girl2Transform.Rotation = { -90.0f, 0.0f, 0.0f };
+	girl2Transform.Scale = { 0.05f, 0.05f, 0.05f };
+
 
 	// Hoàn tất việc tải texture: upload dữ liệu ảnh lên GPU và tạo descriptor set cho texture.
 	m_MaterialManager->Finalize();
@@ -189,10 +209,7 @@ Application::~Application()
 	delete(m_Composite_ColorImage);
 
 	// 5. Giải phóng các đối tượng trong Scene.
-	for (auto& renderObject : m_RenderObjects)
-	{
-		delete(renderObject);
-	}
+	delete(m_AnimeGirlModel);
 
 	// 6. Giải phóng các thành phần Vulkan cốt lõi.
 	delete(m_VulkanSampler);
@@ -352,14 +369,12 @@ void Application::UpdateRenderObjectTransforms()
 	float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
 	lastTime = currentTime;
 
-	// Cập nhật transform cho các đối tượng.
-	m_BunnyGirl->SetPosition({ 1, 0, 0 });
-	m_BunnyGirl->Rotate(glm::vec3(0, deltaTime * MODEL_ROTATE_SPEED, 0)); 
-	m_BunnyGirl->Scale({ 0.05f, 0.05f, 0.05f });
+	// Cập nhật logic xoay cho các entity
+	auto& girl1Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl1);
+	auto& girl2Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl2);
 
-	m_Swimsuit->SetPosition({ -1, 0, 0 });
-	m_Swimsuit->Rotate(glm::vec3(0, deltaTime * MODEL_ROTATE_SPEED * -1, 0));
-	m_Swimsuit->Scale({ 0.045f, 0.045f, 0.045f });
+	girl1Transform.Rotation += glm::vec3(0, deltaTime * MODEL_ROTATE_SPEED, 0);
+	girl2Transform.Rotation += glm::vec3(0, -deltaTime * MODEL_ROTATE_SPEED, 0);
 }
 
 // =================================================================================================
@@ -602,7 +617,7 @@ void Application::CreateRenderPasses()
 	geometryInfo.depthStencilImages = &m_Geometry_DepthStencilImage;
 	geometryInfo.BackgroundColor = BACKGROUND_COLOR;
 	geometryInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
-	geometryInfo.renderObjects = &m_RenderObjects;
+	geometryInfo.scene = m_Scene;
 	geometryInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	geometryInfo.MSAA_SAMPLES = MSAA_SAMPLES;
 	geometryInfo.fragShaderFilePath = "Shaders/Geometry_Shader.frag.spv";
@@ -619,7 +634,7 @@ void Application::CreateRenderPasses()
 	shadowInfo.MAX_FRAMES_IN_FLIGHT = MAX_FRAMES_IN_FLIGHT;
 	shadowInfo.meshManager = m_MeshManager;
 	shadowInfo.MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT;
-	shadowInfo.renderObjects = &m_RenderObjects;
+	shadowInfo.scene = m_Scene;
 	shadowInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	shadowInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
 

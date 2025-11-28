@@ -10,6 +10,8 @@ struct PushConstantData;
 class MaterialManager;
 class LightManager;
 class ShadowMapPass;
+class Scene;
+class Model;
 
 // Classes
 class Window;
@@ -23,7 +25,6 @@ class VulkanSyncManager;
 class VulkanBuffer;
 class VulkanImage;
 class VulkanDescriptor;
-class RenderObject;
 class MeshManager;
 class TextureManager;
 class GeometryPass;
@@ -90,6 +91,7 @@ private:
 	TextureManager* m_TextureManager;
 	MaterialManager* m_MaterialManager;
 	LightManager* m_LightManager;
+	Scene* m_Scene;
 
 	// =================================================================================================
 	// SECTION: TÀI NGUYÊN RENDER (FRAMEBUFFER ATTACHMENTS)
@@ -118,9 +120,10 @@ private:
 	// =================================================================================================
 
 	// --- Dữ liệu Scene ---
-	RenderObject* m_BunnyGirl;
-	RenderObject* m_Swimsuit;
-	std::vector<RenderObject*> m_RenderObjects;			// Danh sách tất cả các đối tượng cần được render trong scene.
+	Model* m_AnimeGirlModel;	// Tài nguyên Model được tải một lần và dùng chung.
+	entt::entity m_Girl1;		// Entity đại diện cho cô gái 1.
+	entt::entity m_Girl2;		// Entity đại diện cho cô gái 2.
+
 
 	// --- Dữ liệu Light
 	std::vector<Light> m_AllSceneLights; 

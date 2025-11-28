@@ -3,13 +3,14 @@
 #include "Core\VulkanPipeline.h"
 #include "Core\VulkanImage.h"
 #include "Scene/MeshManager.h"
-#include "Scene\RenderObject.h"
 #include "Scene\Model.h"
+#include "Scene/Scene.h"
+#include "Scene\Component.h"
 
 ShadowMapPass::ShadowMapPass(const ShadowMapPassCreateInfo& shadowInfo):
 	m_VulkanHandles(shadowInfo.vulkanHandles),
 	m_MeshManager(shadowInfo.meshManager),
-	m_RenderObjects(shadowInfo.renderObjects),
+	m_Scene(shadowInfo.scene),
 	m_BackgroundColor(shadowInfo.BackgroundColor),
 	m_LightManager(shadowInfo.lightManager)
 {
@@ -105,16 +106,26 @@ void ShadowMapPass::CreatePipeline(const ShadowMapPassCreateInfo& shadowMapInfo)
 
 void ShadowMapPass::DrawSceneObject(VkCommandBuffer cmdBuffer, const GPULight& currentLight)
 {
-	for (const auto& renderObject : *m_RenderObjects)
+	auto view = m_Scene->GetRegistry().view<TransformComponent, MeshComponent>();
+
+	for (auto entity : view)
 	{
-		std::vector<Mesh*> meshes = renderObject->getHandles().model->getMeshes();
+		const auto& meshComponent = m_Scene->GetRegistry().get<MeshComponent>(entity);
+		if (meshComponent.IsVisible == false) continue;
+		std::vector<Mesh*> meshes = meshComponent.Model->getMeshes();
+
+		const auto&  transformComponent = m_Scene->GetRegistry().get<TransformComponent>(entity);
+		glm::mat4 modelMatrix = GetTransformMatrix(transformComponent);
+
 		for (const auto& mesh : meshes)
 		{
-			
-			m_PushConstantData.model = renderObject->GetModelMatrix();
+			// --- Cập nhật Push Constants ---
+			// Gửi dữ liệu cho từng lần vẽ (per-draw data) như ma trận model và ID texture.
+			// Đây là cách hiệu quả để gửi một lượng nhỏ dữ liệu thay đổi thường xuyên.
+			m_PushConstantData.model = modelMatrix;
 			m_PushConstantData.lightMatrix = currentLight.lightSpaceMatrix;
 
-			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowMapPushConstantData), &m_PushConstantData);
+			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), &m_PushConstantData);
 
 			// --- Ghi Lệnh Vẽ ---
 			// Vẽ mesh hiện tại bằng cách sử dụng các offset trong buffer chung.

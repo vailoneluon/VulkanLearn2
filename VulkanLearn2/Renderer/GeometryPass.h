@@ -11,8 +11,8 @@ class VulkanDescriptor;
 class VulkanBuffer;
 class TextureManager;
 class MeshManager;
-class RenderObject;
 class MaterialManager;
+class Scene;
 
 // =================================================================================================
 // Struct: GeometryPassCreateInfo
@@ -22,14 +22,15 @@ struct GeometryPassCreateInfo
 {
 	const VulkanHandles* vulkanHandles;
 	const SwapchainHandles* vulkanSwapchainHandles;
+
 	VkSampleCountFlagBits MSAA_SAMPLES;
 	uint32_t MAX_FRAMES_IN_FLIGHT;
 
 	// --- Dữ liệu Scene ---
+	Scene* scene;
 	const TextureManager* textureManager;
 	const MeshManager* meshManager;
 	MaterialManager* materialManager;
-	const std::vector<RenderObject*>* renderObjects;
 	const std::vector<VulkanBuffer*>* uniformBuffers; // UBO chứa ma trận camera.
 
 	// --- Shaders ---
@@ -84,11 +85,11 @@ private:
 	GeometryPassHandles m_Handles;
 
 	// --- Tham chiếu đến các tài nguyên bên ngoài ---
+	Scene* m_Scene;
 	const MeshManager* m_MeshManager;
 	MaterialManager* m_MaterialManager;
 	const VulkanHandles* m_VulkanHandles;
 	PushConstantData m_PushConstantData; // Changed from pointer to instance.
-	const std::vector<RenderObject*>* m_RenderObjects;
 	VkExtent2D m_SwapchainExtent;
 	VkClearColorValue m_BackgroundColor;
 

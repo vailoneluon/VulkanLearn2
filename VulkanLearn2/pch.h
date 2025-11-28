@@ -35,6 +35,9 @@
 // 4. VMA
 #include "vma/vk_mem_alloc.h"
 
+// 5.ENTT
+#include "entt/entt.hpp"
+
 // === Các file header nội bộ ổn định ===
 #include "Utils/Log.h"
 #include "Utils/ErrorHelper.h"
