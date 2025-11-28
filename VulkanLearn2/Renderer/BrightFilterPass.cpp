@@ -85,7 +85,7 @@ void BrightFilterPass::CreateDescriptor(const std::vector<VulkanImage*>& texture
 		VkDescriptorImageInfo imageInfo{};
 		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		imageInfo.imageView = textureImages[i]->GetHandles().imageView;
-		imageInfo.sampler = vulkanSampler->getSampler();
+		imageInfo.sampler = vulkanSampler->getPostProcessSampler();
 
 		ImageDescriptorUpdateInfo imageUpdateInfo{};
 		imageUpdateInfo.binding = 0;

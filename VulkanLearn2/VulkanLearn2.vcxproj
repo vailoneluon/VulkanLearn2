@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Core\Input.cpp" />
     <ClCompile Include="Core\VulkanBuffer.cpp" />
     <ClCompile Include="Core\VulkanCommandManager.cpp" />
     <ClCompile Include="Core\VulkanContext.cpp" />
@@ -58,6 +59,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Core\Input.h" />
     <ClInclude Include="Core\VulkanBuffer.h" />
     <ClInclude Include="Core\VulkanCommandManager.h" />
     <ClInclude Include="Core\VulkanContext.h" />
@@ -79,6 +81,7 @@
     <ClInclude Include="Renderer\IRenderPass.h" />
     <ClInclude Include="Renderer\LightingPass.h" />
     <ClInclude Include="Renderer\ShadowMapPass.h" />
+    <ClInclude Include="Scene\CameraControlSystem.h" />
     <ClInclude Include="Scene\CameraSystem.h" />
     <ClInclude Include="Scene\Component.h" />
     <ClInclude Include="Scene\LightData.h" />

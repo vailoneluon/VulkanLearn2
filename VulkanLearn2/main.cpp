@@ -29,6 +29,8 @@
 #include "Scene/Component.h"
 #include "Scene/TransformSystem.h"
 #include "Scene/CameraSystem.h"
+#include "Core/Input.h"
+#include "Scene/CameraControlSystem.h"
 
 
 
@@ -71,6 +73,7 @@ Application::Application()
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
 	m_Scene = new Scene();
+	Input::Init(m_Window->getGLFWWindow());
 
 	CreateSceneLights();
 
@@ -382,7 +385,8 @@ void Application::UpdateRenderObjectTransforms()
 	girl1Transform.Rotate({ 0, deltaTime * MODEL_ROTATE_SPEED, 0 });
 	girl2Transform.Rotate({ 0, -deltaTime * MODEL_ROTATE_SPEED, 0 });
 	
-	auto& camera = m_Scene->GetRegistry().get<CameraComponent>(m_MainCamera);
+	CameraControlSystem::CameraMoveUpdate(m_Scene, deltaTime);
+
 }
 
 // =================================================================================================
@@ -754,10 +758,11 @@ void Application::CreateUniformBuffers()
 
 void Application::Update()
 {
-	Update_Geometry_Uniforms();
 	UpdateRenderObjectTransforms();
 
 	TransformSystem::UpdateTransformMatrix(m_Scene);
 	CameraSystem::UpdateCameraMatrix(m_Scene);
+
+	Update_Geometry_Uniforms();
 }
 
