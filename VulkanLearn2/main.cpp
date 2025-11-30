@@ -31,6 +31,7 @@
 #include "Scene/CameraSystem.h"
 #include "Core/Input.h"
 #include "Scene/CameraControlSystem.h"
+#include "Core/GameTime.h"
 
 
 
@@ -73,7 +74,8 @@ Application::Application()
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
 	m_Scene = new Scene();
-	Input::Init(m_Window->getGLFWWindow());
+	Core::Time::Init();
+	Input::Init(m_Window->getGLFWWindow());	
 
 	CreateSceneLights();
 
@@ -241,7 +243,10 @@ void Application::Loop()
 {
 	while (!m_Window->windowShouldClose())
 	{
+		Core::Time::Update();
+
 		m_Window->windowPollEvents();
+		
 		DrawFrame();
 	}
 
@@ -370,22 +375,14 @@ void Application::Update_Geometry_Uniforms()
  */
 void Application::UpdateRenderObjectTransforms()
 {	
-	// Animation đơn giản dựa trên thời gian thực.
-	static auto startTime = std::chrono::high_resolution_clock::now();
-	static auto lastTime = std::chrono::high_resolution_clock::now();
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-	float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
-	lastTime = currentTime;
-
 	// Cập nhật logic xoay cho các entity
 	auto& girl1Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl1);
 	auto& girl2Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl2);
 
-	girl1Transform.Rotate({ 0, deltaTime * MODEL_ROTATE_SPEED, 0 });
-	girl2Transform.Rotate({ 0, -deltaTime * MODEL_ROTATE_SPEED, 0 });
+	girl1Transform.Rotate({ 0, Core::Time::GetDeltaTime() * MODEL_ROTATE_SPEED, 0 });
+	girl2Transform.Rotate({ 0, -Core::Time::GetDeltaTime() * MODEL_ROTATE_SPEED, 0 });
 	
-	CameraControlSystem::CameraMoveUpdate(m_Scene, deltaTime);
+	CameraControlSystem::CameraMoveUpdate(m_Scene);
 
 }
 

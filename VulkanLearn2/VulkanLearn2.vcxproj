@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Core\GameTime.cpp" />
     <ClCompile Include="Core\Input.cpp" />
     <ClCompile Include="Core\VulkanBuffer.cpp" />
     <ClCompile Include="Core\VulkanCommandManager.cpp" />
@@ -59,6 +60,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Core\GameTime.h" />
     <ClInclude Include="Core\Input.h" />
     <ClInclude Include="Core\VulkanBuffer.h" />
     <ClInclude Include="Core\VulkanCommandManager.h" />
