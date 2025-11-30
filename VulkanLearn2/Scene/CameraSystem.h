@@ -31,23 +31,12 @@ private:
 
 	static void UpdateViewMatrix(const TransformComponent& transform, const CameraComponent& camera)
 	{
-		float yaw = transform.GetRotation().y;
-		float pitch = transform.GetRotation().x;
-
-		glm::vec3 front;
-		front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-		front.y = sin(glm::radians(pitch));
-		front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-
-		// Chuẩn hóa vector để đảm bảo độ dài bằng 1
-		glm::vec3 cameraFront = glm::normalize(front);
-
-		// 2. Định nghĩa trục Up của thế giới (thường là trục Y dương)
+		// 1. Định nghĩa trục Up của thế giới (thường là trục Y dương)
 		glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-		// 3. Tính View Matrix bằng glm::lookAt
+		// 2. Tính View Matrix bằng glm::lookAt
 		// Tham số 2 (Target) chính là: Vị trí Camera + Hướng nhìn
-		glm::mat4 viewMatrix = glm::lookAt(transform.GetPosition(), transform.GetPosition() + cameraFront, worldUp);
+		glm::mat4 viewMatrix = glm::lookAt(transform.GetPosition(), transform.GetPosition() + transform.GetForward(), worldUp);
 
 		camera.m_ViewMatrix = viewMatrix;
 	}

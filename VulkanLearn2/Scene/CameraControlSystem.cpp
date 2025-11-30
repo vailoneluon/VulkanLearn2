@@ -6,77 +6,73 @@
 #include "glm/glm.hpp"
 #include "Core/GameTime.h"
 
-void CameraControlSystem::CamereTransformUpdate(Scene* scene)
+void CameraControlSystem::CameraTransformUpdate(Scene* scene)
 {
 	float MoveSpeed = 2.0f;
-	glm::vec3 velocity = glm::vec3(0.0f);
-	if (Input::GetKey(GLFW_KEY_W))
-	{
-		velocity.z += -1;
-	}
-	if (Input::GetKey(GLFW_KEY_S))
-	{
-		velocity.z += 1;
-	}
-	if (Input::GetKey(GLFW_KEY_A))
-	{
-		velocity.x += -1;
-	}
-	if (Input::GetKey(GLFW_KEY_D))
-	{
-		velocity.x += 1;
-	}
-
-	if (glm::length2(velocity) < 0.001f) return;
-
+	glm::vec3 UP{ 0, 1, 0 };
+	
 	auto view = scene->GetRegistry().view<TransformComponent, CameraComponent>();
 	view.each([&](auto e, TransformComponent& transform, const CameraComponent& camera)
 		{
 			if (!camera.IsPrimary()) return;
+
+			glm::vec3 velocity = glm::vec3(0.0f);
+
+			if (Input::GetKey(GLFW_KEY_W))
+			{
+				velocity += transform.GetForward();
+			}
+			if (Input::GetKey(GLFW_KEY_S))
+			{
+				velocity -= transform.GetForward();
+			}
+			if (Input::GetKey(GLFW_KEY_A))
+			{
+				velocity -= transform.GetRight();
+			}
+			if (Input::GetKey(GLFW_KEY_D))
+			{
+				velocity += transform.GetRight();
+			}
+			if (Input::GetKey(GLFW_KEY_E) || Input::GetKey(GLFW_KEY_SPACE))
+			{
+				velocity += UP;
+			}
+			if (Input::GetKey(GLFW_KEY_Q) || Input::GetKey(GLFW_KEY_LEFT_SHIFT))
+			{
+				velocity -= UP;
+			}
+			if (glm::length2(velocity) < 0.01f) return;
+
+			velocity = glm::normalize(velocity);
+
 			transform.Translate(velocity * MoveSpeed * Core::Time::GetDeltaTime());
 		});
 }
 
 void CameraControlSystem::CameraRotateUpdate(Scene* scene)
 {
-	if (Input::GetMouseButton(GLFW_MOUSE_BUTTON_RIGHT))
+	if (Input::GetMouseButton(GLFW_MOUSE_BUTTON_LEFT))
 	{
 		Input::LockMouse(true);
-		if (s_IsFirstRotate)
+		glm::vec2 deltaMousePosition = Input::GetDeltaMousePosition();
+		if (glm::length(deltaMousePosition) != 0)
 		{
-			s_LastMousePosition = Input::GetMousePosition();
-			s_IsFirstRotate = false;
-			return;
-		}
-		else
-		{
-			glm::vec2 currentMousePos = Input::GetMousePosition();
-			glm::vec2 deltaMousePosition = currentMousePos - s_LastMousePosition;
-			s_LastMousePosition = currentMousePos;
-
-			if (glm::length(deltaMousePosition) != 0)
-			{
-				auto view = scene->GetRegistry().view<TransformComponent, CameraComponent>();
-				view.each([&](auto e, TransformComponent& transform, const CameraComponent& camera)
-					{
-						if (!camera.IsPrimary()) return;
-						transform.Rotate({ -deltaMousePosition.y * s_RotateSpeed, deltaMousePosition.x * s_RotateSpeed, 0 });
-					});
-			}
+			auto view = scene->GetRegistry().view<TransformComponent, CameraComponent>();
+			view.each([&](auto e, TransformComponent& transform, const CameraComponent& camera)
+				{
+					if (!camera.IsPrimary()) return;
+					transform.Rotate({ deltaMousePosition.y * s_RotateSpeed, deltaMousePosition.x * s_RotateSpeed, 0 });
+				});
 		}
 	}
 	else
 	{
-			Input::LockMouse(false);
-			s_IsFirstRotate = true;
+		Input::LockMouse(false);
+
 	}
 
 }
 
-glm::vec2 CameraControlSystem::s_LastMousePosition = glm::vec2(0);
-
-
-bool CameraControlSystem::s_IsFirstRotate = true;
-
-const float CameraControlSystem::s_RotateSpeed = 0.2f;
+const float CameraControlSystem::s_RotateSpeed = 0.05f;
 

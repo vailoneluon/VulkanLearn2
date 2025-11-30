@@ -15,6 +15,8 @@ public:
 	glm::vec3 GetRotation()			const	{ return m_Rotation; }
 	glm::vec3 GetScale()			const	{ return m_Scale; }
 	glm::mat4 GetTransformMatrix()	const	{ return m_TransformMatrix; }
+	glm::vec3 GetForward()			const	{ return m_Foward; }
+	glm::vec3 GetRight()			const	{ return m_Right; }
 
 	void SetPosition(glm::vec3 pos)			{ m_Position = pos;		m_IsDirty = true; }
 	void SetRotation(glm::vec3 rotation)	{ m_Rotation = rotation;	m_IsDirty = true; }
@@ -30,6 +32,9 @@ private:
 
 	mutable	bool m_IsDirty = true;
 	mutable glm::mat4 m_TransformMatrix = glm::mat4(1.0f);
+
+	mutable glm::vec3 m_Foward{ 0.0f };
+	mutable glm::vec3 m_Right{ 0.0f };
 };
 
 struct MeshComponent

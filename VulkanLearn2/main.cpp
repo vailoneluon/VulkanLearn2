@@ -244,9 +244,10 @@ void Application::Loop()
 	while (!m_Window->windowShouldClose())
 	{
 		Core::Time::Update();
-
 		m_Window->windowPollEvents();
 		
+		Input::Update();
+		Update();
 		DrawFrame();
 	}
 
@@ -295,7 +296,9 @@ void Application::DrawFrame()
 
 	// --- 4. CẬP NHẬT DỮ LIỆU ĐỘNG ---
 	// Cập nhật dữ liệu sẽ thay đổi mỗi frame, ví dụ như ma trận camera, vị trí đối tượng.
-	Update();
+	//Update();
+	Update_Geometry_Uniforms();
+
 
 	// --- 5. GHI COMMAND BUFFER ---
 	// Reset và ghi lại command buffer với các lệnh vẽ cho frame hiện tại.
@@ -753,13 +756,13 @@ void Application::CreateUniformBuffers()
 
 void Application::Update()
 {
-	CameraControlSystem::CamereTransformUpdate(m_Scene);
+	CameraControlSystem::CameraTransformUpdate(m_Scene);
 	CameraControlSystem::CameraRotateUpdate(m_Scene);
 	UpdateRenderObjectTransforms();
 
 	TransformSystem::UpdateTransformMatrix(m_Scene);
 	CameraSystem::UpdateCameraMatrix(m_Scene);
 
-	Update_Geometry_Uniforms();
+	//Update_Geometry_Uniforms();
 }
 
