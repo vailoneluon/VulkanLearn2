@@ -43,6 +43,7 @@
     <ClCompile Include="Renderer\GeometryPass.cpp" />
     <ClCompile Include="Renderer\LightingPass.cpp" />
     <ClCompile Include="Renderer\ShadowMapPass.cpp" />
+    <ClCompile Include="Scene\CameraControlSystem.cpp" />
     <ClCompile Include="Scene\LightManager.cpp" />
     <ClCompile Include="Scene\MaterialManager.cpp" />
     <ClCompile Include="Scene\MeshManager.cpp" />

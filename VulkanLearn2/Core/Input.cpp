@@ -4,6 +4,7 @@
 void Input::Init(GLFWwindow* window)
 {
 	s_Window = window;
+
 }
 
 bool Input::GetKey(int key)
@@ -25,4 +26,18 @@ glm::vec2 Input::GetMousePosition()
 	return { (float)xpos, (float)ypos };
 }
 
+void Input::LockMouse(bool locked)
+{
+	if (s_IsMouseLocked != locked)
+	{
+		int cursorMode = locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
+		glfwSetInputMode(s_Window, GLFW_CURSOR, cursorMode);
+
+		s_IsMouseLocked = locked;
+	}
+}
+
 GLFWwindow* Input::s_Window;
+
+bool Input::s_IsMouseLocked = false;
+

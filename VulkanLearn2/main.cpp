@@ -382,8 +382,6 @@ void Application::UpdateRenderObjectTransforms()
 	girl1Transform.Rotate({ 0, Core::Time::GetDeltaTime() * MODEL_ROTATE_SPEED, 0 });
 	girl2Transform.Rotate({ 0, -Core::Time::GetDeltaTime() * MODEL_ROTATE_SPEED, 0 });
 	
-	CameraControlSystem::CameraMoveUpdate(m_Scene);
-
 }
 
 // =================================================================================================
@@ -755,6 +753,8 @@ void Application::CreateUniformBuffers()
 
 void Application::Update()
 {
+	CameraControlSystem::CamereTransformUpdate(m_Scene);
+	CameraControlSystem::CameraRotateUpdate(m_Scene);
 	UpdateRenderObjectTransforms();
 
 	TransformSystem::UpdateTransformMatrix(m_Scene);
