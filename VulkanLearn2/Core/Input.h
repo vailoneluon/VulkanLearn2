@@ -16,11 +16,16 @@ public:
 	static glm::vec2 GetDeltaMousePosition();
 
 	static void LockMouse(bool locked);
+
+	static void MousePosCallBack(GLFWwindow* window, double xpos, double ypos);
 private:
 	static GLFWwindow* s_Window;
 
 	static bool s_IsMouseLocked;
+	static bool s_FirstLocked;
 
 	static glm::vec2 s_LastMousePosition;
 	static glm::vec2 s_DeltaMousePosition;
+	static glm::vec2 s_DeltaMousePositionAccumulator;
+
 };

@@ -62,8 +62,8 @@ private:
 	// =================================================================================================
 	
 	// --- Hằng số Cấu hình ---   
-	const uint32_t WINDOW_WIDTH = 1200; 
-	const uint32_t WINDOW_HEIGHT = 1000;
+	const uint32_t WINDOW_WIDTH = 1000; 
+	const uint32_t WINDOW_HEIGHT = 800;
 	const bool VSyncOn = true;
 	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
@@ -72,7 +72,7 @@ private:
 	
 	// --- Trạng thái Ứng dụng ---
 	int m_CurrentFrame = 0; // Index của frame hiện tại đang được xử lý (từ 0 đến MAX_FRAMES_IN_FLIGHT - 1)
-
+	
 	// =================================================================================================
 	// SECTION: CÁC ĐỐI TƯỢNG QUẢN LÝ CỐT LÕI
 	// =================================================================================================
@@ -91,6 +91,7 @@ private:
 	TextureManager* m_TextureManager;
 	MaterialManager* m_MaterialManager;
 	LightManager* m_LightManager;
+	
 	Scene* m_Scene;
 
 	// =================================================================================================

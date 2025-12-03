@@ -59,11 +59,15 @@ void CameraControlSystem::CameraRotateUpdate(Scene* scene)
 		if (glm::length(deltaMousePosition) != 0)
 		{
 			auto view = scene->GetRegistry().view<TransformComponent, CameraComponent>();
-			view.each([&](auto e, TransformComponent& transform, const CameraComponent& camera)
-				{
-					if (!camera.IsPrimary()) return;
-					transform.Rotate({ deltaMousePosition.y * s_RotateSpeed, deltaMousePosition.x * s_RotateSpeed, 0 });
-				});
+			for (auto [entity, transform, camera] : view.each())
+			{	
+				if (!camera.IsPrimary()) continue;
+				transform.Rotate({ deltaMousePosition.y * s_RotateSpeed, deltaMousePosition.x * s_RotateSpeed, 0 });
+
+				glm::vec3 currentRotation = transform.GetRotation();
+				currentRotation.x = std::clamp(currentRotation.x, -89.0f, 89.0f);
+				transform.SetRotation(currentRotation);
+			};
 		}
 	}
 	else
@@ -74,5 +78,5 @@ void CameraControlSystem::CameraRotateUpdate(Scene* scene)
 
 }
 
-const float CameraControlSystem::s_RotateSpeed = 0.05f;
+const float CameraControlSystem::s_RotateSpeed = 0.07f;
 

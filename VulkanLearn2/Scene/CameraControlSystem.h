@@ -8,7 +8,7 @@ class CameraControlSystem
 {
 public:
 	static void CameraTransformUpdate(Scene* scene);
-
+	
 	static void CameraRotateUpdate(Scene* scene);
 private:
 	static const float s_RotateSpeed;

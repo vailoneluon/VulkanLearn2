@@ -8,26 +8,17 @@ void Input::Init(GLFWwindow* window)
 {
 	s_Window = window;
 	s_LastMousePosition = GetMousePosition();
+
+	glfwSetCursorPosCallback(s_Window, MousePosCallBack);
 }
 
 void Input::Update()
 {
-	glm::vec2 currentMousePosition = GetMousePosition();
-	glm::vec2 rawDelta = currentMousePosition - s_LastMousePosition;
+	float smoothFactory = 0.2f;
 
-	rawDelta.y *= -1;
+	s_DeltaMousePosition = glm::mix(s_DeltaMousePosition, s_DeltaMousePositionAccumulator, 1 - smoothFactory);
 
-	float smoothFactory = 0.5f;
-	if (glm::length2(rawDelta) >= 0.01f)
-	{
-		s_DeltaMousePosition = glm::mix(s_DeltaMousePosition, rawDelta, smoothFactory);
-	}
-	else
-	{
-		s_DeltaMousePosition = glm::vec2(0, 0);
-	}
-
-	s_LastMousePosition = currentMousePosition;
+	s_DeltaMousePositionAccumulator = { 0, 0 };
 }
 
 bool Input::GetKey(int key)
@@ -64,13 +55,36 @@ void Input::LockMouse(bool locked)
 
 		s_IsMouseLocked = locked;
 	}
+
+	if (locked && s_FirstLocked)
+	{
+		s_FirstLocked = false;
+
+		s_DeltaMousePosition = { 0, 0 };
+		s_DeltaMousePositionAccumulator = { 0, 0 };
+	}
+	if (!locked && !s_FirstLocked)
+	{
+		s_FirstLocked = true;
+	}
+}
+
+void Input::MousePosCallBack(GLFWwindow* window, double xpos, double ypos)
+{
+	s_DeltaMousePositionAccumulator += glm::vec2(xpos - s_LastMousePosition.x, -(ypos - s_LastMousePosition.y));
+
+	s_LastMousePosition = glm::vec2(xpos, ypos);
 }
 
 GLFWwindow* Input::s_Window;
 
 bool Input::s_IsMouseLocked = false;
 
+bool Input::s_FirstLocked = true;
+
 glm::vec2 Input::s_LastMousePosition;
 
-glm::vec2 Input::s_DeltaMousePosition;
+glm::vec2 Input::s_DeltaMousePosition(0, 0);
+
+glm::vec2 Input::s_DeltaMousePositionAccumulator(0, 0);
 

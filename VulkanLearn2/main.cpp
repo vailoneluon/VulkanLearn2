@@ -605,7 +605,7 @@ void Application::CreateSceneLights()
 	Light light1 = Light::CreateDirectional(
 		dirLightMain,
 		glm::vec3(1.0f, 0.95f, 0.9f),   // Trắng hơi ấm → rất đẹp cho da/model
-		4.0f,                           // Cường độ vừa phải
+		5.0f,                           // Cường độ vừa phải
 		true                            // Có đổ bóng
 	);
 
@@ -616,7 +616,7 @@ void Application::CreateSceneLights()
 
 	Light light2 = Light::CreateSpot(
 		dirSpot,
-		glm::vec3(0.25f, 0.35f, 0.45f),  // Xanh dương nhẹ → tạo chiều sâu
+		glm::vec3(0.25f, 0.75f, 0.95f),  // Xanh dương nhẹ → tạo chiều sâu
 		100.0f,                            // Cường độ nhỏ hơn đèn chính
 		100.0f,                           // Range vừa đủ
 		20.0f,                           // Inner cutoff mềm
