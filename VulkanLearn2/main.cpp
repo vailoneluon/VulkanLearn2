@@ -70,7 +70,7 @@ Application::Application()
 	// --- 1. KHỞI TẠO CÁC THÀNH PHẦN CỐT LÕI ---
 	m_Window = new Window(WINDOW_WIDTH, WINDOW_HEIGHT, "ZOLCOL VULKAN");
 	m_VulkanContext = new VulkanContext(m_Window->getGLFWWindow(), m_Window->getInstanceExtensionsRequired());
-	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow());
+	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow(), VSyncOn);
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
 	m_Scene = new Scene();
@@ -155,6 +155,7 @@ Application::Application()
 	// Sau khi tất cả các mesh đã được xử lý, tạo và tải dữ liệu vào vertex/index buffer trên GPU.
 	m_MeshManager->CreateBuffers();
 
+	
 }
 
 /**
@@ -246,6 +247,8 @@ void Application::Loop()
 		Core::Time::Update();
 		m_Window->windowPollEvents();
 		
+		ShowFps();
+
 		Input::Update();
 		Update();
 		DrawFrame();
@@ -420,6 +423,24 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 }
 
    
+void Application::ShowFps()
+{
+	const int UpdateFpsFreq = 3;
+	static float timeCounter = .0f;
+	
+	timeCounter += Core::Time::GetDeltaTime();
+	
+	if (timeCounter >= 1.0f / UpdateFpsFreq) 
+	{
+		int currentFps = (int)(1.0f / Core::Time::GetDeltaTime());
+		std::string windowTitle = "Zolcol Vulkan Engine | Current FPS: " + std::to_string(currentFps);
+		m_Window->SetWindowTitle(windowTitle);
+
+		timeCounter = .0f;
+	}
+
+}
+
 // =================================================================================================
 // SECTION 5: LỚP APPLICATION - CÁC HÀM HELPER KHỞI TẠO
 // =================================================================================================

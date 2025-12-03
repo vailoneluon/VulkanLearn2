@@ -64,7 +64,7 @@ private:
 	// --- Hằng số Cấu hình ---   
 	const uint32_t WINDOW_WIDTH = 1200; 
 	const uint32_t WINDOW_HEIGHT = 1000;
-	//const VkClearColorValue BACKGROUND_COLOR = { 0.1f, 0.1f, 0.2f, 1.0f };
+	const bool VSyncOn = true;
 	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
 	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)
@@ -167,4 +167,6 @@ private:
 	// --- Nhóm hàm vẽ và ghi command buffer ---
 	void DrawFrame();
 	void RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex);
+
+	void ShowFps();
 };

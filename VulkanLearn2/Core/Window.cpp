@@ -61,3 +61,8 @@ std::vector<const char*> Window::getInstanceExtensionsRequired()
 	std::vector<const char*> result(extensions, extensions + extensionCount);
 	return result;
 }
+
+void Window::SetWindowTitle(const std::string& title)
+{
+	glfwSetWindowTitle(m_Window, title.c_str());
+}
