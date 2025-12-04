@@ -1,6 +1,10 @@
 #pragma once
 
 #include "Scene/LightData.h"
+
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 // --- Khai báo sớm (Forward Declarations) ---
 // Giảm thiểu sự phụ thuộc vào các file header và tăng tốc độ biên dịch.
 
@@ -64,7 +68,7 @@ private:
 	// --- Hằng số Cấu hình ---   
 	const uint32_t WINDOW_WIDTH = 1000; 
 	const uint32_t WINDOW_HEIGHT = 800;
-	const bool VSyncOn = true;
+	const bool VSyncOn = false;
 	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
 	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)
@@ -170,4 +174,10 @@ private:
 	void RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex);
 
 	void ShowFps();
+
+	VkDescriptorPool m_ImGuiDescriptorPool = VK_NULL_HANDLE; // Pool riêng cho ImGui
+
+	void InitImGui();
+	void RenderImGui(VkCommandBuffer cmdBuffer, uint32_t imageIndex);
+	void ShutdownImGui();
 };
