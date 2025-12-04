@@ -3,13 +3,14 @@
 #include "Core\VulkanPipeline.h"
 #include "Core\VulkanImage.h"
 #include "Scene/MeshManager.h"
-#include "Scene\RenderObject.h"
 #include "Scene\Model.h"
+#include "Scene/Scene.h"
+#include "Scene\Component.h"
 
 ShadowMapPass::ShadowMapPass(const ShadowMapPassCreateInfo& shadowInfo):
 	m_VulkanHandles(shadowInfo.vulkanHandles),
 	m_MeshManager(shadowInfo.meshManager),
-	m_RenderObjects(shadowInfo.renderObjects),
+	m_Scene(shadowInfo.scene),
 	m_BackgroundColor(shadowInfo.BackgroundColor),
 	m_LightManager(shadowInfo.lightManager)
 {
@@ -105,20 +106,30 @@ void ShadowMapPass::CreatePipeline(const ShadowMapPassCreateInfo& shadowMapInfo)
 
 void ShadowMapPass::DrawSceneObject(VkCommandBuffer cmdBuffer, const GPULight& currentLight)
 {
-	for (const auto& renderObject : *m_RenderObjects)
-	{
-		std::vector<Mesh*> meshes = renderObject->getHandles().model->getMeshes();
-		for (const auto& mesh : meshes)
+	auto view = m_Scene->GetRegistry().view<TransformComponent, MeshComponent>();
+
+	view.each([&](auto e, const TransformComponent& transformComponent, const MeshComponent& meshComponent)
 		{
-			
-			m_PushConstantData.model = renderObject->GetModelMatrix();
-			m_PushConstantData.lightMatrix = currentLight.lightSpaceMatrix;
+			if (!meshComponent.IsVisible) return;
 
-			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowMapPushConstantData), &m_PushConstantData);
+			std::vector<Mesh*> meshes = meshComponent.Model->getMeshes();
 
-			// --- Ghi Lệnh Vẽ ---
-			// Vẽ mesh hiện tại bằng cách sử dụng các offset trong buffer chung.
-			vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
+			// Tính toán ma trận model từ TransformComponent.
+			// Lưu ý: Logic này nên được chuyển vào một System riêng biệt để tối ưu hóa.
+
+			for (const auto& mesh : meshes)
+			{
+				// --- Cập nhật Push Constants ---
+				// Gửi dữ liệu cho từng lần vẽ (per-draw data) như ma trận model và ID texture.
+				m_PushConstantData.model = transformComponent.GetTransformMatrix();
+				m_PushConstantData.lightMatrix = currentLight.lightSpaceMatrix;
+
+				vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowMapPushConstantData), &m_PushConstantData);
+
+				// --- Ghi Lệnh Vẽ ---
+				vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
+			}
 		}
-	}
+	);
+
 }

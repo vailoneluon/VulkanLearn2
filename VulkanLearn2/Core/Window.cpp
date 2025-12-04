@@ -16,9 +16,11 @@ Window::Window(int width, int height, const std::string& title):
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	// Tạm thời không cho phép thay đổi kích thước cửa sổ.
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	glfwWindowHint(GLFW_MAXIMIZED, GLFW_FALSE);
 
 	// Tạo cửa sổ GLFW.
 	m_Window = glfwCreateWindow(m_Width, m_Height, m_Title.c_str(), nullptr, nullptr);
+	glfwSetWindowSizeLimits(m_Window, m_Width, m_Height, m_Width, m_Height);
 
 	if (!m_Window)
 	{
@@ -60,4 +62,9 @@ std::vector<const char*> Window::getInstanceExtensionsRequired()
 	
 	std::vector<const char*> result(extensions, extensions + extensionCount);
 	return result;
+}
+
+void Window::SetWindowTitle(const std::string& title)
+{
+	glfwSetWindowTitle(m_Window, title.c_str());
 }

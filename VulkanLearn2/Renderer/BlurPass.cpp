@@ -94,7 +94,7 @@ void BlurPass::CreateDescriptor(const std::vector<VulkanImage*>& inputTextures, 
 		VkDescriptorImageInfo imageInfo{};
 		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		imageInfo.imageView = inputTextures[i]->GetHandles().imageView;
-		imageInfo.sampler = vulkanSampler->getSampler();
+		imageInfo.sampler = vulkanSampler->getPostProcessSampler();
 
 		ImageDescriptorUpdateInfo imageUpdateInfo{};
 		imageUpdateInfo.binding = 0;

@@ -98,7 +98,7 @@ void CompositePass::CreateDescriptor(const std::vector<VulkanImage*>& inputTextu
 		VkDescriptorImageInfo imageInfo{};
 		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		imageInfo.imageView = inputTextures0[i]->GetHandles().imageView;
-		imageInfo.sampler = vulkanSampler->getSampler();
+		imageInfo.sampler = vulkanSampler->getPostProcessSampler();
 
 		ImageDescriptorUpdateInfo imageUpdateInfo{};
 		imageUpdateInfo.binding = 0;
@@ -119,7 +119,7 @@ void CompositePass::CreateDescriptor(const std::vector<VulkanImage*>& inputTextu
 		VkDescriptorImageInfo imageInfo2{};
 		imageInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		imageInfo2.imageView = inputTextures1[i]->GetHandles().imageView;
-		imageInfo2.sampler = vulkanSampler->getSampler();
+		imageInfo2.sampler = vulkanSampler->getPostProcessSampler();
 
 		ImageDescriptorUpdateInfo imageUpdateInfo2{};
 		imageUpdateInfo2.binding = 1;

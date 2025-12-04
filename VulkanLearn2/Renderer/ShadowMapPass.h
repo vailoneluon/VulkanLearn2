@@ -12,8 +12,8 @@ class VulkanDescriptor;
 class VulkanBuffer;
 class TextureManager;
 class MeshManager;
-class RenderObject;
 class MaterialManager;
+class Scene;
 
 // =================================================================================================
 // Struct: ShadowMapPassCreateInfo
@@ -29,7 +29,7 @@ struct ShadowMapPassCreateInfo
 	// --- Dữ liệu Scene ---
 	const MeshManager* meshManager;
 	const LightManager* lightManager;
-	const std::vector<RenderObject*>* renderObjects;
+	Scene* scene;
 
 	// --- Shaders ---
 	std::string fragShaderFilePath;
@@ -77,7 +77,7 @@ private:
 	const MeshManager* m_MeshManager;
 	const VulkanHandles* m_VulkanHandles;
 	const LightManager* m_LightManager;
-	const std::vector<RenderObject*>* m_RenderObjects;
+	Scene* m_Scene;
 	VkClearColorValue m_BackgroundColor;
 
 	// --- Hàm khởi tạo ---

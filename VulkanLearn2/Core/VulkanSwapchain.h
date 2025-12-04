@@ -21,7 +21,7 @@ struct SwapchainSupportDetails
 	void ChooseSurfaceFormatKHR();
 
 	// Helper: Chọn ra present mode tốt nhất từ danh sách có sẵn (ưu tiên Mailbox).
-	void ChoosePresentModeKHR();
+	void ChoosePresentModeKHR(bool VSyncOn);
 };
 
 // =================================================================================================
@@ -55,7 +55,7 @@ public:
 	// Tham số:
 	//      vulkanHandles: Tham chiếu đến các handle Vulkan chung.
 	//      window: Con trỏ đến cửa sổ GLFW.
-	VulkanSwapchain(const VulkanHandles& vulkanHandles, GLFWwindow* window);
+	VulkanSwapchain(const VulkanHandles& vulkanHandles, GLFWwindow* window, bool VSyncOn = true);
 
 	// Destructor: Hủy swapchain và các image view.
 	~VulkanSwapchain();
@@ -70,6 +70,8 @@ private:
 	
 	// --- Dữ liệu nội bộ ---
 	SwapchainHandles m_Handles;
+
+	bool m_VsyncOn;
 
 	// --- Hàm helper private ---
 	

@@ -10,6 +10,8 @@ struct PushConstantData;
 class MaterialManager;
 class LightManager;
 class ShadowMapPass;
+class Scene;
+class Model;
 
 // Classes
 class Window;
@@ -23,7 +25,6 @@ class VulkanSyncManager;
 class VulkanBuffer;
 class VulkanImage;
 class VulkanDescriptor;
-class RenderObject;
 class MeshManager;
 class TextureManager;
 class GeometryPass;
@@ -61,9 +62,9 @@ private:
 	// =================================================================================================
 	
 	// --- Hằng số Cấu hình ---   
-	const uint32_t WINDOW_WIDTH = 800; 
-	const uint32_t WINDOW_HEIGHT = 600;
-	//const VkClearColorValue BACKGROUND_COLOR = { 0.1f, 0.1f, 0.2f, 1.0f };
+	const uint32_t WINDOW_WIDTH = 1000; 
+	const uint32_t WINDOW_HEIGHT = 800;
+	const bool VSyncOn = true;
 	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
 	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)
@@ -71,7 +72,7 @@ private:
 	
 	// --- Trạng thái Ứng dụng ---
 	int m_CurrentFrame = 0; // Index của frame hiện tại đang được xử lý (từ 0 đến MAX_FRAMES_IN_FLIGHT - 1)
-
+	
 	// =================================================================================================
 	// SECTION: CÁC ĐỐI TƯỢNG QUẢN LÝ CỐT LÕI
 	// =================================================================================================
@@ -90,6 +91,8 @@ private:
 	TextureManager* m_TextureManager;
 	MaterialManager* m_MaterialManager;
 	LightManager* m_LightManager;
+	
+	Scene* m_Scene;
 
 	// =================================================================================================
 	// SECTION: TÀI NGUYÊN RENDER (FRAMEBUFFER ATTACHMENTS)
@@ -118,12 +121,16 @@ private:
 	// =================================================================================================
 
 	// --- Dữ liệu Scene ---
-	RenderObject* m_BunnyGirl;
-	RenderObject* m_Swimsuit;
-	std::vector<RenderObject*> m_RenderObjects;			// Danh sách tất cả các đối tượng cần được render trong scene.
+	entt::entity m_MainCamera;
+	Model* m_AnimeGirlModel;	// Tài nguyên Model được tải một lần và dùng chung.
+	entt::entity m_Girl1;		// Entity đại diện cho cô gái 1.
+	entt::entity m_Girl2;		// Entity đại diện cho cô gái 2.
+
+
 
 	// --- Dữ liệu Light
-	std::vector<Light> m_AllSceneLights; 
+	entt::entity m_Light1;
+	entt::entity m_Light2;
 
 	// --- Dữ liệu cho Shader ---
 	UniformBufferObject m_Geometry_Ubo{};					// Struct chứa dữ liệu cho Uniform Buffer (ma trận View, Projection).
@@ -154,10 +161,13 @@ private:
 	void CreateUniformBuffers();
 
 	// --- Nhóm hàm cập nhật mỗi frame ---
+	void Update();
 	void Update_Geometry_Uniforms();
 	void UpdateRenderObjectTransforms();
 
 	// --- Nhóm hàm vẽ và ghi command buffer ---
 	void DrawFrame();
 	void RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t imageIndex);
+
+	void ShowFps();
 };

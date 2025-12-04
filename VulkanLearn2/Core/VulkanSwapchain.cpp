@@ -1,9 +1,10 @@
 #include "pch.h"
 #include "VulkanSwapchain.h"
 
-VulkanSwapchain::VulkanSwapchain(const VulkanHandles& vulkanHandles, GLFWwindow* window):
+VulkanSwapchain::VulkanSwapchain(const VulkanHandles& vulkanHandles, GLFWwindow* window, bool VSyncOn):
 	m_VulkanHandles(vulkanHandles), 
-	m_Window(window)
+	m_Window(window),
+	m_VsyncOn(VSyncOn)
 {
 	// 1. Truy vấn các khả năng của physical device để xác định các thông số phù hợp cho swapchain.
 	QuerySwapchainSupportDetails(m_VulkanHandles.physicalDevice, m_VulkanHandles.surface);
@@ -52,7 +53,7 @@ void VulkanSwapchain::QuerySwapchainSupportDetails(VkPhysicalDevice physDevice, 
 
 	// Chọn ra format và present mode tốt nhất.
 	m_Handles.swapchainSupportDetails.ChooseSurfaceFormatKHR();
-	m_Handles.swapchainSupportDetails.ChoosePresentModeKHR();
+	m_Handles.swapchainSupportDetails.ChoosePresentModeKHR(m_VsyncOn);
 
 	// Chọn kích thước cho swapchain.
 	ChooseSwapchainExtent();
@@ -95,15 +96,15 @@ void SwapchainSupportDetails::ChooseSurfaceFormatKHR()
 	chosenFormat = formats[0];
 }
 
-void SwapchainSupportDetails::ChoosePresentModeKHR()
+void SwapchainSupportDetails::ChoosePresentModeKHR(bool VSyncOn)
 {
 	// Ưu tiên tìm chế độ MAILBOX (triple buffering) để giảm thiểu tearing và latency.
 	for (const VkPresentModeKHR& presentMode : presentModes)
 	{
-		if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+		if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR && !VSyncOn)
 		{
-			/*chosenPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-			return;*/
+			chosenPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			return;
 		}
 	}
 	// Nếu không có, dùng chế độ FIFO (vsync), được đảm bảo luôn có.

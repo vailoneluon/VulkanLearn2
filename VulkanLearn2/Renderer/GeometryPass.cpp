@@ -8,9 +8,10 @@
 #include "Core/VulkanPipeline.h"
 #include "Scene/TextureManager.h"
 #include "Scene/MeshManager.h"
-#include "Scene/RenderObject.h"
 #include "Core/VulkanImage.h"
 #include "Scene\MaterialManager.h"
+#include "Scene\Scene.h"
+#include "Scene/Component.h"
 
 
 GeometryPass::GeometryPass(const GeometryPassCreateInfo& geometryInfo) :
@@ -20,7 +21,7 @@ GeometryPass::GeometryPass(const GeometryPassCreateInfo& geometryInfo) :
 	m_DepthStencilImages(geometryInfo.depthStencilImages),
 	m_BackgroundColor(geometryInfo.BackgroundColor),
 	m_SwapchainExtent(geometryInfo.vulkanSwapchainHandles->swapChainExtent),
-	m_RenderObjects(geometryInfo.renderObjects),
+	m_Scene(geometryInfo.scene),
 	m_VulkanHandles(geometryInfo.vulkanHandles),
 	m_AlbedoImages(geometryInfo.albedoImages),
 	m_NormalImages(geometryInfo.normalImages),
@@ -257,22 +258,32 @@ void GeometryPass::BindDescriptors(const VkCommandBuffer* cmdBuffer, uint32_t cu
 
 void GeometryPass::DrawSceneObject(VkCommandBuffer cmdBuffer)
 {
-	for (const auto& renderObject : *m_RenderObjects)
-	{
-		std::vector<Mesh*> meshes = renderObject->getHandles().model->getMeshes();
-		for (const auto& mesh : meshes)
+	// Lấy view chứa tất cả các entity có Transform và Mesh component.
+	// Đây là cách truy vấn hiệu quả của ECS.
+	auto view = m_Scene->GetRegistry().view<TransformComponent, MeshComponent>();
+
+	view.each([&](auto e, const TransformComponent& transformComponent, const MeshComponent& meshComponent)
 		{
-			// --- Cập nhật Push Constants ---
-			// Gửi dữ liệu cho từng lần vẽ (per-draw data) như ma trận model và ID texture.
-			// Đây là cách hiệu quả để gửi một lượng nhỏ dữ liệu thay đổi thường xuyên.
-			m_PushConstantData.model = renderObject->GetModelMatrix();
-			m_PushConstantData.materialIndex = mesh->materialIndex;
+			if (!meshComponent.IsVisible) return;
 
-			vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), &m_PushConstantData);
+			std::vector<Mesh*> meshes = meshComponent.Model->getMeshes();
 
-			// --- Ghi Lệnh Vẽ ---
-			// Vẽ mesh hiện tại bằng cách sử dụng các offset trong buffer chung.
-			vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
+			// Tính toán ma trận model từ TransformComponent.
+			// Lưu ý: Logic này nên được chuyển vào một System riêng biệt để tối ưu hóa.
+
+			for (const auto& mesh : meshes)
+			{
+				// --- Cập nhật Push Constants ---
+				// Gửi dữ liệu cho từng lần vẽ (per-draw data) như ma trận model và ID texture.
+				m_PushConstantData.model = transformComponent.GetTransformMatrix();
+				m_PushConstantData.materialIndex = mesh->materialIndex;
+
+				vkCmdPushConstants(cmdBuffer, m_Handles.pipeline->getHandles().pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantData), &m_PushConstantData);
+
+				// --- Ghi Lệnh Vẽ ---
+				vkCmdDrawIndexed(cmdBuffer, mesh->meshRange.indexCount, 1, mesh->meshRange.firstIndex, mesh->meshRange.firstVertex, 0);
+			}
 		}
-	}
+	);
+
 }

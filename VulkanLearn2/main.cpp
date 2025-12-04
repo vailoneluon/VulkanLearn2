@@ -19,13 +19,19 @@
 #include "Renderer/LightingPass.h"
 #include "Utils/DebugTimer.h"
 #include "Utils/ModelLoader.h"
-#include <Scene/RenderObject.h>
 #include "Scene/MeshManager.h"
 #include "Scene/Model.h"
 #include "Scene/TextureManager.h"
 #include "Scene/MaterialManager.h"
 #include "Scene\LightManager.h"
 #include "Renderer/ShadowMapPass.h"
+#include "Scene/Scene.h"
+#include "Scene/Component.h"
+#include "Scene/TransformSystem.h"
+#include "Scene/CameraSystem.h"
+#include "Core/Input.h"
+#include "Scene/CameraControlSystem.h"
+#include "Core/GameTime.h"
 
 
 
@@ -64,9 +70,12 @@ Application::Application()
 	// --- 1. KHỞI TẠO CÁC THÀNH PHẦN CỐT LÕI ---
 	m_Window = new Window(WINDOW_WIDTH, WINDOW_HEIGHT, "ZOLCOL VULKAN");
 	m_VulkanContext = new VulkanContext(m_Window->getGLFWWindow(), m_Window->getInstanceExtensionsRequired());
-	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow());
+	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow(), VSyncOn);
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
+	m_Scene = new Scene();
+	Core::Time::Init();
+	Input::Init(m_Window->getGLFWWindow());	
 
 	CreateSceneLights();
 
@@ -83,16 +92,42 @@ Application::Application()
 	m_MeshManager = new MeshManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager);
 	m_TextureManager = new TextureManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler->getSampler());
 	m_MaterialManager = new MaterialManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_TextureManager);
-	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_VulkanSampler, &m_AllSceneLights, MAX_FRAMES_IN_FLIGHT);
+	m_LightManager = new LightManager(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, m_Scene, m_VulkanSampler, MAX_FRAMES_IN_FLIGHT);
 
-	m_BunnyGirl = new RenderObject("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
-	m_Swimsuit = new RenderObject("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
-	m_BunnyGirl->SetRotation({ -90, 0, 0 });
-	m_Swimsuit->SetRotation({ -90, 0, 0 });
+	// --- Khởi tạo Scene & Entities ---
 
-	m_RenderObjects.push_back(m_BunnyGirl);
-	m_RenderObjects.push_back(m_Swimsuit);
+	m_MainCamera = m_Scene->CreateEntity("Main Camera");
+	auto& mainCameraData = m_Scene->GetRegistry().emplace<CameraComponent>(m_MainCamera);
+	mainCameraData.SetAspectRatio(m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height);
 	
+	auto& cameraTransform = m_Scene->GetRegistry().get<TransformComponent>(m_MainCamera);
+	cameraTransform.SetPosition({ 0.0f, 3.0f, 5.0f });
+	cameraTransform.SetRotation({ -11.0f, -90, 0 });
+	
+	// 1. Tải tài nguyên Model (chỉ tải một lần)
+	m_AnimeGirlModel = new Model("Resources/AnimeGirl.assbin", m_MeshManager, m_MaterialManager);
+
+	// 2. Tạo Entity: Girl 1
+	m_Girl1 = m_Scene->CreateEntity("Girl1");
+	// Gắn MeshComponent sử dụng model đã tải
+	m_Scene->GetRegistry().emplace<MeshComponent>(m_Girl1, m_AnimeGirlModel, true);
+	
+	// Thiết lập vị trí ban đầu thông qua TransformComponent
+	auto& girl1Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl1);
+	girl1Transform.SetPosition({ 1.0f, 0.0f, 0.0f });
+	girl1Transform.SetRotation({ -90.0f, 0.0f, 0.0f });
+	girl1Transform.SetScale({ 0.05f, 0.05f, 0.05f });
+
+	// 3. Tạo Entity: Girl 2
+	m_Girl2 = m_Scene->CreateEntity("Girl2");
+	// Tái sử dụng cùng model cho entity thứ 2
+	m_Scene->GetRegistry().emplace<MeshComponent>(m_Girl2, m_AnimeGirlModel, true);
+	
+	auto& girl2Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl2);
+	girl2Transform.SetPosition({ -1.0f, 0.0f, 0.0f });
+	girl2Transform.SetRotation({ -90.0f, 0.0f, 0.0f });
+	girl2Transform.SetScale({ 0.05f, 0.05f, 0.05f });
+
 
 	// Hoàn tất việc tải texture: upload dữ liệu ảnh lên GPU và tạo descriptor set cho texture.
 	m_MaterialManager->Finalize();
@@ -120,6 +155,7 @@ Application::Application()
 	// Sau khi tất cả các mesh đã được xử lý, tạo và tải dữ liệu vào vertex/index buffer trên GPU.
 	m_MeshManager->CreateBuffers();
 
+	
 }
 
 /**
@@ -189,10 +225,7 @@ Application::~Application()
 	delete(m_Composite_ColorImage);
 
 	// 5. Giải phóng các đối tượng trong Scene.
-	for (auto& renderObject : m_RenderObjects)
-	{
-		delete(renderObject);
-	}
+	delete(m_AnimeGirlModel);
 
 	// 6. Giải phóng các thành phần Vulkan cốt lõi.
 	delete(m_VulkanSampler);
@@ -211,7 +244,13 @@ void Application::Loop()
 {
 	while (!m_Window->windowShouldClose())
 	{
+		Core::Time::Update();
 		m_Window->windowPollEvents();
+		
+		ShowFps();
+
+		Input::Update();
+		Update();
 		DrawFrame();
 	}
 
@@ -260,8 +299,9 @@ void Application::DrawFrame()
 
 	// --- 4. CẬP NHẬT DỮ LIỆU ĐỘNG ---
 	// Cập nhật dữ liệu sẽ thay đổi mỗi frame, ví dụ như ma trận camera, vị trí đối tượng.
+	//Update();
 	Update_Geometry_Uniforms();
-	UpdateRenderObjectTransforms();
+
 
 	// --- 5. GHI COMMAND BUFFER ---
 	// Reset và ghi lại command buffer với các lệnh vẽ cho frame hiện tại.
@@ -322,20 +362,17 @@ void Application::DrawFrame()
  */
 void Application::Update_Geometry_Uniforms()
 {
-    glm::vec3 cameraPos = glm::vec3(0.0f, 3.0f, 5.0f); // Define camera position
+	auto view = m_Scene->GetRegistry().view<TransformComponent, CameraComponent>();
+	view.each([&](auto e, const TransformComponent& transform, const CameraComponent& camera) 
+		{
+			if (camera.IsPrimary() == false) return;
 
-	// Thiết lập ma trận view (camera nhìn từ đâu, nhìn vào đâu).
-	m_Geometry_Ubo.view = glm::lookAt(cameraPos, glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    m_Geometry_Ubo.viewPos = cameraPos; // Set camera position for lighting calculations
+			m_Geometry_Ubo.view = camera.GetViewMatrix();
+			m_Geometry_Ubo.proj = camera.GetProjMatrix();
+			m_Geometry_Ubo.viewPos = transform.GetPosition();
 
-	// Thiết lập ma trận projection (phối cảnh).
-	m_Geometry_Ubo.proj = glm::perspective(glm::radians(45.0f), m_VulkanSwapchain->getHandles().swapChainExtent.width / (float)m_VulkanSwapchain->getHandles().swapChainExtent.height, 0.1f, 10.0f);
-
-	// Vulkan có hệ tọa độ Y ngược với OpenGL, cần lật lại ma trận projection.
-	m_Geometry_Ubo.proj[1][1] *= -1;
-
-	// Tải dữ liệu UBO mới lên buffer của GPU cho frame hiện tại.
-	m_Geometry_UniformBuffers[m_CurrentFrame]->UploadData(&m_Geometry_Ubo, sizeof(m_Geometry_Ubo), 0);
+			m_Geometry_UniformBuffers[m_CurrentFrame]->UploadData(&m_Geometry_Ubo, sizeof(m_Geometry_Ubo), 0);
+		});
 }
 
 /**
@@ -344,22 +381,13 @@ void Application::Update_Geometry_Uniforms()
  */
 void Application::UpdateRenderObjectTransforms()
 {	
-	// Animation đơn giản dựa trên thời gian thực.
-	static auto startTime = std::chrono::high_resolution_clock::now();
-	static auto lastTime = std::chrono::high_resolution_clock::now();
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-	float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
-	lastTime = currentTime;
+	// Cập nhật logic xoay cho các entity
+	auto& girl1Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl1);
+	auto& girl2Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Girl2);
 
-	// Cập nhật transform cho các đối tượng.
-	m_BunnyGirl->SetPosition({ 1, 0, 0 });
-	m_BunnyGirl->Rotate(glm::vec3(0, deltaTime * MODEL_ROTATE_SPEED, 0)); 
-	m_BunnyGirl->Scale({ 0.05f, 0.05f, 0.05f });
-
-	m_Swimsuit->SetPosition({ -1, 0, 0 });
-	m_Swimsuit->Rotate(glm::vec3(0, deltaTime * MODEL_ROTATE_SPEED * -1, 0));
-	m_Swimsuit->Scale({ 0.045f, 0.045f, 0.045f });
+	girl1Transform.Rotate({ 0, Core::Time::GetDeltaTime() * MODEL_ROTATE_SPEED, 0 });
+	girl2Transform.Rotate({ 0, -Core::Time::GetDeltaTime() * MODEL_ROTATE_SPEED, 0 });
+	
 }
 
 // =================================================================================================
@@ -395,6 +423,24 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 }
 
    
+void Application::ShowFps()
+{
+	const int UpdateFpsFreq = 3;
+	static float timeCounter = .0f;
+	
+	timeCounter += Core::Time::GetDeltaTime();
+	
+	if (timeCounter >= 1.0f / UpdateFpsFreq) 
+	{
+		int currentFps = (int)(1.0f / Core::Time::GetDeltaTime());
+		std::string windowTitle = "Zolcol Vulkan Engine | Current FPS: " + std::to_string(currentFps);
+		m_Window->SetWindowTitle(windowTitle);
+
+		timeCounter = .0f;
+	}
+
+}
+
 // =================================================================================================
 // SECTION 5: LỚP APPLICATION - CÁC HÀM HELPER KHỞI TẠO
 // =================================================================================================
@@ -550,17 +596,16 @@ void Application::CreateFrameBufferImages()
 	} 
 }
  
-// [main.cpp]
 
 void Application::CreateSceneLights()
 {
 	// --- KEY LIGHT: Directional Light (Trắng) ---
 	glm::vec3 dirLightMain = glm::normalize(glm::vec3(0.4f, .2f, -0.6f));
 
-	Light light0 = Light::CreateDirectional(
+	Light light1 = Light::CreateDirectional(
 		dirLightMain,
 		glm::vec3(1.0f, 0.95f, 0.9f),   // Trắng hơi ấm → rất đẹp cho da/model
-		4.0f,                           // Cường độ vừa phải
+		5.0f,                           // Cường độ vừa phải
 		true                            // Có đổ bóng
 	);
 
@@ -569,10 +614,9 @@ void Application::CreateSceneLights()
 	glm::vec3 posSpot = glm::vec3(2.0f, 3.0f, 2.0f);
 	glm::vec3 dirSpot = glm::normalize(targetPosition - posSpot);
 
-	Light light1 = Light::CreateSpot(
-		posSpot,
+	Light light2 = Light::CreateSpot(
 		dirSpot,
-		glm::vec3(0.25f, 0.35f, 0.45f),  // Xanh dương nhẹ → tạo chiều sâu
+		glm::vec3(0.25f, 0.75f, 0.95f),  // Xanh dương nhẹ → tạo chiều sâu
 		100.0f,                            // Cường độ nhỏ hơn đèn chính
 		100.0f,                           // Range vừa đủ
 		20.0f,                           // Inner cutoff mềm
@@ -580,9 +624,14 @@ void Application::CreateSceneLights()
 		true
 	);
 
-	m_AllSceneLights.clear(); // Xóa các đèn cũ trước khi thêm mới
-	m_AllSceneLights.push_back(light0);
-	m_AllSceneLights.push_back(light1);
+	m_Light1 = m_Scene->CreateEntity("Light1");
+	m_Light2 = m_Scene->CreateEntity("Light2");
+
+	m_Scene->GetRegistry().emplace<LightComponent>(m_Light1, light1, true);
+
+	m_Scene->GetRegistry().emplace<LightComponent>(m_Light2, light2, true);
+	auto& light2Transform = m_Scene->GetRegistry().get<TransformComponent>(m_Light2);
+	light2Transform.SetPosition(posSpot);
 }
 /**
  * @brief Tạo các đối tượng render pass.
@@ -602,7 +651,7 @@ void Application::CreateRenderPasses()
 	geometryInfo.depthStencilImages = &m_Geometry_DepthStencilImage;
 	geometryInfo.BackgroundColor = BACKGROUND_COLOR;
 	geometryInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
-	geometryInfo.renderObjects = &m_RenderObjects;
+	geometryInfo.scene = m_Scene;
 	geometryInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	geometryInfo.MSAA_SAMPLES = MSAA_SAMPLES;
 	geometryInfo.fragShaderFilePath = "Shaders/Geometry_Shader.frag.spv";
@@ -619,7 +668,7 @@ void Application::CreateRenderPasses()
 	shadowInfo.MAX_FRAMES_IN_FLIGHT = MAX_FRAMES_IN_FLIGHT;
 	shadowInfo.meshManager = m_MeshManager;
 	shadowInfo.MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT;
-	shadowInfo.renderObjects = &m_RenderObjects;
+	shadowInfo.scene = m_Scene;
 	shadowInfo.vulkanHandles = &m_VulkanContext->getVulkanHandles();
 	shadowInfo.vulkanSwapchainHandles = &m_VulkanSwapchain->getHandles();
 
@@ -724,5 +773,17 @@ void Application::CreateUniformBuffers()
 		// Tạo buffer với VMA_MEMORY_USAGE_CPU_TO_GPU để CPU có thể ghi dữ liệu trực tiếp.
 		m_Geometry_UniformBuffers[i] = new VulkanBuffer(m_VulkanContext->getVulkanHandles(), m_VulkanCommandManager, bufferInfo, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	}
+}
+
+void Application::Update()
+{
+	CameraControlSystem::CameraTransformUpdate(m_Scene);
+	CameraControlSystem::CameraRotateUpdate(m_Scene);
+	UpdateRenderObjectTransforms();
+
+	TransformSystem::UpdateTransformMatrix(m_Scene);
+	CameraSystem::UpdateCameraMatrix(m_Scene);
+
+	//Update_Geometry_Uniforms();
 }
 

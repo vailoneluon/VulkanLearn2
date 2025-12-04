@@ -99,7 +99,7 @@ void LightingPass::CreateDescriptor(
 		VkDescriptorImageInfo albedoImageInfo{};
 		albedoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		albedoImageInfo.imageView = gAlbedoTextures[i]->GetHandles().imageView;
-		albedoImageInfo.sampler = vulkanSampler->getSampler();
+		albedoImageInfo.sampler = vulkanSampler->getPostProcessSampler();
 		ImageDescriptorUpdateInfo albedoUpdateInfo{};
 		albedoUpdateInfo.binding = 0;
 		albedoUpdateInfo.firstArrayElement = 0;
@@ -117,7 +117,7 @@ void LightingPass::CreateDescriptor(
 		VkDescriptorImageInfo normalImageInfo{};
 		normalImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		normalImageInfo.imageView = gNormalTextures[i]->GetHandles().imageView;
-		normalImageInfo.sampler = vulkanSampler->getSampler();
+		normalImageInfo.sampler = vulkanSampler->getPostProcessSampler();
 		ImageDescriptorUpdateInfo normalUpdateInfo{};
 		normalUpdateInfo.binding = 1;
 		normalUpdateInfo.firstArrayElement = 0;
@@ -135,7 +135,7 @@ void LightingPass::CreateDescriptor(
 		VkDescriptorImageInfo positionImageInfo{};
 		positionImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		positionImageInfo.imageView = gPositionTextures[i]->GetHandles().imageView;
-		positionImageInfo.sampler = vulkanSampler->getSampler();
+		positionImageInfo.sampler = vulkanSampler->getPostProcessSampler();
 		ImageDescriptorUpdateInfo positionUpdateInfo{};
 		positionUpdateInfo.binding = 2;
 		positionUpdateInfo.firstArrayElement = 0;

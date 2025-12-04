@@ -38,6 +38,16 @@ VulkanSampler::VulkanSampler(const VulkanHandles& vulkanHandles):
 
 	VK_CHECK(vkCreateSampler(m_VulkanHandles.device, &samplerInfo, nullptr, &m_Handles.sampler), "LỖI: Tạo sampler thất bại!");
 
+	// --- Cấu hình PostProcess Sampler ---
+	// PostProcess Sampler cần chế độ CLAMP_TO_EDGE để tránh lỗi artifact (vạch kẻ) ở mép màn hình
+	// khi thực hiện các hiệu ứng như Blur, Bloom.
+	VkSamplerCreateInfo postProcessSamplerInfo = samplerInfo;
+	postProcessSamplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	postProcessSamplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	postProcessSamplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+
+	VK_CHECK(vkCreateSampler(m_VulkanHandles.device, &postProcessSamplerInfo, nullptr, &m_Handles.postProcessSampler), "LỖI: Tạo PostProcess sampler thất bại!");
+
 	// --- Cấu hình Shadow Sampler ---
 	// Shadow sampler cần bộ lọc tuyến tính (VK_FILTER_LINEAR) và chế độ so sánh depth.
 	// Nó cũng nên có chế độ địa chỉ là CLAMP_TO_BORDER với màu border là trắng (1.0)
@@ -65,5 +75,6 @@ VulkanSampler::VulkanSampler(const VulkanHandles& vulkanHandles):
 VulkanSampler::~VulkanSampler()
 {
 	vkDestroySampler(m_VulkanHandles.device, m_Handles.shadowSampler, nullptr);
+	vkDestroySampler(m_VulkanHandles.device, m_Handles.postProcessSampler, nullptr);
 	vkDestroySampler(m_VulkanHandles.device, m_Handles.sampler, nullptr);
 }

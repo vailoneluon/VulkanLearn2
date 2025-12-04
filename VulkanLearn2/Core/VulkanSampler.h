@@ -11,6 +11,7 @@ struct SamplerHandles
 {
 	VkSampler sampler = VK_NULL_HANDLE;
 	VkSampler shadowSampler = VK_NULL_HANDLE;
+	VkSampler postProcessSampler = VK_NULL_HANDLE;
 };
 
 // =================================================================================================
@@ -34,6 +35,9 @@ public:
 
 	// Getter: Lấy ra Shadow Sampler
 	const VkSampler& getShadowSampler() const { return m_Handles.shadowSampler; }
+
+	// Getter: Lấy ra PostProcess Sampler
+	const VkSampler& getPostProcessSampler() const { return m_Handles.postProcessSampler; }
 
 private:
 	// --- Tham chiếu Vulkan ---

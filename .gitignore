@@ -11,6 +11,8 @@ build/
 Debug/
 Release/
 
+#External Include Lib
+
 # Shader cache
 *.spv
 *.cache
@@ -39,3 +41,5 @@ Thumbs.db
 *.gltf
 *.glb
 *.assbin
+.gemini/
+gha-creds-*.json

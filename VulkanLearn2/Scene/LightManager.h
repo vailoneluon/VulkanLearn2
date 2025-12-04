@@ -7,6 +7,7 @@ class VulkanBuffer;
 class VulkanDescriptor;
 class VulkanCommandManager;
 class VulkanImage;
+class Scene;
 
 // =================================================================================================
 // Class: LightManager
@@ -18,7 +19,7 @@ class LightManager
 {
 public:
 	// Constructor: Khởi tạo LightManager với danh sách đèn ban đầu.
-	LightManager(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager, const VulkanSampler* sampler, std::vector<Light>* allSceneLights, uint32_t maxFramesInFlight);
+	LightManager(const VulkanHandles& vulkanHandles, VulkanCommandManager* commandManager, Scene* scene, const VulkanSampler* sampler, uint32_t maxFramesInFlight);
 	~LightManager();
 
 	// --- Getters ---
@@ -27,11 +28,11 @@ public:
 	const std::vector<VulkanImage*>& GetShadowMappingImage(uint32_t currentFrame) const { return m_ShadowMappingImages[currentFrame]; }
 	const uint32_t GetShadowSize() const { return SHADOW_SIZE; }
 
-
 private:
 	// --- Tham chiếu Vulkan ---
 	const VulkanHandles& m_VulkanHandles;
 	VulkanCommandManager* m_CommandManager;
+	Scene* m_Scene;
 	const VulkanSampler* m_VulkanSampler;
 
 	uint32_t m_MaxFramesInFlight;

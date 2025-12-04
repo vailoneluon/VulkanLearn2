@@ -28,6 +28,8 @@ public:
 
 	// --- Tương tác với cửa sổ ---
 	
+	void SetWindowTitle(const std::string& title);
+
 	// Kiểm tra xem cửa sổ có nên đóng hay không.
 	bool windowShouldClose();
 	
