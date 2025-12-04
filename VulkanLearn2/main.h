@@ -16,6 +16,7 @@ class LightManager;
 class ShadowMapPass;
 class Scene;
 class Model;
+class ImGuiLayer;
 
 // Classes
 class Window;
@@ -68,7 +69,7 @@ private:
 	// --- Hằng số Cấu hình ---   
 	const uint32_t WINDOW_WIDTH = 1000; 
 	const uint32_t WINDOW_HEIGHT = 800;
-	const bool VSyncOn = false;
+	const bool VSyncOn = true;
 	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
 	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)
@@ -95,6 +96,9 @@ private:
 	TextureManager* m_TextureManager;
 	MaterialManager* m_MaterialManager;
 	LightManager* m_LightManager;
+
+	// Quản lý IMGUI
+	ImGuiLayer* m_ImGuiLayer;
 	
 	Scene* m_Scene;
 
@@ -176,8 +180,4 @@ private:
 	void ShowFps();
 
 	VkDescriptorPool m_ImGuiDescriptorPool = VK_NULL_HANDLE; // Pool riêng cho ImGui
-
-	void InitImGui();
-	void RenderImGui(VkCommandBuffer cmdBuffer, uint32_t imageIndex);
-	void ShutdownImGui();
 };

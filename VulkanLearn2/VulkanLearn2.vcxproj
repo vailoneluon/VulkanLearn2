@@ -62,6 +62,7 @@
     <ClCompile Include="Renderer\BrightFilterPass.cpp" />
     <ClCompile Include="Renderer\CompositePass.cpp" />
     <ClCompile Include="Renderer\GeometryPass.cpp" />
+    <ClCompile Include="Renderer\ImGuiLayer.cpp" />
     <ClCompile Include="Renderer\LightingPass.cpp" />
     <ClCompile Include="Renderer\ShadowMapPass.cpp" />
     <ClCompile Include="Scene\CameraControlSystem.cpp" />
@@ -110,6 +111,7 @@
     <ClInclude Include="Renderer\BrightFilterPass.h" />
     <ClInclude Include="Renderer\CompositePass.h" />
     <ClInclude Include="Renderer\GeometryPass.h" />
+    <ClInclude Include="Renderer\ImGuiLayer.h" />
     <ClInclude Include="Renderer\IRenderPass.h" />
     <ClInclude Include="Renderer\LightingPass.h" />
     <ClInclude Include="Renderer\ShadowMapPass.h" />
