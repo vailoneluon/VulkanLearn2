@@ -17,6 +17,7 @@ Window::Window(int width, int height, const std::string& title):
 	// Tạm thời không cho phép thay đổi kích thước cửa sổ.
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 	glfwWindowHint(GLFW_MAXIMIZED, GLFW_FALSE);
+	//glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 
 	// Tạo cửa sổ GLFW.
 	m_Window = glfwCreateWindow(m_Width, m_Height, m_Title.c_str(), nullptr, nullptr);

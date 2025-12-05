@@ -16,6 +16,9 @@ public:
 	static glm::vec2 GetDeltaMousePosition();
 
 	static void LockMouse(bool locked);
+	
+	static bool hoverOnSceneViewPort;
+	static bool focusOnSceneViewPort;
 
 	static void MousePosCallBack(GLFWwindow* window, double xpos, double ypos);
 private:

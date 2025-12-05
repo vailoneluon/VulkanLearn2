@@ -24,13 +24,13 @@ void Input::Update()
 bool Input::GetKey(int key)
 {
 	int state = glfwGetKey(s_Window, key);
-	return state == GLFW_PRESS;
+	return state == GLFW_PRESS && focusOnSceneViewPort;
 }
 
 bool Input::GetMouseButton(int button)
 {
 	int state = glfwGetMouseButton(s_Window, button);
-	return state == GLFW_PRESS;
+	return state == GLFW_PRESS && hoverOnSceneViewPort;
 }
 
 glm::vec2 Input::GetMousePosition()
@@ -68,6 +68,10 @@ void Input::LockMouse(bool locked)
 		s_FirstLocked = true;
 	}
 }
+
+bool Input::hoverOnSceneViewPort = false;
+
+bool Input::focusOnSceneViewPort = false;
 
 void Input::MousePosCallBack(GLFWwindow* window, double xpos, double ypos)
 {

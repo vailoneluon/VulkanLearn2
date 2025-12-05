@@ -13,7 +13,7 @@ CompositePass::CompositePass(const CompositePassCreateInfo& compositeInfo) :
 	m_VulkanSwapchainHandles(compositeInfo.vulkanSwapchainHandles),
 	m_SwapchainExtent(compositeInfo.vulkanSwapchainHandles->swapChainExtent),
 	m_BackgroundColor(compositeInfo.BackgroundColor),
-	m_MainColorImage(compositeInfo.mainColorImage)
+	m_OutputImages(compositeInfo.outputImages)
 {
 	CreateDescriptor(*compositeInfo.inputTextures0, *compositeInfo.inputTextures1, compositeInfo.vulkanSampler);
 	CreatePipeline(compositeInfo);
@@ -29,19 +29,19 @@ void CompositePass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 	// --- 1. Chuyển đổi Layout cho các Attachment ---
 	// Chuyển layout của attachment màu (MSAA) để có thể ghi vào.
 	VulkanImage::TransitionLayout(
-		*cmdBuffer, m_MainColorImage->GetHandles().image, 1,
+		*cmdBuffer, (*m_OutputImages)[currentFrame]->GetHandles().image, 1,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 		0, 1);
 
-	// Chuyển layout của swapchain image để nó có thể nhận kết quả resolve từ attachment màu (MSAA).
-	VulkanImage::TransitionLayout(
-		*cmdBuffer, m_VulkanSwapchainHandles->swapchainImages[imageIndex], 1,
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		0, 1);
+	//// Chuyển layout của swapchain image để nó có thể nhận kết quả resolve từ attachment màu (MSAA).
+	//VulkanImage::TransitionLayout(
+	//	*cmdBuffer, m_VulkanSwapchainHandles->swapchainImages[imageIndex], 1,
+	//	VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+	//	VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+	//	0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+	//	0, 1);
 
 	// --- 2. Thiết lập và Bắt đầu Dynamic Rendering ---
 	// Cấu hình attachment màu, bao gồm cả việc resolve MSAA.
@@ -49,7 +49,7 @@ void CompositePass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 	colorAttachment.clearValue.color = m_BackgroundColor;
 	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	colorAttachment.imageView = m_VulkanSwapchainHandles->swapchainImageViews[imageIndex];
+	colorAttachment.imageView = (*m_OutputImages)[currentFrame]->GetHandles().imageView;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // Không cần lưu ảnh MSAA sau khi resolve.
 
@@ -76,10 +76,10 @@ void CompositePass::Execute(const VkCommandBuffer* cmdBuffer, uint32_t imageInde
 	// --- 4. Chuyển đổi Layout sau khi Render ---
 	// Chuyển layout của swapchain image sang PRESENT_SRC_KHR để sẵn sàng cho việc trình chiếu lên màn hình.
 	VulkanImage::TransitionLayout(
-		*cmdBuffer, m_VulkanSwapchainHandles->swapchainImages[imageIndex], 1,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0,
+		*cmdBuffer, (*m_OutputImages)[currentFrame]->GetHandles().image, 1,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 		0, 1);
 }
 

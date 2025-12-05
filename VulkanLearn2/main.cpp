@@ -77,12 +77,12 @@ Application::Application()
 	Input::Init(m_Window->getGLFWWindow());	
 
 	CreateSceneLights();
-	m_ImGuiLayer = new ImGuiLayer(m_Window, m_VulkanContext->getVulkanHandles(), m_VulkanSwapchain);
 
 	// --- 2. TẠO TÀI NGUYÊN FRAMEBUFFER (ATTACHMENTS) ---
 	// Tạo các ảnh (VulkanImage) sẽ được dùng làm đầu ra cho các render pass.
 	CreateFrameBufferImages();
 
+	m_ImGuiLayer = new ImGuiLayer(m_Window, m_VulkanContext->getVulkanHandles(), m_VulkanSwapchain, &m_Composite_ColorImage, m_VulkanSampler);
 	// --- 3. TẠO TÀI NGUYÊN CHO SHADER ---
 	// Tạo uniform buffers để chứa dữ liệu camera (view, projection).
 	CreateUniformBuffers();
@@ -222,7 +222,10 @@ Application::~Application()
 	{
 		delete(image);
 	}
-	delete(m_Composite_ColorImage);
+	for (auto& image : m_Composite_ColorImage)
+	{
+		delete(image);
+	}
 
 	// 5. Giải phóng các đối tượng trong Scene.
 	delete(m_AnimeGirlModel);
@@ -328,6 +331,8 @@ void Application::DrawFrame()
 	VK_CHECK(vkQueueSubmit(m_VulkanContext->getVulkanHandles().graphicQueue, 1, &submitInfo, m_VulkanSyncManager->getCurrentFence(m_CurrentFrame)),
 		"LỖI: Submit command buffer thất bại!");
 
+	m_ImGuiLayer->UpdateViewports();
+
 	// --- 7. TRÌNH CHIẾU (PRESENT) ---
 	// Đưa ảnh đã render xong ra màn hình.
 	VkPresentInfoKHR presentInfo{};
@@ -420,7 +425,7 @@ void Application::RecordCommandBuffer(const VkCommandBuffer& cmdBuffer, uint32_t
 	m_CompositePass->Execute(&cmdBuffer, imageIndex, m_CurrentFrame);
 
 	m_ImGuiLayer->BeginFrame();
-	m_ImGuiLayer->RenderFrame(cmdBuffer, imageIndex);
+	m_ImGuiLayer->RenderFrame(cmdBuffer, imageIndex, m_CurrentFrame);
 
 	VK_CHECK(vkEndCommandBuffer(cmdBuffer), "LỖI: Kết thúc ghi command buffer thất bại!");
 }
@@ -536,23 +541,6 @@ void Application::CreateFrameBufferImages()
 	// Các attachment này sẽ được sử dụng trong Lighting Pass (hoặc Composite Pass hiện tại)
 	// để thực hiện tính toán ánh sáng và khử răng cưa.
 
-	// --- 4. Main Pass: Color (MSAA) ---
-	VulkanImageCreateInfo mainColorMSAA_CI{};
-	mainColorMSAA_CI.width = swapchainExtent.width;
-	mainColorMSAA_CI.height = swapchainExtent.height;
-	mainColorMSAA_CI.mipLevels = 1;
-	mainColorMSAA_CI.samples = MSAA_SAMPLES;
-	mainColorMSAA_CI.format = swapchainFormat;
-	mainColorMSAA_CI.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	mainColorMSAA_CI.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
-	VulkanImageViewCreateInfo mainColorMSAA_CVI{};
-	mainColorMSAA_CVI.format = swapchainFormat;
-	mainColorMSAA_CVI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-	mainColorMSAA_CVI.mipLevels = 1;
-
-	m_Composite_ColorImage = new VulkanImage(m_VulkanContext->getVulkanHandles(), mainColorMSAA_CI, mainColorMSAA_CVI);
-
 	// --- 5. Main Pass: Depth/Stencil (MSAA) ---
 	VulkanImageCreateInfo mainDepthMSAA_CI{};
 	mainDepthMSAA_CI.width = swapchainExtent.width;
@@ -583,23 +571,30 @@ void Application::CreateFrameBufferImages()
 	postProcessingCI.imageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	postProcessingCI.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
+	VulkanImageCreateInfo compositeColorImageCI = postProcessingCI;
+	compositeColorImageCI.format = VK_FORMAT_B8G8R8A8_SRGB;
+
 	VulkanImageViewCreateInfo postProcessingCVI{};
 	postProcessingCVI.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 	postProcessingCVI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 	postProcessingCVI.mipLevels = 1;
 
+	VulkanImageViewCreateInfo compositeColorImageCVI = postProcessingCVI;
+	compositeColorImageCVI.format = VK_FORMAT_B8G8R8A8_SRGB;
+
 	m_LitSceneImages.resize(MAX_FRAMES_IN_FLIGHT);
 	m_BrightImages.resize(MAX_FRAMES_IN_FLIGHT);
 	m_TempBlurImages.resize(MAX_FRAMES_IN_FLIGHT);
+	m_Composite_ColorImage.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		m_LitSceneImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
 		m_BrightImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
 		m_TempBlurImages[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), postProcessingCI, postProcessingCVI);
+		m_Composite_ColorImage[i] = new VulkanImage(m_VulkanContext->getVulkanHandles(), compositeColorImageCI, compositeColorImageCVI);
 	} 
 }
  
-
 void Application::CreateSceneLights()
 {
 	// --- KEY LIGHT: Directional Light (Trắng) ---
@@ -748,7 +743,7 @@ void Application::CreateRenderPasses()
 	compositeInfo.fragShaderFilePath = "Shaders/Composite_Shader.frag.spv";
 	compositeInfo.vertShaderFilePath = "Shaders/PostProcess_Shader.vert.spv";
 	compositeInfo.BackgroundColor = BACKGROUND_COLOR;
-	compositeInfo.mainColorImage = m_Composite_ColorImage;
+	compositeInfo.outputImages = &m_Composite_ColorImage;
 	compositeInfo.inputTextures0 = &m_LitSceneImages;       // Input 1: Ảnh scene đã chiếu sáng.
 	compositeInfo.inputTextures1 = &m_BrightImages;        // Input 2: Ảnh bloom đã xử lý.
 	compositeInfo.vulkanSampler = m_VulkanSampler;

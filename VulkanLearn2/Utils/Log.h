@@ -17,16 +17,16 @@ namespace Log
 
 	inline void Info(const std::string& message)
 	{
-		std::cout << GREEN_COLOR << "[INFO] " << RESET_COLOR << message << std::endl;
+		std::cout << GREEN_COLOR << "[INFO] " << RESET_COLOR << message << std::endl << std::endl;
 	}
 
 	inline void Warning(const std::string& message)
 	{
-		std::cerr << YELLOW_COLOR << "[WARNING] " << PINK_COLOR << message << RESET_COLOR << std::endl;
+		std::cerr << YELLOW_COLOR << "[WARNING] " << PINK_COLOR << message << RESET_COLOR << std::endl << std::endl;
 	}
 
 	inline void Error(const std::string& message)
 	{
-		std::cerr << RED_COLOR << "[ERROR] " << PINK_COLOR << message << RESET_COLOR << std::endl;
+		std::cerr << RED_COLOR << "[ERROR] " << PINK_COLOR << message << RESET_COLOR << std::endl << std::endl;
 	}
 }

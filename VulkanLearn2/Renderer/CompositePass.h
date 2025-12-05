@@ -27,7 +27,7 @@ struct CompositePassCreateInfo
 	std::string vertShaderFilePath;
 
 	VkClearColorValue BackgroundColor;
-	VulkanImage* mainColorImage;       // Attachment màu (MSAA) để vẽ.
+	const std::vector<VulkanImage*>* outputImages;       // Attachment màu (MSAA) để vẽ.
 };
 
 // =================================================================================================
@@ -72,7 +72,7 @@ private:
 
 	// --- Tài nguyên dành riêng cho pass ---
 	std::vector<VulkanDescriptor*> m_TextureDescriptors; // Descriptors cho 2 ảnh đầu vào.
-	VulkanImage* m_MainColorImage;
+	const std::vector<VulkanImage*>* m_OutputImages;
 
 	// --- Hàm khởi tạo ---
 	

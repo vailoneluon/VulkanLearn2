@@ -67,8 +67,8 @@ private:
 	// =================================================================================================
 	
 	// --- Hằng số Cấu hình ---   
-	const uint32_t WINDOW_WIDTH = 1000; 
-	const uint32_t WINDOW_HEIGHT = 800;
+	const uint32_t WINDOW_WIDTH = 1200; 
+	const uint32_t WINDOW_HEIGHT = 1000;
 	const bool VSyncOn = true;
 	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
@@ -117,7 +117,7 @@ private:
 
 
 	// --- Composite Pass (Tổng hợp cuối cùng) ---
-	VulkanImage* m_Composite_ColorImage;						// Attachment màu (MSAA) cho Composite Pass.
+	std::vector<VulkanImage*> m_Composite_ColorImage;						// Attachment màu (MSAA) cho Composite Pass.
 
 	// --- Post-Processing (Bloom Effect) ---
 	std::vector<VulkanImage*> m_LitSceneImages;
