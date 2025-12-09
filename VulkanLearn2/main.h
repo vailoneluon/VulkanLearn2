@@ -69,7 +69,8 @@ private:
 	// --- Hằng số Cấu hình ---   
 	const uint32_t WINDOW_WIDTH = 1200; 
 	const uint32_t WINDOW_HEIGHT = 1000;
-	const bool VSyncOn = true;
+	const bool VSYNC_ON = false;
+	float TARGET_FRAME_DURATION;
 	const VkClearColorValue BACKGROUND_COLOR = { 0, 0, 0, 0 };
 	const VkSampleCountFlagBits MSAA_SAMPLES = VK_SAMPLE_COUNT_1_BIT; // Mức độ khử răng cưa (MSAA)
 	const int MAX_FRAMES_IN_FLIGHT = 2; // Số lượng frame được xử lý đồng thời (double/triple buffering)

@@ -37,7 +37,7 @@ void Core::Time::Update()
 	auto now = Clock::now();
 
 	// 1. Tính tổng thời gian chạy từ lúc Start.
-	s_TimeSinceStart = std::chrono::duration<float>(now - s_StartTime).count();
+	//s_TimeSinceStart = std::chrono::duration<float>(now - s_StartTime).count();
 	
 	// 2. Tính Raw Delta Time (Thời gian thực tế trôi qua từ frame trước).
 	float rawDeltaTime = std::chrono::duration<float>(now - s_LastFrameTime).count();

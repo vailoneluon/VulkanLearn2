@@ -69,7 +69,7 @@ Application::Application()
 	// --- 1. KHỞI TẠO CÁC THÀNH PHẦN CỐT LÕI ---
 	m_Window = new Window(WINDOW_WIDTH, WINDOW_HEIGHT, "ZOLCOL VULKAN");
 	m_VulkanContext = new VulkanContext(m_Window->getGLFWWindow(), m_Window->getInstanceExtensionsRequired());
-	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow(), VSyncOn);
+	m_VulkanSwapchain = new VulkanSwapchain(m_VulkanContext->getVulkanHandles(), m_Window->getGLFWWindow(), VSYNC_ON);
 	m_VulkanCommandManager = new VulkanCommandManager(m_VulkanContext->getVulkanHandles(), MAX_FRAMES_IN_FLIGHT);
 	m_VulkanSampler = new VulkanSampler(m_VulkanContext->getVulkanHandles());
 	m_Scene = new Scene();
@@ -245,16 +245,25 @@ Application::~Application()
  */
 void Application::Loop()
 {
+	TARGET_FRAME_DURATION = 1.0f / 65.0f;
 	while (!m_Window->windowShouldClose())
 	{
+		float frameStartTime = Core::Time::GetCurrentTime();
 		Core::Time::Update();
+
 		m_Window->windowPollEvents();
-		
-		ShowFps();
-		
+				
 		Input::Update();
 		Update();
 		DrawFrame();
+
+		float sleepDuration = TARGET_FRAME_DURATION -  (Core::Time::GetCurrentTime() - frameStartTime);
+		if (sleepDuration > 0)
+		{
+			int durationMs = static_cast<int>(sleepDuration * 1000.0f + 0.5f);
+			std::this_thread::sleep_for(std::chrono::milliseconds(durationMs));
+		}
+
 	}
 
 	// Đợi device rảnh rỗi trước khi thoát chương trình.
@@ -281,6 +290,9 @@ void Application::DrawFrame()
 	// `imageIndex` là chỉ số của ảnh trong swapchain mà chúng ta sẽ render tới.
 	// `imageAvailableSemaphore` sẽ được báo hiệu khi ảnh này sẵn sàng.
 	uint32_t imageIndex;
+
+	//std::cout << Core::Time::GetCurrentTime() - startTime << std::endl;
+
 	VkResult result = vkAcquireNextImageKHR(m_VulkanContext->getVulkanHandles().device, m_VulkanSwapchain->getHandles().swapchain, UINT64_MAX,
 		m_VulkanSyncManager->getCurrentImageAvailableSemaphore(m_CurrentFrame),
 		VK_NULL_HANDLE, &imageIndex);
@@ -359,6 +371,7 @@ void Application::DrawFrame()
 
 	// --- 8. CHUYỂN SANG FRAME TIẾP THEO ---
 	m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
 }
 
 /**

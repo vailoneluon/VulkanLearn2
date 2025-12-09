@@ -14,7 +14,7 @@ void Input::Init(GLFWwindow* window)
 
 void Input::Update()
 {
-	float smoothFactory = 0.2f;
+	float smoothFactory = 0.0f;
 
 	s_DeltaMousePosition = glm::mix(s_DeltaMousePosition, s_DeltaMousePositionAccumulator, 1 - smoothFactory);
 
@@ -30,6 +30,7 @@ bool Input::GetKey(int key)
 bool Input::GetMouseButton(int button)
 {
 	int state = glfwGetMouseButton(s_Window, button);
+	if (state == GLFW_PRESS && !hoverOnSceneViewPort) std::cout << "Not On Scene Viewport" << std::endl;
 	return state == GLFW_PRESS && hoverOnSceneViewPort;
 }
 
@@ -51,7 +52,8 @@ void Input::LockMouse(bool locked)
 	{
 		int cursorMode = locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
 		glfwSetInputMode(s_Window, GLFW_CURSOR, cursorMode);
-		glfwSetInputMode(s_Window, GLFW_RAW_MOUSE_MOTION, locked);
+		//if (locked == false) std::cout << "UnLock" << std::endl;
+		//glfwSetInputMode(s_Window, GLFW_RAW_MOUSE_MOTION, locked);
 
 		s_IsMouseLocked = locked;
 	}

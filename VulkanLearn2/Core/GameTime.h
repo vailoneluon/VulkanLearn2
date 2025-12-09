@@ -38,7 +38,10 @@ namespace Core
 		 * @brief Lấy tổng thời gian từ khi game bắt đầu.
 		 * @return Thời gian tính bằng giây.
 		 */
-		static float GetCurrentTime() { return s_TimeSinceStart; }
+		static float GetCurrentTime()
+		{
+			return std::chrono::duration<float>(Clock::now() - s_StartTime).count();
+		}
 
 	private:
 		using Clock = std::chrono::steady_clock;

@@ -157,6 +157,7 @@ void ImGuiLayer::Init(Window* window, const VulkanHandles& vulkanHandles, const 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
+
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Cho phép dùng bàn phím
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // <--- QUAN TRỌNG: Bật Docking
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
